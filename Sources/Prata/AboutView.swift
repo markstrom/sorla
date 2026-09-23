@@ -89,8 +89,7 @@ struct AboutView: View {
     }
 }
 
-// Reads the bundled third-party license texts; falls back to a plain message when run unbundled
-// (e.g. from `swift run` or tests), where Bundle.main has no Resources/Licenses to read.
+// Falls back to a plain message when run unbundled, where there are no license files to read.
 struct LicensesView: View {
     var body: some View {
         ScrollView {

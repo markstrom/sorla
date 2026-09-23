@@ -2,8 +2,7 @@ import PrataCore
 import os
 import UserNotifications
 
-// Posts at most one user notification per PrataIssue case per launch; authorization is requested
-// lazily on the first issue that actually needs a notification.
+// At most one notification per issue per launch; permission is only asked for when first needed.
 @MainActor
 final class IssueNotifier {
     private let center: UNUserNotificationCenter

@@ -1,5 +1,4 @@
-// Distinguishes "still loading" from "gave up after failing" so the menu-bar icon doesn't stay
-// on the hourglass forever when the model fails to load (both used to read as "not ready yet").
+// Separates "still loading" from "failed" so a failed load doesn't leave the hourglass up forever.
 enum ModelLoadingStatus: Equatable {
     case loading
     case ready
