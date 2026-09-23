@@ -20,7 +20,7 @@ for bundle in .build/release/*.bundle; do
 done
 shopt -u nullglob
 
-IDENTITY="${PRATA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning | awk '/Apple Development/ {print $2; exit}')}"
+IDENTITY="${PRATA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development/ {print $2; exit}' || true)}"
 IDENTITY="${IDENTITY:--}"
 codesign --force --deep --sign "$IDENTITY" "$APP_DIR"
 
