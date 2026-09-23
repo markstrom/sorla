@@ -228,7 +228,8 @@ a code { color: var(--accent); }
   .lede { font-size: 18px; }
   h2 { font-size: 23px; margin-top: 56px; }
   .steps { grid-template-columns: 1fr; }
-  .screen { aspect-ratio: 4 / 3; }
+  .screen { aspect-ratio: 1 / 1; }
+  .window { top: 30%; bottom: 10%; }
 }
 
 .measure {
