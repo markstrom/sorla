@@ -10,39 +10,30 @@ This manifesto is the yardstick for every decision about Sorla. A feature, a set
 
 ### 1. One purpose
 Sorla exists to turn speech into text where the user is already working. Every part of it serves that purpose, or it goes.
-*A proposal that makes Sorla do something else — however close — is out of scope.*
 
 ### 2. Nothing leaves the Mac
 Voice, text and behaviour stay on the device. Sorla never needs an account, a server or permission to phone home. The network is used only for what the user explicitly needs or asks for.
-*If a proposal requires data to leave the Mac, the answer is no.*
 
 ### 3. Never make the user wait
 Speed is the feature. Dictation must feel instant, starting must feel instant, and nothing may slow down the moment between speaking and seeing the words.
-*A proposal that adds latency to that moment is rejected, whatever it adds.*
 
 ### 4. Calm by default
 Sorla appears when it is used and disappears when it isn't. It never takes focus, never interrupts, never asks for attention it doesn't need.
-*If a proposal makes Sorla louder, busier or more present, it has to earn that many times over.*
 
 ### 5. Defaults over settings
 Sorla must be complete without anyone opening Settings. A setting is a decision the product failed to make; each one must exist because real people genuinely need different answers.
-*A proposal that needs a new setting must first try to be a better default.*
 
 ### 6. The user's words, untouched
 Sorla writes what was said. It does not interpret, rewrite, summarise or improve.
-*A proposal that changes the meaning, tone or form of what the user said is out of scope.*
 
 ### 7. Leave everything as it was found
 The user's clipboard, focus, files and habits are theirs. Sorla borrows only what it needs, for as short a time as possible, and puts it back.
-*A proposal that leaves a trace the user didn't ask for is rejected.*
 
 ### 8. Depth over breadth
 One excellent solution beats several average ones — for models, for options, for languages. Sorla gets better by being better, not by growing.
-*A proposal that adds choice without adding quality is rejected.*
 
 ### 9. Small, native, honest
 Sorla is built with the platform's own tools, stays small, runs nothing in the background it doesn't need, and is open about what it does and what it builds on.
-*A proposal that adds weight, hidden behaviour or unclear origins is rejected.*
 
 ---
 
