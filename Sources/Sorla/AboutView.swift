@@ -12,16 +12,16 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "mic.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(.white)
-                .frame(width: 72, height: 72)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.accentColor))
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
 
             VStack(spacing: 4) {
                 Text("Sorla").font(.title2.bold())
                 Text(versionString).font(.caption).foregroundStyle(.secondary)
             }
+
+            Text("Talk. Let go. Done.").font(.headline)
 
             Text("Push-to-talk dictation for Mac. Runs entirely on your device.")
                 .font(.callout)
