@@ -5,10 +5,15 @@ import SwiftUI
 @MainActor
 final class RecordingIndicatorViewModel: ObservableObject {
     @Published private(set) var smoothedLevel: Float = 0
+    @Published private(set) var isVisible = false
     private var smoother = LevelSmoother()
 
     func push(_ level: Float) {
         smoothedLevel = smoother.update(target: level)
+    }
+
+    func setVisible(_ visible: Bool) {
+        isVisible = visible
     }
 
     func reset() {
@@ -23,8 +28,8 @@ struct RecordingIndicatorView: View {
 
     private let minBarHeight: CGFloat = 3
     private let maxBarHeight: CGFloat = 20
-    private let barWidth: CGFloat = 3
-    private let barSpacing: CGFloat = 3
+    private let barWidth: CGFloat = 4
+    private let barSpacing: CGFloat = 5
 
     var body: some View {
         HStack(spacing: 10) {
@@ -49,7 +54,7 @@ struct RecordingIndicatorView: View {
         let count = VisualizerBars.recommendedBarCount(
             availableWidth: availableWidth, barWidth: barWidth, spacing: barSpacing
         )
-        if reduceMotion {
+        if reduceMotion || !viewModel.isVisible {
             bars(count: count, time: 0)
         } else {
             TimelineView(.animation) { context in
@@ -117,12 +122,14 @@ final class RecordingIndicatorPanel: NSPanel {
 
     func showNearMouse() {
         viewModel.reset()
+        viewModel.setVisible(true)
         positionOnScreenContainingMouse()
         orderFrontRegardless()
     }
 
     func hide() {
         orderOut(nil)
+        viewModel.setVisible(false)
         viewModel.reset()
     }
 

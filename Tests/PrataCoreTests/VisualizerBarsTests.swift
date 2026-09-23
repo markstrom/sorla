@@ -86,4 +86,13 @@ final class VisualizerBarsTests: XCTestCase {
             XCTAssertEqual(count % 2, 1)
         }
     }
+
+    func testDefaultPanelRowWidthProducesAroundFifteenBars() {
+        // 220pt panel - 32pt padding - 20pt HStack spacing - 8pt dot - ~15pt mic glyph.
+        let defaultRowWidth: CGFloat = 145
+        let count = VisualizerBars.recommendedBarCount(availableWidth: defaultRowWidth, barWidth: 4, spacing: 5)
+
+        XCTAssertEqual(count, 15)
+        XCTAssertTrue((13...17).contains(count))
+    }
 }
