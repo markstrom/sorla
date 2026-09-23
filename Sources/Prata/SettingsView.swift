@@ -53,10 +53,19 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
-        .onAppear {
-            isLaunchAtLoginEnabled = LoginItem.isEnabled
-            loginItemRequiresApproval = LoginItem.requiresApproval
+        .onAppear(perform: refreshLoginItemStatus)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+            guard (notification.object as? NSWindow)?.title == "Prata Settings" else { return }
+            refreshLoginItemStatus()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshLoginItemStatus()
+        }
+    }
+
+    private func refreshLoginItemStatus() {
+        isLaunchAtLoginEnabled = LoginItem.isEnabled
+        loginItemRequiresApproval = LoginItem.requiresApproval
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
