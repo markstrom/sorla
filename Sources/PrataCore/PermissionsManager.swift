@@ -10,6 +10,11 @@ public enum PermissionsManager {
         AXIsProcessTrusted()
     }
 
+    public static func isMicrophoneAccessDenied() -> Bool {
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        return status == .denied || status == .restricted
+    }
+
     public static func promptAccessibilityIfNeeded() {
         let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString
         let options: NSDictionary = [promptKey: true]

@@ -24,6 +24,7 @@ public final class RecordingController {
 
     public private(set) var isModelReady = false
     public var onModelReadyChange: ((Bool) -> Void)?
+    public var onIssue: ((PrataIssue) -> Void)?
 
     public private(set) var lastTranscript: String?
     private var isPasteLastInFlight = false
@@ -77,6 +78,7 @@ public final class RecordingController {
                 self.onModelReadyChange?(true)
             } catch {
                 self.logger.error("model preparation failed: \(modelName, privacy: .public): \(String(describing: error), privacy: .public)")
+                self.onIssue?(.modelNotLoaded)
             }
         }
     }
@@ -84,6 +86,11 @@ public final class RecordingController {
     @discardableResult
     public func startRecording() -> Bool {
         guard !isRecording, !isCapturingTail else { return false }
+        guard !PermissionsManager.isMicrophoneAccessDenied() else {
+            logger.error("recording refused: microphone access denied")
+            onIssue?(.microphoneAccessNeeded)
+            return false
+        }
         do {
             try recorder.start()
             isRecording = true
@@ -93,6 +100,7 @@ public final class RecordingController {
             return true
         } catch {
             logger.error("failed to start recording: \(String(describing: error), privacy: .public)")
+            onIssue?(.noInputDevice)
             return false
         }
     }
@@ -157,6 +165,7 @@ public final class RecordingController {
                 await self.settleClipboard(outcome)
             } catch {
                 self.logger.error("\(modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
+                self.onIssue?(.transcriptionFailed)
             }
         }
         return true
@@ -208,6 +217,9 @@ public final class RecordingController {
         let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
         PasteService.paste()
         let pasted = AXIsProcessTrusted()
+        if !pasted {
+            onIssue?(.accessibilityAccessNeeded)
+        }
         return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)
     }
 
