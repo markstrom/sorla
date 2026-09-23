@@ -9,11 +9,23 @@ struct IslandLayout: Equatable {
 
     static let compactWidth: CGFloat = 240
     static let extraDepth: CGFloat = 14
+    static let notchBarCount = 5
+    static let notchStatusSize: CGFloat = 16
+    static let minBarHeight: CGFloat = 3
+    static let barWidth: CGFloat = 3
+    static let barSpacing: CGFloat = 3
+    private static let notchContentPadding: CGFloat = 10
+    private static let notchBarHeightMargin: CGFloat = 12
 
     var size: NSSize {
         notchWidth > 0
             ? NSSize(width: notchWidth + 2 * sideWidth, height: height)
             : NSSize(width: Self.compactWidth, height: height)
+    }
+
+    // The tallest bar the notch's 5-bar waveform can draw while leaving a small margin top and bottom.
+    var notchMaxBarHeight: CGFloat {
+        max(Self.minBarHeight, height - Self.notchBarHeightMargin)
     }
 
     static func forScreen(_ screen: NSScreen) -> IslandLayout {
@@ -23,9 +35,22 @@ struct IslandLayout: Equatable {
             let right = screen.auxiliaryTopRightArea
         {
             let notchWidth = screen.frame.width - left.width - right.width
-            return IslandLayout(notchWidth: notchWidth, sideWidth: 150, height: notchHeight + extraDepth)
+            return notchLayout(notchWidth: notchWidth, notchHeight: notchHeight)
         }
         let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
+        return compactLayout(menuBarHeight: menuBarHeight)
+    }
+
+    // As narrow as possible on each side: just enough for the wider of the 5-bar waveform or the
+    // dot/spinner, plus a small pad against the notch and against the outer edge.
+    static func notchLayout(notchWidth: CGFloat, notchHeight: CGFloat) -> IslandLayout {
+        let barsWidth = CGFloat(notchBarCount) * barWidth + CGFloat(notchBarCount - 1) * barSpacing
+        let contentWidth = max(barsWidth, notchStatusSize)
+        let sideWidth = contentWidth + 2 * notchContentPadding
+        return IslandLayout(notchWidth: notchWidth, sideWidth: sideWidth, height: notchHeight)
+    }
+
+    static func compactLayout(menuBarHeight: CGFloat) -> IslandLayout {
         let height = (menuBarHeight > 0 ? menuBarHeight : 30) + extraDepth
         return IslandLayout(notchWidth: 0, sideWidth: 0, height: height)
     }
@@ -81,10 +106,10 @@ struct RecordingIndicatorView: View {
     @ObservedObject var viewModel: RecordingIndicatorViewModel
 
     private let compactBarCount = 15
-    private let minBarHeight: CGFloat = 3
+    private let minBarHeight = IslandLayout.minBarHeight
     private let maxBarHeight: CGFloat = 26
-    private let barWidth: CGFloat = 3
-    private let barSpacing: CGFloat = 3
+    private let barWidth = IslandLayout.barWidth
+    private let barSpacing = IslandLayout.barSpacing
     private let edgePadding: CGFloat = 18
     private let pulsePeriod = 1.2
     private let barGradient = LinearGradient(
@@ -126,19 +151,17 @@ struct RecordingIndicatorView: View {
     private func content(layout: IslandLayout, time: TimeInterval) -> some View {
         if layout.notchWidth > 0 {
             HStack(spacing: 0) {
-                status(time: time)
-                    .padding(.leading, edgePadding)
-                    .frame(width: layout.sideWidth, alignment: .leading)
+                notchStatus(time: time)
+                    .frame(width: layout.sideWidth, alignment: .center)
                 Color.clear.frame(width: layout.notchWidth)
-                bars(time: time)
-                    .padding(.trailing, edgePadding)
-                    .frame(width: layout.sideWidth, alignment: .trailing)
+                bars(time: time, barCount: IslandLayout.notchBarCount, maxHeight: layout.notchMaxBarHeight)
+                    .frame(width: layout.sideWidth, alignment: .center)
             }
         } else {
             HStack(spacing: 0) {
                 status(time: time)
                 Spacer(minLength: 0)
-                bars(time: time)
+                bars(time: time, barCount: compactBarCount, maxHeight: maxBarHeight)
             }
             .padding(.horizontal, edgePadding)
         }
@@ -164,6 +187,22 @@ struct RecordingIndicatorView: View {
         }
     }
 
+    // Just the dot on the notch's left side; no mic glyph. Transcribing replaces it with the spinner.
+    private func notchStatus(time: TimeInterval) -> some View {
+        ZStack {
+            if viewModel.mode == .transcribing {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .controlSize(.small)
+                    .tint(.white)
+                    .environment(\.colorScheme, .dark)
+            } else {
+                recordDot(time: time)
+            }
+        }
+        .frame(width: IslandLayout.notchStatusSize, height: IslandLayout.notchStatusSize)
+    }
+
     private func recordDot(time: TimeInterval) -> some View {
         let opacity: Double
         if viewModel.mode == .transcribing {
@@ -178,31 +217,31 @@ struct RecordingIndicatorView: View {
             .opacity(opacity)
     }
 
-    private func bars(time: TimeInterval) -> some View {
+    private func bars(time: TimeInterval, barCount: Int, maxHeight: CGFloat) -> some View {
         let transcribing = viewModel.mode == .transcribing
         let magnitudes = transcribing
-            ? Array(repeating: Float(0), count: compactBarCount)
-            : VisualizerBars.magnitudes(bands: viewModel.bands, time: time, barCount: compactBarCount, reduceMotion: viewModel.reduceMotion)
+            ? Array(repeating: Float(0), count: barCount)
+            : VisualizerBars.magnitudes(bands: viewModel.bands, time: time, barCount: barCount, reduceMotion: viewModel.reduceMotion)
         let shimmer = transcribing
-            ? VisualizerBars.shimmer(time: time, barCount: compactBarCount, reduceMotion: viewModel.reduceMotion)
-            : Array(repeating: Float(0), count: compactBarCount)
+            ? VisualizerBars.shimmer(time: time, barCount: barCount, reduceMotion: viewModel.reduceMotion)
+            : Array(repeating: Float(0), count: barCount)
 
         return HStack(alignment: .center, spacing: barSpacing) {
-            ForEach(0..<compactBarCount, id: \.self) { index in
+            ForEach(0..<barCount, id: \.self) { index in
                 let magnitude = Double(magnitudes[index])
                 Capsule()
                     .fill(barGradient)
                     .frame(
                         width: barWidth,
                         height: VisualizerBars.height(
-                            forMagnitude: magnitudes[index], minHeight: minBarHeight, maxHeight: maxBarHeight
+                            forMagnitude: magnitudes[index], minHeight: minBarHeight, maxHeight: maxHeight
                         )
                     )
                     .shadow(color: .white.opacity(0.6 * magnitude * magnitude), radius: 3)
                     .opacity(transcribing ? 0.3 + 0.55 * Double(shimmer[index]) : 0.35 + 0.65 * magnitude)
             }
         }
-        .frame(height: maxBarHeight)
+        .frame(height: maxHeight)
     }
 }
 
