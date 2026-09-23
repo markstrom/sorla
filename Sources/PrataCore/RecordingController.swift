@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import Foundation
 import os
@@ -13,6 +14,7 @@ public final class RecordingController {
     public private(set) var isRecording = false
     private var isCapturingTail = false
     public var onStateChange: ((Bool) -> Void)?
+    public var keepClipboardContent = true
 
     public init(engine: TranscriptionEngine, modelName: String, tailDuration: TimeInterval = 0.15) {
         self.engine = engine
@@ -87,10 +89,31 @@ public final class RecordingController {
                     self.logger.info("\(modelName, privacy: .public): empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
                     return
                 }
-                PasteService.writeToPasteboard(text)
+                let keepClipboardContent = self.keepClipboardContent
+                let previousClipboard = keepClipboardContent ? PasteService.snapshot() : nil
+                let changeCountAfterWrite = PasteService.writeToPasteboard(text)
                 PasteService.paste()
                 let pasted = AXIsProcessTrusted()
                 self.logger.info("\(modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(pasted, privacy: .public): \(text, privacy: .private)")
+
+                if let previousClipboard {
+                    if pasted {
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                    }
+                    let currentChangeCount = NSPasteboard.general.changeCount
+                    if PasteService.shouldRestoreClipboard(
+                        keepSetting: keepClipboardContent,
+                        pasteDelivered: pasted,
+                        changeCountAfterWrite: changeCountAfterWrite,
+                        currentChangeCount: currentChangeCount
+                    ) {
+                        PasteService.restore(previousClipboard)
+                        self.logger.info("clipboard restored")
+                    } else {
+                        let reason = !pasted ? "not pasted" : "clipboard changed"
+                        self.logger.info("clipboard kept (\(reason, privacy: .public))")
+                    }
+                }
             } catch {
                 self.logger.error("\(modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
             }
