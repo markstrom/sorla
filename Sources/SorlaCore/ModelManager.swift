@@ -203,14 +203,26 @@ public final class ModelManager: ObservableObject {
     }
 
     private func apply(_ progress: ModelInstallProgress, version: String, isUpdate: Bool) {
-        guard stagingVersion == version else { return }
+        guard stagingVersion == version,
+              let next = Self.status(after: status, applying: progress, version: version, isUpdate: isUpdate)
+        else { return }
+        status = next
+    }
+
+    // Progress reports hop to the main actor one by one and may arrive out of order, so they only move forward.
+    static func status(after current: ModelStatus, applying progress: ModelInstallProgress, version: String, isUpdate: Bool) -> ModelStatus? {
         switch progress {
         case .downloading(let fraction):
-            if case .preparing = status { return }
-            if case .downloading(_, let current, _) = status, ModelStatus.percent(current) == ModelStatus.percent(fraction) { return }
-            status = .downloading(version: version, fraction: fraction, isUpdate: isUpdate)
+            switch current {
+            case .preparing:
+                return nil
+            case .downloading(_, let shown, _) where ModelStatus.percent(fraction) <= ModelStatus.percent(shown):
+                return nil
+            default:
+                return .downloading(version: version, fraction: fraction, isUpdate: isUpdate)
+            }
         case .preparing:
-            status = .preparing(version: version, isUpdate: isUpdate)
+            return .preparing(version: version, isUpdate: isUpdate)
         }
     }
 

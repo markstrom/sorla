@@ -248,6 +248,20 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(reloads, 2)
     }
 
+    func testProgressNeverMovesBackwards() {
+        let shown = ModelStatus.downloading(version: "1.1.0", fraction: 0.5, isUpdate: true)
+
+        XCTAssertNil(ModelManager.status(after: shown, applying: .downloading(fraction: 0.4), version: "1.1.0", isUpdate: true))
+        XCTAssertNil(ModelManager.status(after: shown, applying: .downloading(fraction: 0.501), version: "1.1.0", isUpdate: true))
+        XCTAssertEqual(
+            ModelManager.status(after: shown, applying: .downloading(fraction: 0.6), version: "1.1.0", isUpdate: true),
+            .downloading(version: "1.1.0", fraction: 0.6, isUpdate: true)
+        )
+        let preparing = ModelStatus.preparing(version: "1.1.0", isUpdate: true)
+        XCTAssertNil(ModelManager.status(after: preparing, applying: .downloading(fraction: 1), version: "1.1.0", isUpdate: true))
+        XCTAssertEqual(ModelManager.status(after: shown, applying: .preparing, version: "1.1.0", isUpdate: true), preparing)
+    }
+
     func testAFailedCheckWithAWorkingModelIsQuiet() async throws {
         try installModel(version: "1.0.0")
         await network.fail(PublishedModelFixture.manifestURL)
