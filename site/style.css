@@ -61,7 +61,7 @@ a:hover { text-decoration: underline; text-underline-offset: 0.15em; }
 .page { max-width: 720px; margin: 0 auto; padding: 24px 24px 64px; }
 
 nav { display: flex; align-items: center; gap: 10px; margin-bottom: 64px; flex-wrap: wrap; }
-nav .home { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+nav .home { display: flex; align-items: center; gap: 6px; color: var(--ink); }
 nav .home:hover { text-decoration: none; }
 nav img { width: 28px; height: 28px; display: block; }
 nav .name { font-weight: 650; font-size: 20px; letter-spacing: -0.01em; }
