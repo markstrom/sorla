@@ -261,6 +261,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let url = SorlaIssue.accessibilityAccessNeeded.settingsURL { NSWorkspace.shared.open(url) }
         case .downloadModel:
             modelManager.downloadModel()
+        case .reloadModel:
+            modelManager.retryLoadingModel()
         case .openSettings:
             showSettings()
         case nil:

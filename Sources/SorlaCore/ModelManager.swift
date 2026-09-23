@@ -18,6 +18,7 @@ public final class ModelManager: ObservableObject {
 
     private let installer: ModelInstaller
     private let swap: ModelSwap
+    private let failedUpdate: FailedModelUpdate
     private let isDictationIdle: @MainActor () -> Bool
     private let reloadModel: @MainActor () async -> Bool
     private let checkInterval: TimeInterval
@@ -40,6 +41,7 @@ public final class ModelManager: ObservableObject {
     ) {
         self.installer = installer
         self.swap = ModelSwap(modelsDirectory: installer.modelsDirectory)
+        self.failedUpdate = FailedModelUpdate(modelsDirectory: installer.modelsDirectory)
         self.isDictationIdle = isDictationIdle
         self.reloadModel = reloadModel
         self.automaticChecks = automaticChecks
@@ -55,11 +57,7 @@ public final class ModelManager: ObservableObject {
     public func start() {
         guard !hasStarted else { return }
         hasStarted = true
-        do {
-            try swap.recoverInterruptedSwap()
-        } catch {
-            Self.logger.error("couldn't recover an interrupted model swap: \(ErrorSummary.of(error), privacy: .public)")
-        }
+        recoverInterruptedSwap()
         let installed = isInstalled
         let version = installedVersion
         Self.logger.info("model manager started: installed=\(installed, privacy: .public) version=\(version ?? "unknown", privacy: .public) automaticChecks=\(self.automaticChecks, privacy: .public) automaticDownloads=\(self.automaticDownloads, privacy: .public)")
@@ -79,6 +77,10 @@ public final class ModelManager: ObservableObject {
     }
 
     public func checkNow() {
+        check(userInitiated: true)
+    }
+
+    private func check(userInitiated: Bool) {
         guard work == nil else { return }
         guard isInstalled else { return downloadModel() }
         status = .checking
@@ -94,7 +96,13 @@ public final class ModelManager: ObservableObject {
                 self.status = .checkFailed(checkError)
                 return
             }
-            let decision = ModelUpdatePolicy.decide(installedVersion: self.installedVersion, isInstalled: true, latest: latest.release, autoDownload: self.automaticDownloads)
+            let decision = ModelUpdatePolicy.decide(
+                installedVersion: self.installedVersion,
+                isInstalled: true,
+                latest: latest.release,
+                autoDownload: self.automaticDownloads,
+                failedVersion: userInitiated ? nil : self.failedUpdate.version
+            )
             Self.logger.info("model update check: installed \(self.installedVersion ?? "unknown", privacy: .public), latest \(latest.release.version, privacy: .public), decision \(String(describing: decision), privacy: .public)")
             switch decision {
             case .none:
@@ -137,6 +145,35 @@ public final class ModelManager: ObservableObject {
         }
     }
 
+    // Loads the installed model again after it failed to load, first finishing any swap that was cut short.
+    public func retryLoadingModel() {
+        guard work == nil else { return }
+        work = Task {
+            defer { self.work = nil }
+            self.recoverInterruptedSwap()
+            guard self.isInstalled else {
+                self.status = .notInstalled
+                return
+            }
+            Self.logger.info("retrying to load the installed model")
+            if await !self.reloadModel() {
+                Self.logger.error("installed model failed to load again")
+                self.onFailure?(.modelNotLoaded)
+            }
+        }
+    }
+
+    private func recoverInterruptedSwap() {
+        do {
+            if let discarded = try swap.recoverInterruptedSwap() {
+                Self.logger.info("rolled back unconfirmed model \(discarded, privacy: .public)")
+                rememberFailure(of: discarded)
+            }
+        } catch {
+            Self.logger.error("couldn't recover an interrupted model swap: \(ErrorSummary.of(error), privacy: .public)")
+        }
+    }
+
     private func fetchLatest() async throws -> PublishedModel {
         let installer = self.installer
         return try await Task.detached(priority: .utility) { try await installer.fetchLatest() }.value
@@ -159,6 +196,7 @@ public final class ModelManager: ObservableObject {
             stagingVersion = nil
         } catch {
             stagingVersion = nil
+            rememberFailure(of: version, after: error)
             fail(error, isUpdate: isUpdate)
             return
         }
@@ -171,30 +209,37 @@ public final class ModelManager: ObservableObject {
             }
         }
 
+        let replacedModel: Bool
         do {
-            try swap.install(staged)
+            replacedModel = try swap.install(staged)
         } catch {
+            rememberFailure(of: version, after: error)
             fail(error, isUpdate: isUpdate)
             return
         }
         Self.logger.info("model \(version, privacy: .public) swapped in; loading it")
         guard await reloadModel() else {
-            await handleReloadFailure(version: version, isUpdate: isUpdate)
+            await handleReloadFailure(version: version, replacedModel: replacedModel)
             return
         }
-        swap.commit()
+        commitSwap()
+        do {
+            try failedUpdate.clear()
+        } catch {
+            Self.logger.error("couldn't clear the failed model version: \(ErrorSummary.of(error), privacy: .public)")
+        }
         removeStaging(version: version)
         offered = nil
         status = .upToDate(version: version)
         Self.logger.info("model \(version, privacy: .public) installed and ready")
-        onInstalled?(!isUpdate)
+        onInstalled?(!replacedModel)
     }
 
     // A self-tested first install stays; an update rolls back but keeps its downloads so a retry needn't refetch.
-    private func handleReloadFailure(version: String, isUpdate: Bool) async {
-        guard isUpdate else {
+    private func handleReloadFailure(version: String, replacedModel: Bool) async {
+        guard replacedModel else {
             Self.logger.error("new model \(version, privacy: .public) failed to load; keeping it installed")
-            swap.commit()
+            commitSwap()
             removeStaging(version: version)
             offered = nil
             status = .installed(version: version)
@@ -202,16 +247,47 @@ public final class ModelManager: ObservableObject {
             return
         }
         Self.logger.error("model update \(version, privacy: .public) failed to load; rolling back")
+        rememberFailure(of: version)
+        var rolledBack = true
         do {
             try swap.rollback()
         } catch {
             Self.logger.error("model rollback failed: \(ErrorSummary.of(error), privacy: .public)")
+            do {
+                try swap.recoverInterruptedSwap()
+            } catch {
+                Self.logger.error("couldn't recover after the failed rollback: \(ErrorSummary.of(error), privacy: .public)")
+                rolledBack = false
+            }
         }
-        let previousLoaded = await reloadModel()
-        fail(ModelInstallError.installFailed, isUpdate: true)
+        let previousLoaded = rolledBack ? await reloadModel() : false
         if !previousLoaded {
-            Self.logger.error("previous model failed to load after rollback")
-            onFailure?(.modelNotLoaded)
+            Self.logger.error("previous model isn't loaded after the failed update")
+        }
+        fail(ModelInstallError.installFailed, isUpdate: true, previousModelWorks: previousLoaded)
+    }
+
+    private func commitSwap() {
+        do {
+            try swap.commit()
+        } catch {
+            Self.logger.error("couldn't remove the previous model: \(ErrorSummary.of(error), privacy: .public)")
+        }
+    }
+
+    // Failures a later attempt may not repeat are retried automatically; the rest wait for the user.
+    private func rememberFailure(of version: String, after error: Error? = nil) {
+        if let error {
+            if error is CancellationError { return }
+            switch error as? ModelInstallError {
+            case .network, .serverUnavailable, .diskWriteFailed, .insufficientDiskSpace: return
+            default: break
+            }
+        }
+        do {
+            try failedUpdate.record(version)
+        } catch {
+            Self.logger.error("couldn't remember the failed model version: \(ErrorSummary.of(error), privacy: .public)")
         }
     }
 
@@ -224,12 +300,18 @@ public final class ModelManager: ObservableObject {
         }
     }
 
-    // Without automatic downloads nothing would resume a leftover update, so it would only take up space.
+    // Only automatic checks with automatic downloads resume a leftover update, and never one that failed here.
     private func removeUnneededStaging(installedVersion: String?) {
         let modelsDirectory = installer.modelsDirectory
-        let removed = automaticDownloads
+        var removed = automaticChecks && automaticDownloads
             ? ModelStaging.removeStale(in: modelsDirectory, installedVersion: installedVersion)
             : ModelStaging.removeEverything(in: modelsDirectory)
+        if let failedVersion = failedUpdate.version {
+            let staging = ModelStaging(modelsDirectory: modelsDirectory, version: failedVersion)
+            if FileManager.default.fileExists(atPath: staging.directory.path), (try? staging.removeAll()) != nil {
+                removed.append(staging.directory.lastPathComponent)
+            }
+        }
         if !removed.isEmpty {
             Self.logger.info("removed unneeded staging: \(removed.joined(separator: ", "), privacy: .public)")
         }
@@ -259,11 +341,13 @@ public final class ModelManager: ObservableObject {
         }
     }
 
-    private func fail(_ error: Error, isUpdate: Bool) {
+    // An update failure only says the current model stays in use when it really is loaded.
+    private func fail(_ error: Error, isUpdate: Bool, previousModelWorks: Bool = true) {
         let installError = error as? ModelInstallError ?? .installFailed
         Self.logger.error("model install failed: \(String(describing: installError), privacy: .public)")
         status = .failed(installError, isUpdate: isUpdate)
-        onFailure?(isUpdate ? .modelUpdateFailed : .modelDownloadFailed)
+        let issue: SorlaIssue = !isUpdate ? .modelDownloadFailed : previousModelWorks ? .modelUpdateFailed : .modelNotLoaded
+        onFailure?(issue)
     }
 
     private func scheduleAutomaticChecks(checkFirst: Bool) {
@@ -279,7 +363,7 @@ public final class ModelManager: ObservableObject {
                 }
                 checkNext = false
                 guard !Task.isCancelled, let self else { return }
-                self.checkNow()
+                self.check(userInitiated: false)
             }
         }
     }

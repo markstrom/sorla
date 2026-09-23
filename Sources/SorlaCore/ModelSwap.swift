@@ -1,5 +1,6 @@
 import Foundation
 
+// Every step is a rename, or a delete of a copy nobody needs, so recovery can finish any interrupted state.
 public struct ModelSwap: Sendable {
     public let modelsDirectory: URL
 
@@ -19,14 +20,19 @@ public struct ModelSwap: Sendable {
         modelsDirectory.appendingPathComponent(PianissimoModel.directoryName + ".failed", isDirectory: true)
     }
 
-    public func install(_ staged: URL) throws {
+    public var trash: URL {
+        modelsDirectory.appendingPathComponent(PianissimoModel.directoryName + ".trash", isDirectory: true)
+    }
+
+    /// Returns whether it replaced an installed model, which is then kept as `previous` until `commit()`.
+    @discardableResult
+    public func install(_ staged: URL) throws -> Bool {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: staged.path) else { throw ModelInstallError.installFailed }
-        if fileManager.fileExists(atPath: previous.path) {
-            try? fileManager.removeItem(at: previous)
-        }
-        if fileManager.fileExists(atPath: failed.path) {
-            try? fileManager.removeItem(at: failed)
+        do {
+            try recoverInterruptedSwap()
+        } catch {
+            throw ModelInstallError.installFailed
         }
         let hadModel = fileManager.fileExists(atPath: installed.path)
         do {
@@ -40,13 +46,20 @@ public struct ModelSwap: Sendable {
             }
             throw ModelInstallError.installFailed
         }
+        return hadModel
     }
 
-    public func commit() {
-        try? FileManager.default.removeItem(at: previous)
+    // The previous model is renamed away first, so a half-deleted copy is never mistaken for it.
+    public func commit() throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: trash.path) {
+            try fileManager.removeItem(at: trash)
+        }
+        guard fileManager.fileExists(atPath: previous.path) else { return }
+        try fileManager.moveItem(at: previous, to: trash)
+        try fileManager.removeItem(at: trash)
     }
 
-    // Only renames until the previous model is back, so a crash midway leaves states recovery can finish.
     public func rollback() throws {
         let fileManager = FileManager.default
         if fileManager.fileExists(atPath: installed.path) {
@@ -63,22 +76,21 @@ public struct ModelSwap: Sendable {
         }
     }
 
-    // A previous model that is alone or beside a failed one is the last known-good copy, so it wins.
-    public func recoverInterruptedSwap() throws {
+    // A previous model exists only until the new one has loaded, so whenever it is there it is the one to keep.
+    @discardableResult
+    public func recoverInterruptedSwap() throws -> String? {
         let fileManager = FileManager.default
-        let hasFailed = fileManager.fileExists(atPath: failed.path)
-        if fileManager.fileExists(atPath: previous.path) {
-            if hasFailed || !fileManager.fileExists(atPath: installed.path) {
-                if fileManager.fileExists(atPath: installed.path) {
-                    try fileManager.removeItem(at: installed)
-                }
-                try fileManager.moveItem(at: previous, to: installed)
-            } else {
-                commit()
+        if fileManager.fileExists(atPath: trash.path) {
+            try fileManager.removeItem(at: trash)
+        }
+        guard fileManager.fileExists(atPath: previous.path) else {
+            if fileManager.fileExists(atPath: failed.path) {
+                try fileManager.removeItem(at: failed)
             }
+            return nil
         }
-        if hasFailed {
-            try fileManager.removeItem(at: failed)
-        }
+        let discarded = PianissimoModel.installedVersion(at: installed)
+        try rollback()
+        return discarded
     }
 }

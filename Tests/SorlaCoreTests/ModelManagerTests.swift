@@ -57,8 +57,8 @@ final class ModelManagerTests: XCTestCase {
         return manager
     }
 
-    private func installModel(version: String) throws {
-        let directory = swap.installed
+    private func installModel(version: String, at location: URL? = nil) throws {
+        let directory = location ?? swap.installed
         for name in ["Preprocessor.mlmodelc", "Encoder.mlmodelc", "Decoder.mlmodelc", "JointDecisionv3.mlmodelc"] {
             try FileManager.default.createDirectory(at: directory.appendingPathComponent(name), withIntermediateDirectories: true)
         }
@@ -270,7 +270,7 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: modelsDirectory.appendingPathComponent(".staging").path))
     }
 
-    func testAnUpdateWhosePreviousModelAlsoFailsToLoadReportsBoth() async throws {
+    func testAnUpdateWhosePreviousModelAlsoFailsToLoadDoesNotClaimTheCurrentModelStillWorks() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         reloadResults = [false, false]
@@ -279,7 +279,105 @@ final class ModelManagerTests: XCTestCase {
         manager.checkNow()
         await waitUntil(manager.status == .failed(.installFailed, isUpdate: true))
 
-        XCTAssertEqual(failures, [.modelUpdateFailed, .modelNotLoaded])
+        XCTAssertEqual(failures, [.modelNotLoaded])
+    }
+
+    func testRetryingAfterARollbackThatLeftOnlyThePreviousModelKeepsIt() async throws {
+        try installModel(version: "1.0.0", at: swap.previous)
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        reloadResults = [false, true]
+        let manager = makeManager()
+        XCTAssertFalse(manager.isInstalled)
+
+        manager.downloadModel()
+        await waitUntil(manager.status == .failed(.installFailed, isUpdate: true))
+
+        XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: swap.previous.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: swap.failed.path))
+        XCTAssertEqual(failures, [.modelUpdateFailed])
+    }
+
+    func testAnUpdateThatFailedToLoadIsNotRetriedAutomaticallyButIsWhenTheUserAsks() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        reloadResults = [false, true]
+        let failedRun = makeManager(autoDownload: true)
+        failedRun.checkNow()
+        await waitUntil(failedRun.status == .failed(.installFailed, isUpdate: true))
+        XCTAssertEqual(FailedModelUpdate(modelsDirectory: modelsDirectory).version, "1.1.0")
+        let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.1.0")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staging.directory.path))
+
+        let manager = makeManager(autoCheck: true, autoDownload: true)
+        manager.start()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.directory.path))
+        await waitUntil(manager.status == .updateAvailable(version: "1.1.0"))
+        XCTAssertEqual(reloads, 2)
+
+        manager.checkNow()
+        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        XCTAssertEqual(reloads, 3)
+        XCTAssertNil(FailedModelUpdate(modelsDirectory: modelsDirectory).version)
+    }
+
+    func testANetworkFailureIsRetriedAutomatically() async throws {
+        try installModel(version: "1.0.0")
+        let published = PublishedModelFixture(version: "1.1.0")
+        await published.publish(on: network)
+        await network.fail(published.url(for: "README.md"))
+        let manager = makeManager(autoDownload: true)
+
+        manager.checkNow()
+        await waitUntil(manager.status == .failed(.network, isUpdate: true))
+
+        XCTAssertNil(FailedModelUpdate(modelsDirectory: modelsDirectory).version)
+    }
+
+    func testStartRollsBackAnUpdateThatWasNeverConfirmedAndRemembersIt() async throws {
+        try installModel(version: "1.0.0", at: swap.previous)
+        try installModel(version: "1.1.0")
+        let manager = makeManager()
+
+        manager.start()
+
+        XCTAssertEqual(manager.status, .installed(version: "1.0.0"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: swap.previous.path))
+        XCTAssertEqual(FailedModelUpdate(modelsDirectory: modelsDirectory).version, "1.1.0")
+    }
+
+    func testRetryingTheLoadReloadsTheInstalledModel() async throws {
+        try installModel(version: "1.0.0")
+        reloadResults = [false, true]
+        let manager = makeManager()
+
+        manager.retryLoadingModel()
+        await waitUntil(failures == [.modelNotLoaded])
+        manager.retryLoadingModel()
+        await waitUntil(reloads == 2)
+
+        XCTAssertEqual(failures, [.modelNotLoaded])
+    }
+
+    func testRetryingTheLoadFirstFinishesAnInterruptedSwap() async throws {
+        try installModel(version: "1.0.0", at: swap.previous)
+        let manager = makeManager()
+
+        manager.retryLoadingModel()
+        await waitUntil(reloads == 1)
+
+        XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: swap.previous.path))
+    }
+
+    func testRetryingTheLoadWithoutAModelOffersTheDownload() async throws {
+        let manager = makeManager()
+
+        manager.retryLoadingModel()
+        await waitUntil(manager.status == .notInstalled)
+        try await Task.sleep(nanoseconds: 20_000_000)
+
+        XCTAssertEqual(reloads, 0)
     }
 
     func testAFirstInstallThatFailsToLoadIsKept() async throws {
@@ -386,15 +484,28 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: newer.root.path))
     }
 
-    func testStartKeepsNewerStagingToResumeWhenAutomaticDownloadsAreOn() async throws {
+    func testStartKeepsNewerStagingToResumeWhenAutomaticChecksAndDownloadsAreOn() async throws {
         try installModel(version: "1.0.0")
         let newer = ModelStaging(modelsDirectory: modelsDirectory, version: "2.0.0")
         try FileManager.default.createDirectory(at: newer.downloadsDirectory, withIntermediateDirectories: true)
-        let manager = makeManager(autoDownload: true)
+        await network.fail(PublishedModelFixture.manifestURL)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.start()
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: newer.directory.path))
+        await waitUntil(manager.status == .checkFailed(.network))
+    }
+
+    func testStartRemovesAllStagingWhenAutomaticChecksAreOffEvenWithAutomaticDownloadsOn() async throws {
+        try installModel(version: "1.0.0")
+        let newer = ModelStaging(modelsDirectory: modelsDirectory, version: "2.0.0")
+        try FileManager.default.createDirectory(at: newer.downloadsDirectory, withIntermediateDirectories: true)
+        let manager = makeManager(autoCheck: false, autoDownload: true)
+
+        manager.start()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: newer.root.path))
     }
 
     func testStartRestoresTheOldModelAfterAnInterruptedRollback() async throws {

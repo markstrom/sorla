@@ -2,6 +2,7 @@ public enum MenuStatusAction: Equatable, Sendable {
     case openMicrophoneSettings
     case openAccessibilitySettings
     case downloadModel
+    case reloadModel
     case openSettings
 }
 
@@ -41,7 +42,7 @@ public struct MenuStatusRow: Equatable, Sendable {
             break
         }
         if modelLoadFailed {
-            return MenuStatusRow(title: SorlaIssue.modelNotLoaded.menuTitle ?? "", action: .openSettings)
+            return MenuStatusRow(title: "\(SorlaIssue.modelNotLoaded.menuTitle ?? "") — Try Again", action: .reloadModel)
         }
         if case .updateAvailable(let version) = model {
             return MenuStatusRow(title: "Model update available (\(version))", action: .downloadModel)
