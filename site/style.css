@@ -187,6 +187,9 @@ dd { margin: 2px 0 0; color: var(--ink-2); }
   display: inline-block; margin-top: 12px; padding: 12px 22px; border-radius: 999px;
   background: var(--accent); color: var(--accent-ink); font-weight: 650;
 }
+.hero-cta { margin: -12px 0 36px; }
+.hero-cta .cta { margin-top: 0; }
+.hero-cta p { margin: 10px 0 0; }
 .cta:hover { text-decoration: none; filter: brightness(1.08); }
 .cta[aria-disabled="true"] { background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule); cursor: default; filter: none; }
 
