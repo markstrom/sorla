@@ -66,21 +66,35 @@ public final class RecordingController {
                 return
             }
 
+            let audioSeconds = Double(samples.count) / 16_000
+            let peakAmplitude = samples.reduce(into: Float(0)) { peak, sample in peak = max(peak, abs(sample)) }
+
             do {
                 let text = try await self.engine.transcribe(samples)
                 guard !text.isEmpty else {
-                    self.logger.info("empty transcription")
+                    self.logger.info("empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
                     return
                 }
                 PasteService.writeToPasteboard(text)
                 PasteService.paste()
                 let pasted = AXIsProcessTrusted()
-                let audioSeconds = Double(samples.count) / 16_000
                 self.logger.info("\(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(pasted, privacy: .public): \(text, privacy: .private)")
             } catch {
                 self.logger.error("transcription failed: \(String(describing: error), privacy: .public)")
             }
         }
+    }
+
+    public func cancelRecording() {
+        guard isRecording else { return }
+        do {
+            _ = try recorder.stop()
+        } catch {
+            logger.error("failed to stop recording: \(String(describing: error), privacy: .public)")
+        }
+        isRecording = false
+        onStateChange?(false)
+        logger.info("recording cancelled")
     }
 
     private static func format(_ seconds: TimeInterval) -> String {

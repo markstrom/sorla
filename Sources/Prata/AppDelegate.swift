@@ -4,7 +4,7 @@ import PrataCore
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var recordingController: RecordingController!
-    private var hotkeyController: HotkeyController?
+    private var pushToTalkMonitor: RightCommandKeyMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         recordingController = RecordingController(engine: ParakeetTranscriptionEngine())
@@ -20,9 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateIcon(isRecording: isRecording)
         }
 
-        hotkeyController = HotkeyController(
+        pushToTalkMonitor = RightCommandKeyMonitor(
             onStart: { [weak self] in self?.recordingController.startRecording() },
-            onStop: { [weak self] in self?.recordingController.stopRecordingAndTranscribe() }
+            onFinish: { [weak self] in self?.recordingController.stopRecordingAndTranscribe() },
+            onCancel: { [weak self] in self?.recordingController.cancelRecording() }
         )
 
         recordingController.prepare()

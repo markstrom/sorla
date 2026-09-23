@@ -6,14 +6,12 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", .upToNextMinor(from: "0.16.1")),
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.1.0"),
     ],
     targets: [
         .target(
             name: "PrataCore",
             dependencies: [
                 "FluidAudio",
-                "KeyboardShortcuts",
             ],
             path: "Sources/PrataCore"
         ),
