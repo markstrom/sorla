@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
     private var pendingStartSound: Task<Void, Never>?
+    private let triggerHintRowView = MenuShortcutRowView()
     private static let logger = Logger(subsystem: "com.prata.app", category: "AppDelegate")
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var pasteLastMenuItem: NSMenuItem!
@@ -40,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
         let triggerHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         triggerHintItem.isEnabled = false
+        triggerHintItem.view = triggerHintRowView
         menu.addItem(triggerHintItem)
         triggerHintMenuItem = triggerHintItem
         let pasteLastItem = NSMenuItem(title: "Paste Last Transcription", action: #selector(pasteLastTranscription), keyEquivalent: "")
@@ -226,37 +228,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // A modifier-only trigger can't be a keyEquivalent, so the key is right-aligned with a tab stop instead.
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
-        guard let menu = statusItem.menu else { return }
-        let font = NSFont.menuFont(ofSize: 0)
         let title = TriggerHint.menuTitle(for: mode ?? appSettings.recordingMode)
         let key = TriggerHint.keyLabel(
             for: trigger ?? appSettings.triggerKey,
             customShortcut: KeyboardShortcuts.getShortcut(for: .prataCustomTrigger)?.description
         )
-        let otherTitleWidths = menu.items
-            .filter { $0 !== triggerHintMenuItem && !$0.isSeparatorItem }
-            .map { Self.width(of: $0.title, font: font) }
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.tabStops = [
-            NSTextTab(
-                textAlignment: .right,
-                location: TriggerHint.menuTabStop(
-                    titleWidth: Self.width(of: title, font: font),
-                    keyWidth: Self.width(of: key, font: font),
-                    otherTitleWidths: otherTitleWidths
-                )
-            ),
-        ]
-        triggerHintMenuItem.attributedTitle = NSAttributedString(
-            string: "\(title)\t\(key)",
-            attributes: [.font: font, .paragraphStyle: paragraph]
-        )
-    }
-
-    private static func width(of string: String, font: NSFont) -> CGFloat {
-        ceil((string as NSString).size(withAttributes: [.font: font]).width)
+        triggerHintRowView.update(title: title, key: key)
     }
 
     // The mic keeps recording for the tail after release, so the chirp waits until it's closed.

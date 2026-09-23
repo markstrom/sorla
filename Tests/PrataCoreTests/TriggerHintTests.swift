@@ -57,14 +57,4 @@ final class TriggerHintTests: XCTestCase {
             "Record a shortcut above to start dictating."
         )
     }
-
-    func testTabStopLeavesAGapBetweenTitleAndKey() {
-        let tabStop = TriggerHint.menuTabStop(titleWidth: 90, keyWidth: 47, otherTitleWidths: [20, 40])
-        XCTAssertEqual(tabStop, 90 + TriggerHint.menuKeyGap + 47)
-    }
-
-    func testTabStopReachesTheWidestOtherTitleSoTheKeyIsFlushRight() {
-        let tabStop = TriggerHint.menuTabStop(titleWidth: 90, keyWidth: 47, otherTitleWidths: [146, 300])
-        XCTAssertEqual(tabStop, 300)
-    }
 }

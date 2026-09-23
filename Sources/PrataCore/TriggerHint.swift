@@ -1,5 +1,3 @@
-import CoreGraphics
-
 public enum TriggerHint {
     public static func menuTitle(for mode: RecordingMode) -> String {
         switch mode {
@@ -23,12 +21,5 @@ public enum TriggerHint {
         case .pushToTalk: return "Hold \(key) while speaking; release to paste."
         case .toggle: return "Press \(key) to start, press again to stop."
         }
-    }
-
-    public static let menuKeyGap: CGFloat = 24
-
-    // Right tab stop for "title<TAB>key": past the title plus a gap, and never short of the widest other title.
-    public static func menuTabStop(titleWidth: CGFloat, keyWidth: CGFloat, otherTitleWidths: [CGFloat]) -> CGFloat {
-        max(titleWidth + menuKeyGap + keyWidth, otherTitleWidths.max() ?? 0)
     }
 }
