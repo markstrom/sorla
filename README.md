@@ -6,7 +6,7 @@ Sorla is push-to-talk dictation for the Mac. Hold a key (Right ⌘ by default), 
 
 Sorla lives in the menu bar and stays out of the way until you use it. Speech recognition runs entirely on your Mac, on the Apple Neural Engine. No account, no cloud, no analytics.
 
-Website: [sorla.zerolabs.se](https://sorla.zerolabs.se)
+**[Download Sorla 1.0](https://github.com/markstrom/sorla/releases/latest)** · **[Website: sorla.zerolabs.se](https://sorla.zerolabs.se)** · [Help (Swedish)](https://sorla.zerolabs.se/support) · [Privacy](https://sorla.zerolabs.se/privacy)
 
 ## Built on Klang Pianissimo
 
@@ -43,13 +43,15 @@ Sorla also builds on:
 
 ## Install
 
-1. Download the DMG from [Releases](../../releases).
+1. Download the DMG from [the website](https://sorla.zerolabs.se) or the [latest release](https://github.com/markstrom/sorla/releases/latest).
 2. Open it and drag **Sorla** to **Applications**.
 3. Open Sorla from the Applications folder.
 4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both and downloads the model.
 5. Hold Right ⌘ and speak.
 
 ### If macOS blocks the app
+
+Sorla is signed with Developer ID and notarized by Apple, so this is rare. Step-by-step help, including what to do if Accessibility won't turn on, is on the [help page](https://sorla.zerolabs.se/support#oppna) (in Swedish).
 
 If macOS says Sorla can't be opened, either:
 
