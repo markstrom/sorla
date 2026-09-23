@@ -230,3 +230,8 @@ a code { color: var(--accent); }
   .steps { grid-template-columns: 1fr; }
   .screen { aspect-ratio: 4 / 3; }
 }
+
+.measure {
+  font-style: italic;
+  color: var(--ink-2);
+}
