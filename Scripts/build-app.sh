@@ -13,6 +13,7 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 cp .build/release/Sorla "$APP_DIR/Contents/MacOS/Sorla"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 cp -R Resources/Licenses "$APP_DIR/Contents/Resources/Licenses"
 cp -R Resources/*.lproj "$APP_DIR/Contents/Resources/"
 
