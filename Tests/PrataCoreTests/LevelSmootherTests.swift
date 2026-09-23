@@ -39,17 +39,17 @@ final class LevelSmootherTests: XCTestCase {
         XCTAssertEqual(smoother.value, 1)
     }
 
-    func testBandSmootherSmoothsEachBandIndependently() {
+    func testBandSmootherMovesCalmlyButKeepsTheShape() {
         var smoother = BandSmoother()
         var target = SIMD8<Float>(repeating: 0)
         target[2] = 1
         let first = smoother.update(target: target)
-        var reference = LevelSmoother()
-        XCTAssertEqual(first[2], reference.update(target: 1))
-        XCTAssertEqual(first[0], 0)
+        XCTAssertGreaterThan(first[2], 0)
+        XCTAssertLessThan(first[2], 0.25)
+        XCTAssertGreaterThan(first[2], first[0])
 
         var value = first
-        for _ in 0..<100 {
+        for _ in 0..<200 {
             value = smoother.update(target: SIMD8(repeating: 0.4))
         }
         for band in 0..<8 {

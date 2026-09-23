@@ -23,14 +23,20 @@ public struct LevelSmoother {
 }
 
 public struct BandSmoother {
-    private var smoothers = Array(repeating: LevelSmoother(), count: 8)
+    private static let attack: Float = 0.3
+    private static let release: Float = 0.08
+    // Pulling every band part-way toward the mean keeps the shape but stops bars twitching independently.
+    private static let coupling: Float = 0.4
+    private var smoothers = Array(repeating: LevelSmoother(attack: attack, release: release), count: 8)
 
     public init() {}
 
     public mutating func update(target: SIMD8<Float>) -> SIMD8<Float> {
+        let mean = target.sum() / 8
         var result = SIMD8<Float>(repeating: 0)
         for band in 0..<8 {
-            result[band] = smoothers[band].update(target: target[band])
+            let blended = target[band] * (1 - Self.coupling) + mean * Self.coupling
+            result[band] = smoothers[band].update(target: blended)
         }
         return result
     }

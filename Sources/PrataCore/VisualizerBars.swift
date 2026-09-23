@@ -3,9 +3,9 @@ import Foundation
 
 public enum VisualizerBars {
     public static let barCount = 15
-    private static let perceptualExponent: Float = 0.7
-    private static let motionCenter = 0.925
-    private static let motionAmplitude = 0.075
+    private static let perceptualExponent: Float = 0.85
+    private static let motionCenter = 0.97
+    private static let motionAmplitude = 0.03
     private static let motionFrequency = 2.0
     private static let phaseStep = 0.9
     private static let shimmerPeriod = 1.1
