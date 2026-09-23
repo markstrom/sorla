@@ -1,0 +1,11 @@
+Klang Pianissimo (Swedish)
+By Klang AI AB
+https://huggingface.co/KlangAI/pianissimo-sv
+
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Converted to Core ML for on-device use; weights unchanged.
+
+Based on NVIDIA Parakeet TDT 0.6B v3, also licensed CC BY 4.0.
+https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
