@@ -27,7 +27,9 @@ public struct PushToTalkGesture {
     private let mode: RecordingMode
     private var state: State = .idle
 
-    public init(minimumHold: TimeInterval = 0.3, mode: RecordingMode = .pushToTalk) {
+    public static let defaultMinimumHold: TimeInterval = 0.3
+
+    public init(minimumHold: TimeInterval = defaultMinimumHold, mode: RecordingMode = .pushToTalk) {
         self.minimumHold = minimumHold
         self.mode = mode
     }

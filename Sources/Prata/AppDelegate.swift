@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsWindowController: SettingsWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
+    private var pendingStartSound: Task<Void, Never>?
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var pasteLastMenuItem: NSMenuItem!
     private var triggerHintMenuItem: NSMenuItem!
@@ -93,18 +94,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in
                 guard let self, self.recordingController.startRecording() else { return false }
-                if self.appSettings.playSounds {
-                    self.feedbackSounds.playStart()
-                }
+                self.scheduleStartSound()
                 return true
             },
             onFinish: { [weak self] in
-                guard let self, self.recordingController.stopRecordingAndTranscribe() else { return }
+                guard let self else { return }
+                self.pendingStartSound?.cancel()
+                guard self.recordingController.stopRecordingAndTranscribe() else { return }
                 if self.appSettings.playSounds {
                     self.feedbackSounds.playStop()
                 }
             },
-            onCancel: { [weak self] in self?.recordingController.cancelRecording() }
+            onCancel: { [weak self] in
+                self?.pendingStartSound?.cancel()
+                self?.recordingController.cancelRecording()
+            }
         )
         self.triggerMonitor = triggerMonitor
         triggerMonitor.configure(trigger: appSettings.triggerKey, mode: appSettings.recordingMode)
@@ -250,6 +254,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private static func width(of string: String, font: NSFont) -> CGFloat {
         ceil((string as NSString).size(withAttributes: [.font: font]).width)
+    }
+
+    // In push-to-talk a press only becomes a dictation after the minimum hold, so ⌘-shortcuts stay silent.
+    private func scheduleStartSound() {
+        pendingStartSound?.cancel()
+        guard appSettings.playSounds else { return }
+        let delay = appSettings.recordingMode == .pushToTalk ? PushToTalkGesture.defaultMinimumHold : 0
+        pendingStartSound = Task { @MainActor [weak self] in
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+            guard let self, !Task.isCancelled, self.recordingController.isRecording else { return }
+            self.feedbackSounds.playStart()
+        }
     }
 
     private func updateIcon(isRecording: Bool) {
