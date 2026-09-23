@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingController: RecordingController!
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
+    private var settingsWindowController: SettingsWindowController?
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var cancellables = Set<AnyCancellable>()
 
@@ -26,6 +27,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
         for model in SpeechModel.allCases {
             let item = NSMenuItem(
                 title: model.displayName,
@@ -93,6 +98,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         updateModelMenuItems(selected: appSettings.model)
+    }
+
+    @objc private func showSettings() {
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController(appSettings: appSettings)
+        }
+        settingsWindowController?.show()
     }
 
     @objc private func selectModel(_ sender: NSMenuItem) {

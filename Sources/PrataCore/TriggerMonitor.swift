@@ -34,8 +34,7 @@ public final class TriggerMonitor {
         if let localMonitor {
             NSEvent.removeMonitor(localMonitor)
         }
-        // KeyboardShortcuts.removeHandler(for:) is MainActor-isolated; deinit itself isn't, but this
-        // instance is only ever touched and released from the main actor, so the assumption holds.
+        // Safe: this instance is only ever touched and released from the main actor.
         if isCustomShortcutActive {
             MainActor.assumeIsolated {
                 KeyboardShortcuts.removeHandler(for: .prataCustomTrigger)

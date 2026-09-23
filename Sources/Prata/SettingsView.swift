@@ -1,0 +1,100 @@
+import AppKit
+import KeyboardShortcuts
+import os
+import PrataCore
+import SwiftUI
+
+struct SettingsView: View {
+    @ObservedObject var appSettings: AppSettings
+    @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
+    @State private var loginItemRequiresApproval = LoginItem.requiresApproval
+
+    private static let logger = Logger(subsystem: "com.prata.app", category: "SettingsView")
+
+    var body: some View {
+        Form {
+            Picker("Trigger", selection: $appSettings.triggerKey) {
+                ForEach(TriggerKey.allCases, id: \.self) { trigger in
+                    Text(trigger.displayName).tag(trigger)
+                }
+            }
+
+            if appSettings.triggerKey == .customShortcut {
+                KeyboardShortcuts.Recorder("Shortcut", name: .prataCustomTrigger)
+            }
+
+            if appSettings.triggerKey == .fn {
+                fnHint
+            }
+
+            Picker("Mode", selection: $appSettings.recordingMode) {
+                ForEach(RecordingMode.allCases, id: \.self) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Model", selection: $appSettings.model) {
+                ForEach(SpeechModel.allCases, id: \.self) { model in
+                    Text(model.isInstalled ? model.displayName : "\(model.displayName) – not installed")
+                        .tag(model)
+                        .disabled(!model.isInstalled)
+                }
+            }
+
+            Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
+
+            Toggle("Launch at login", isOn: launchAtLoginBinding)
+
+            if loginItemRequiresApproval {
+                loginItemApprovalHint
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
+        .onAppear {
+            isLaunchAtLoginEnabled = LoginItem.isEnabled
+            loginItemRequiresApproval = LoginItem.requiresApproval
+        }
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { isLaunchAtLoginEnabled },
+            set: { newValue in
+                do {
+                    try LoginItem.setEnabled(newValue)
+                } catch {
+                    Self.logger.error("failed to set launch at login to \(newValue, privacy: .public): \(String(describing: error), privacy: .public)")
+                }
+                isLaunchAtLoginEnabled = LoginItem.isEnabled
+                loginItemRequiresApproval = LoginItem.requiresApproval
+            }
+        )
+    }
+
+    private var fnHint: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Open Keyboard Settings…") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
+    private var loginItemApprovalHint: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Prata needs approval in Login Items to launch at login.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Open Login Items Settings…") {
+                LoginItem.openSystemSettingsLoginItems()
+            }
+        }
+    }
+}
