@@ -1,8 +1,7 @@
 import AppKit
 
 public enum PasteService {
-    public static func writeToPasteboard(_ text: String) {
-        let pasteboard = NSPasteboard.general
+    public static func writeToPasteboard(_ text: String, pasteboard: NSPasteboard = .general) {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }
