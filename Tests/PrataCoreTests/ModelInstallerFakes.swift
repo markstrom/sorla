@@ -14,6 +14,10 @@ actor FakeModelNetwork: ModelNetwork {
         failing.insert(url)
     }
 
+    func unfail(_ url: URL) {
+        failing.remove(url)
+    }
+
     func data(from url: URL) async throws -> Data {
         requests.append(url)
         guard !failing.contains(url), let data = responses[url] else { throw URLError(.notConnectedToInternet) }
