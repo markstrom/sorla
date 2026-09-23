@@ -23,7 +23,10 @@ for bundle in .build/release/*.bundle; do
 done
 shopt -u nullglob
 
-IDENTITY="${SORLA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk '/Apple Development/ {print $2; exit}' || true)}"
+# Prefer Developer ID so local builds keep the same signature, and so the same Accessibility grant, as the release.
+IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+IDENTITY="${SORLA_SIGN_IDENTITY:-$(echo "$IDENTITIES" | awk '/"Developer ID Application/ {print $2; exit}')}"
+IDENTITY="${IDENTITY:-$(echo "$IDENTITIES" | awk '/"Apple Development/ {print $2; exit}')}"
 IDENTITY="${IDENTITY:--}"
 
 # Secure timestamps need a real identity; ad-hoc ("-") signatures can't have one.
