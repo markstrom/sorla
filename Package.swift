@@ -5,7 +5,7 @@ let package = Package(
     name: "Prata",
     platforms: [.macOS(.v14)],
     dependencies: [
-        .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.16.1"),
+        .package(url: "https://github.com/FluidInference/FluidAudio.git", .upToNextMinor(from: "0.16.1")),
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", from: "3.1.0"),
     ],
     targets: [
