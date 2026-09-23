@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorla – prata svenska, få text</title>
+<meta name="description" content="Sorla är en liten app i menyraden på din Mac. Håll in en tangent, prata svenska och släpp, så hamnar texten där markören står. Allt körs på din Mac.">
+<meta property="og:title" content="Sorla">
+<meta property="og:description" content="Prata. Släpp. Klart. Svensk diktering för Mac, helt på enheten.">
+<meta property="og:image" content="https://sorla.zerolabs.se/images/og.png">
+<meta property="og:url" content="https://sorla.zerolabs.se/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="sv_SE">
+<meta name="theme-color" content="#F7F5F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://sorla.zerolabs.se/">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#innehall">Hoppa till innehållet</a>
+<div class="page">
+  <nav aria-label="Webbplats">
+    <a class="home" href="/" aria-current="page"><img src="/favicon.svg" alt="" width="28" height="28"><span class="name">Sorla</span></a>
+    <span class="links">
+      <a href="/manifesto">Manifest</a>
+      <a href="/privacy">Integritet</a>
+    </span>
+  </nav>
+
+  <main id="innehall">
+    <p class="eyebrow">För Mac med Apple Silicon</p>
+    <h1>Prata. Släpp. <span class="last">Klart.</span></h1>
+    <p class="lede">Håll in en tangent, prata svenska och släpp. Texten hamnar där markören står, i vilken app som helst.</p>
+
+    <figure class="stage">
+      <div class="screen" role="img" aria-label="Sorla i arbete: inspelningsindikatorn, en svart form högst upp på skärmen med en röd inspelningsprick och vita staplar som rör sig med rösten. När indikatorn försvinner står meningen i dokumentet.">
+        <div class="menubar"></div>
+        <div class="island"><span class="dot"></span><span class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <div class="window"><p><span class="waiting"><span class="caret"></span></span><span class="said">Vi ses på fiket vid tre, jag tar med nycklarna.<span class="caret"></span></span></p></div>
+      </div>
+      <figcaption>Indikatorn syns bara medan du pratar. Sedan står texten där.</figcaption>
+    </figure>
+    <p class="status">Kommer snart · macOS 14 eller senare</p>
+
+    <h2 id="sa-funkar-det">Så funkar det</h2>
+    <ol class="steps" role="list">
+      <li><strong>Håll</strong><p>Håll in <code>Right ⌘</code>. En liten indikator dyker upp högst upp på skärmen.</p></li>
+      <li><strong>Prata</strong><p>Säg det du vill skriva, på svenska, i din egen takt.</p></li>
+      <li><strong>Släpp</strong><p>Släpp tangenten. Texten står där markören är.</p></li>
+    </ol>
+
+    <h2 id="integritet">Allt stannar på din Mac</h2>
+    <p>Taligenkänningen körs helt på din Mac, i Apples Neural Engine. Inget konto, inget moln, ingen analys.</p>
+    <ul>
+      <li>Ljudet från mikrofonen behandlas i minnet och sparas aldrig.</li>
+      <li>Sorla går ut på nätet en gång: för att ladda ner talmodellen. Nya versioner letar den bara efter när du ber om det, eller om du själv slår på det.</li>
+      <li>När modellen väl är nedladdad fungerar Sorla utan internet.</li>
+    </ul>
+    <p><a href="/privacy">Läs integritetspolicyn</a></p>
+
+    <h2 id="klang">Svensk taligenkänning från Klang</h2>
+    <p>Sorla förstår svenska tack vare talmodellen <a href="https://huggingface.co/KlangAI/pianissimo-sv">Klang Pianissimo</a> från Klang AI AB, tränad på tiotusentals timmar svenskt tal och licensierad under <a href="https://creativecommons.org/licenses/by/4.0/deed.sv">CC BY 4.0</a>.</p>
+    <p>Det Sorla kör på din Mac är en <a href="https://huggingface.co/markstrom/pianissimo-sv-coreml">Core ML-konvertering av modellen</a>. Tack, Klang, för att ni byggde den och delar den öppet. Utan den fanns inte Sorla.</p>
+    <p class="quiet">Sorla är en fristående app. Den är inte gjord eller godkänd av Klang AI AB.</p>
+
+    <h2 id="funktioner">Det lilla som finns</h2>
+    <ul class="features" role="list">
+      <li><strong>Håll eller tryck.</strong> Håll in tangenten medan du pratar, eller tryck en gång för att börja och en gång till för att sluta.</li>
+      <li><strong>Din tangent.</strong> <code>Right ⌘</code> från början. Välj en annan tangent eller en egen tangentkombination.</li>
+      <li><strong>Hamnade det fel?</strong> <code>⌃⌥V</code> klistrar in den senaste texten igen, där du står nu.</li>
+      <li><strong>Urklippet orört.</strong> Det du hade kopierat ligger kvar när texten är inklistrad.</li>
+      <li><strong>En liten indikator.</strong> Högst upp på skärmen, i stil med Dynamic Island, med en levande vågform medan du pratar. Ett mjukt ljud när den startar och slutar.</li>
+      <li><strong>Startar med Macen.</strong> Om du vill.</li>
+    </ul>
+
+    <h2 id="ladda-ner">Ladda ner</h2>
+    <p>Installera, ge två behörigheter (mikrofon och hjälpmedel), håll in <code>Right ⌘</code> och prata.</p>
+    <!-- När appen släpps: lägg till href och byt texten, t.ex.
+         <a class="cta" href="https://sorla.zerolabs.se/Sorla.dmg">Ladda ner Sorla</a> -->
+    <a class="cta" role="link" aria-disabled="true">Kommer snart</a>
+    <dl>
+      <dt>Mac</dt>
+      <dd>Apple Silicon (M1 eller senare)</dd>
+      <dt>System</dt>
+      <dd>macOS 14 Sonoma eller senare</dd>
+      <dt>Utrymme</dt>
+      <dd>Ungefär 700 MB för talmodellen, som laddas ner första gången</dd>
+    </dl>
+
+    <p class="credits">Sorla lyssnar med talmodellen <a href="https://huggingface.co/KlangAI/pianissimo-sv">Klang Pianissimo</a> av Klang AI AB (<a href="https://creativecommons.org/licenses/by/4.0/deed.sv">CC BY 4.0</a>), <a href="https://huggingface.co/markstrom/pianissimo-sv-coreml">konverterad till Core ML</a>, och kör den med <a href="https://github.com/FluidInference/FluidAudio">FluidAudio</a> (Apache-2.0). Kortkommandon via <a href="https://github.com/sindresorhus/KeyboardShortcuts">KeyboardShortcuts</a> (MIT).</p>
+  </main>
+
+  <footer>
+    <span>Sorla av Zerolabs</span>
+    <span class="spacer"></span>
+    <a href="/manifesto">Manifest</a>
+    <a href="/privacy">Integritet</a>
+    <a href="https://zerolabs.se"><code>zerolabs.se</code></a>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integritet – Sorla</title>
+<meta name="description" content="Integritetspolicy för Sorla. Appen samlar inte in några uppgifter.">
+<meta name="theme-color" content="#F7F5F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://sorla.zerolabs.se/privacy">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#innehall">Hoppa till innehållet</a>
+<div class="page">
+  <nav aria-label="Webbplats">
+    <a class="home" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span class="name">Sorla</span></a>
+    <span class="links">
+      <a href="/manifesto">Manifest</a>
+      <a href="/privacy" aria-current="page">Integritet</a>
+    </span>
+  </nav>
+
+  <main id="innehall" class="policy">
+    <p class="eyebrow">Integritet</p>
+    <h1 class="page-title">Integritetspolicy</h1>
+    <p class="quiet">Senast uppdaterad 23 september 2026</p>
+    <p class="lede">Sorla samlar inte in några uppgifter om dig.</p>
+    <p>Det är hela policyn. Resten är detaljer.</p>
+
+    <h2>Rösten stannar på din Mac</h2>
+    <p>Sorla lyssnar bara medan du håller in tangenten, eller mellan två tryck om du använder växlingsläget. Ljudet behandlas i minnet av talmodellen, direkt på din Mac, och kastas när texten är klar. Det sparas aldrig på disk, loggas aldrig och skickas aldrig någonstans.</p>
+
+    <h2>Texten</h2>
+    <p>Den färdiga texten klistras in där markören står. Sorla sparar ingen historik. Den senaste texten hålls i minnet så att du kan klistra in den igen med <code>⌃⌥V</code>, och försvinner när du avslutar appen.</p>
+
+    <h2>Urklippet</h2>
+    <p>För att klistra in lägger Sorla texten en kort stund i urklippet och trycker <code>⌘V</code> åt dig. Sedan lägger den tillbaka det som låg där innan, om du inte har stängt av det i inställningarna. Om Sorla saknar behörighet att klistra in blir texten kvar i urklippet så att du kan klistra in den själv. Urklippet läses inte för något annat.</p>
+
+    <h2>Behörigheter</h2>
+    <p>Sorla ber om två: <strong>mikrofon</strong>, för att höra dig, och <strong>hjälpmedel</strong>, för att känna av din tangent och klistra in texten i andra appar. Båda kan dras tillbaka när som helst i Systeminställningar.</p>
+
+    <h2>Nätverket</h2>
+    <p>Sorla har inget konto och ingen server. Appen gör bara två slags förfrågningar, båda till Hugging Face på <a href="https://huggingface.co"><code>huggingface.co</code></a>:</p>
+    <ul>
+      <li><strong>Talmodellen</strong>, ungefär 700 MB, laddas ner en gång när du startar Sorla första gången.</li>
+      <li><strong>Sökning efter en nyare modell</strong> sker bara när du ber om det, eller automatiskt om du själv slår på det i inställningarna.</li>
+    </ul>
+    <p>Som vid all nedladdning ser Hugging Face din IP-adress, vilka filer som hämtas och att det är Sorla som hämtar dem. Inget annat skickas: inget om dig, din Mac eller det du säger. Hugging Face hanterar sina serverloggar enligt sin egen integritetspolicy.</p>
+
+    <h2>Ingen analys, ingen reklam</h2>
+    <p>Det finns ingen statistik, ingen telemetri, ingen reklam och inga bibliotek från tredje part som spårar något.</p>
+
+    <h2>Den här webbplatsen</h2>
+    <p>Sidan du läser är statisk. Den sätter inga kakor, kör inga skript och hämtar ingenting från andra webbplatser. Den ligger hos Cloudflare, som för vanliga serverloggar, till exempel IP-adress och webbläsartyp, för att kunna driva tjänsten. Vi använder inte loggarna för att identifiera besökare.</p>
+
+    <h2>Ändringar</h2>
+    <p>Om policyn ändras uppdateras datumet ovan. När inga uppgifter samlas in finns det lite att ändra.</p>
+
+    <h2>Frågor</h2>
+    <p><a href="mailto:sorla@zerolabs.se"><code>sorla@zerolabs.se</code></a></p>
+  </main>
+
+  <footer>
+    <span>Sorla av Zerolabs</span>
+    <span class="spacer"></span>
+    <a href="/">Sorla</a>
+    <a href="/manifesto">Manifest</a>
+    <a href="https://zerolabs.se"><code>zerolabs.se</code></a>
+  </footer>
+</div>
+</body>
+</html>

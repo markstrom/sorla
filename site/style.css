@@ -1,0 +1,232 @@
+/* Sorla. The Mac's own typeface, near-black and one warm accent taken
+   from the record dot. No web fonts, no scripts. */
+:root {
+  --bg: #F7F5F1;
+  --surface: #EEEBE5;
+  --ink: #17150F;
+  --ink-2: #4A463F;
+  --ink-3: #69645B;
+  --rule: #DEDAD2;
+  --accent: #B23A1E;
+  --accent-tint: rgba(178, 58, 30, 0.10);
+  --accent-ink: #FFFFFF;
+  --wall: linear-gradient(160deg, #F2D6C4 0%, #EBDCD0 45%, #E3E0DB 100%);
+  --bar: rgba(255, 255, 255, 0.55);
+  --window: #FFFFFF;
+  --window-ink: #17150F;
+  --dot: #FF3B30;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0B0B0C;
+    --surface: #151516;
+    --ink: #EDEBE7;
+    --ink-2: #AEAAA3;
+    --ink-3: #8A857E;
+    --rule: #262527;
+    --accent: #FF7A59;
+    --accent-tint: rgba(255, 122, 89, 0.15);
+    --accent-ink: #1A0B06;
+    --wall: linear-gradient(160deg, #3A2219 0%, #1E1614 50%, #121112 100%);
+    --bar: rgba(0, 0, 0, 0.35);
+    --window: #222022;
+    --window-ink: #EDEBE7;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 0.15em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+.skip {
+  position: absolute; left: 16px; top: -48px; padding: 8px 12px; border-radius: 8px;
+  background: var(--ink); color: var(--bg); z-index: 10;
+}
+.skip:focus { top: 12px; }
+
+.page { max-width: 720px; margin: 0 auto; padding: 24px 24px 64px; }
+
+nav { display: flex; align-items: center; gap: 10px; margin-bottom: 64px; flex-wrap: wrap; }
+nav .home { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+nav .home:hover { text-decoration: none; }
+nav img { width: 28px; height: 28px; display: block; }
+nav .name { font-weight: 650; font-size: 20px; letter-spacing: -0.01em; }
+nav .links { margin-left: auto; display: flex; gap: 20px; font-size: 15px; flex-wrap: wrap; }
+nav .links a { color: var(--ink-2); }
+nav .links a[aria-current] { color: var(--ink); }
+
+h1 {
+  font-size: clamp(40px, 10vw, 68px); line-height: 1.02; font-weight: 700;
+  letter-spacing: -0.035em; margin: 0 0 18px; text-wrap: balance;
+}
+h1 .last { color: var(--accent); }
+h1.page-title { font-size: clamp(34px, 7vw, 48px); letter-spacing: -0.025em; }
+h2 { font-size: 26px; line-height: 1.2; font-weight: 650; letter-spacing: -0.015em; margin: 72px 0 12px; }
+h3, .policy h2 { font-size: 18px; line-height: 1.3; font-weight: 650; letter-spacing: 0; margin: 28px 0 4px; }
+p { margin: 10px 0; max-width: 60ch; }
+ul, ol { padding-left: 22px; margin: 10px 0; max-width: 60ch; }
+li { margin: 8px 0; }
+li::marker { color: var(--ink-3); }
+em { font-style: italic; }
+
+.eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 650; margin: 0 0 12px; }
+.lede { font-size: 21px; line-height: 1.45; color: var(--ink-2); margin: 0 0 36px; max-width: 34ch; text-wrap: pretty; }
+.quiet { color: var(--ink-3); font-size: 14px; }
+
+/* The indicator, drawn: a black island hanging from the menu bar, a red
+   dot on the left, white bars on the right. The loop is one dictation:
+   the island drops, you speak, it lifts, the sentence is there. */
+.stage { margin: 0 0 12px; }
+.screen {
+  position: relative; overflow: hidden; border-radius: 18px;
+  aspect-ratio: 16 / 9; min-height: 200px;
+  background: var(--wall); border: 1px solid var(--rule);
+}
+.menubar { position: absolute; inset: 0 0 auto 0; height: 26px; background: var(--bar); }
+.island {
+  position: absolute; top: 0; left: 50%; z-index: 1;
+  width: min(64%, 260px); height: 36px; margin-left: calc(min(64%, 260px) / -2);
+  display: flex; align-items: center; justify-content: space-between; padding: 2px 18px 0;
+  background: #000; border-radius: 0 0 16px 16px;
+  animation: island 7s cubic-bezier(.3, .7, .2, 1) infinite;
+}
+.island .dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--dot);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.island .bars { display: flex; align-items: center; gap: 3px; height: 18px; }
+.island .bars i {
+  display: block; width: 3px; height: 18px; border-radius: 2px;
+  background: linear-gradient(#FFFFFF, #D6EBFF);
+  transform: scaleY(0.25); transform-origin: center;
+  animation: talk 1.1s ease-in-out infinite alternate;
+}
+.island .bars i:nth-child(1) { animation-duration: 0.9s; animation-delay: -0.2s; }
+.island .bars i:nth-child(2) { animation-duration: 1.3s; animation-delay: -0.7s; }
+.island .bars i:nth-child(3) { animation-duration: 0.8s; animation-delay: -0.4s; }
+.island .bars i:nth-child(4) { animation-duration: 1.0s; animation-delay: -0.9s; }
+.island .bars i:nth-child(5) { animation-duration: 0.85s; animation-delay: -0.1s; }
+.island .bars i:nth-child(6) { animation-duration: 1.25s; animation-delay: -0.5s; }
+.island .bars i:nth-child(7) { animation-duration: 0.95s; animation-delay: -0.8s; }
+
+.window {
+  position: absolute; left: 10%; right: 10%; bottom: 16%; top: 36%;
+  background: var(--window); color: var(--window-ink); border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  padding: clamp(14px, 4vw, 26px);
+  font-size: clamp(15px, 3.4vw, 20px); line-height: 1.4;
+}
+.window p { position: relative; margin: 0; max-width: none; }
+.said { animation: said 7s ease-out infinite; }
+.waiting { position: absolute; left: 0; top: 0; animation: waiting 7s ease-out infinite; }
+.caret {
+  display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -0.18em;
+  background: var(--accent); animation: blink 1s steps(1) infinite;
+}
+.stage figcaption { color: var(--ink-3); font-size: 13px; margin: 10px 2px 0; }
+
+@keyframes island {
+  0%, 4% { transform: translateY(-110%); }
+  10%, 56% { transform: translateY(0); }
+  63%, 100% { transform: translateY(-110%); }
+}
+@keyframes said {
+  0%, 60% { opacity: 0; }
+  66%, 94% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes waiting {
+  0%, 60% { opacity: 1; }
+  63%, 97% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes talk { from { transform: scaleY(0.2); } to { transform: scaleY(1); } }
+@keyframes pulse { 50% { opacity: 0.55; } }
+@keyframes blink { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .island, .island .dot, .island .bars i, .said, .caret { animation: none; }
+  .waiting { display: none; }
+  .island .bars i:nth-child(1), .island .bars i:nth-child(7) { transform: scaleY(0.3); }
+  .island .bars i:nth-child(2), .island .bars i:nth-child(6) { transform: scaleY(0.55); }
+  .island .bars i:nth-child(3), .island .bars i:nth-child(5) { transform: scaleY(0.85); }
+  .island .bars i:nth-child(4) { transform: scaleY(0.65); }
+}
+
+.status { color: var(--ink-3); font-size: 15px; margin-top: 0; }
+
+.steps { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: none; counter-reset: step; }
+.steps li { margin: 0; padding: 16px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--rule); counter-increment: step; }
+.steps li::before { content: counter(step); display: block; font-size: 13px; font-weight: 650; color: var(--accent); margin-bottom: 6px; }
+.steps strong { display: block; font-size: 19px; letter-spacing: -0.01em; margin-bottom: 2px; }
+.steps p { margin: 0; font-size: 15px; color: var(--ink-2); }
+
+.features { list-style: none; padding: 0; }
+.features li { margin: 14px 0; }
+.features strong { font-weight: 650; }
+
+dl { margin: 14px 0; max-width: 60ch; }
+dt { font-weight: 650; margin-top: 16px; }
+dd { margin: 2px 0 0; color: var(--ink-2); }
+
+.cta {
+  display: inline-block; margin-top: 12px; padding: 12px 22px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink); font-weight: 650;
+}
+.cta:hover { text-decoration: none; filter: brightness(1.08); }
+.cta[aria-disabled="true"] { background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule); cursor: default; filter: none; }
+
+.credits { margin-top: 72px; font-size: 14px; color: var(--ink-3); }
+.credits a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 0.15em; }
+
+table { border-collapse: collapse; margin: 16px 0; width: 100%; max-width: 60ch; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); }
+th { font-weight: 650; }
+thead th { color: var(--ink-3); font-size: 13px; font-weight: 600; }
+td:last-child { color: var(--ink-2); }
+
+footer {
+  margin-top: 72px; padding-top: 18px; border-top: 1px solid var(--rule);
+  display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; color: var(--ink-3);
+}
+footer a { color: var(--ink-2); }
+footer .spacer { flex: 1; }
+
+/* Addresses, paths and keys are data, not prose: the system monospace, a
+   touch smaller, on a chip tinted with the accent. Same rule as on Portik
+   and Klang. */
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  color: var(--ink);
+  background: var(--accent-tint);
+  padding: 0.08em 0.4em;
+  border-radius: 0.4em;
+  white-space: nowrap;
+}
+a code { color: var(--accent); }
+
+@media (max-width: 600px) {
+  body { font-size: 16px; }
+  .page { padding: 20px 16px 56px; }
+  nav { margin-bottom: 44px; }
+  nav .links { gap: 14px; font-size: 14px; }
+  .lede { font-size: 18px; }
+  h2 { font-size: 23px; margin-top: 56px; }
+  .steps { grid-template-columns: 1fr; }
+  .screen { aspect-ratio: 4 / 3; }
+}
