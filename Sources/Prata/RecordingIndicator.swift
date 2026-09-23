@@ -6,6 +6,7 @@ import SwiftUI
 final class RecordingIndicatorViewModel: ObservableObject {
     @Published private(set) var smoothedLevel: Float = 0
     @Published private(set) var isVisible = false
+    @Published private(set) var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     private var smoother = LevelSmoother()
 
     func push(_ level: Float) {
@@ -16,6 +17,10 @@ final class RecordingIndicatorViewModel: ObservableObject {
         isVisible = visible
     }
 
+    func refreshReduceMotion() {
+        reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
     func reset() {
         smoother = LevelSmoother()
         smoothedLevel = 0
@@ -24,7 +29,6 @@ final class RecordingIndicatorViewModel: ObservableObject {
 
 struct RecordingIndicatorView: View {
     @ObservedObject var viewModel: RecordingIndicatorViewModel
-    let reduceMotion: Bool
 
     private let minBarHeight: CGFloat = 3
     private let maxBarHeight: CGFloat = 20
@@ -54,7 +58,7 @@ struct RecordingIndicatorView: View {
         let count = VisualizerBars.recommendedBarCount(
             availableWidth: availableWidth, barWidth: barWidth, spacing: barSpacing
         )
-        if reduceMotion || !viewModel.isVisible {
+        if viewModel.reduceMotion || !viewModel.isVisible {
             bars(count: count, time: 0)
         } else {
             TimelineView(.animation) { context in
@@ -70,7 +74,7 @@ struct RecordingIndicatorView: View {
             time: time,
             minHeight: minBarHeight,
             maxHeight: maxBarHeight,
-            reduceMotion: reduceMotion
+            reduceMotion: viewModel.reduceMotion
         )
         return HStack(alignment: .center, spacing: barSpacing) {
             ForEach(Array(heights.enumerated()), id: \.offset) { _, height in
@@ -105,12 +109,7 @@ final class RecordingIndicatorPanel: NSPanel {
         isMovableByWindowBackground = false
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-        contentViewController = NSHostingController(
-            rootView: RecordingIndicatorView(
-                viewModel: viewModel,
-                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            )
-        )
+        contentViewController = NSHostingController(rootView: RecordingIndicatorView(viewModel: viewModel))
     }
 
     override var canBecomeKey: Bool { false }
@@ -121,6 +120,7 @@ final class RecordingIndicatorPanel: NSPanel {
     }
 
     func showNearMouse() {
+        viewModel.refreshReduceMotion()
         viewModel.reset()
         viewModel.setVisible(true)
         positionOnScreenContainingMouse()

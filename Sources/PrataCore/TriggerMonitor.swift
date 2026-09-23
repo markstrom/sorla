@@ -87,7 +87,7 @@ public final class TriggerMonitor {
 
     private func setUpModifierMonitor(for trigger: TriggerKey) {
         guard let keyCode = trigger.keyCode, let deviceMask = trigger.deviceMask else { return }
-        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
 
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
             MainActor.assumeIsolated {
@@ -133,6 +133,8 @@ public final class TriggerMonitor {
             action = gesture.handle(isDown ? .triggerDown(at: event.timestamp) : .triggerUp(at: event.timestamp))
         case .keyDown:
             guard !Self.isPrataSyntheticEvent(event) else { return }
+            action = gesture.handle(.otherKeyDown)
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             action = gesture.handle(.otherKeyDown)
         default:
             return

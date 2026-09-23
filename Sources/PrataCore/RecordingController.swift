@@ -146,7 +146,7 @@ public final class RecordingController {
                 if !keepClipboardContent {
                     self.clipboardOwnership.cancel()
                 }
-                let changeCountAfterWrite = PasteService.writeToPasteboard(text)
+                let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
                 PasteService.paste()
                 let pasted = AXIsProcessTrusted()
                 self.logger.info("\(modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(pasted, privacy: .public): \(text, privacy: .private)")

@@ -60,9 +60,14 @@ public enum PasteService {
         value == syntheticEventMarker
     }
 
+    private static let transientPasteboardType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+
     @discardableResult
-    public static func writeToPasteboard(_ text: String, pasteboard: NSPasteboard = .general) -> Int {
+    public static func writeToPasteboard(_ text: String, pasteboard: NSPasteboard = .general, transient: Bool = false) -> Int {
         pasteboard.clearContents()
+        if transient {
+            pasteboard.setData(Data(), forType: transientPasteboardType)
+        }
         pasteboard.setString(text, forType: .string)
         return pasteboard.changeCount
     }

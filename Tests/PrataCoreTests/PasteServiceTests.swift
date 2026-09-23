@@ -112,4 +112,16 @@ final class PasteServiceTests: XCTestCase {
         XCTAssertTrue(PasteService.shouldAutoPaste(frontmostPIDAtRelease: nil, frontmostPIDAtDelivery: 200))
         XCTAssertTrue(PasteService.shouldAutoPaste(frontmostPIDAtRelease: 100, frontmostPIDAtDelivery: nil))
     }
+
+    func testWriteToPasteboardTransientAddsMarkerType() {
+        PasteService.writeToPasteboard("text", pasteboard: pasteboard, transient: true)
+
+        XCTAssertNotNil(pasteboard.data(forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType")))
+    }
+
+    func testWriteToPasteboardNonTransientOmitsMarkerType() {
+        PasteService.writeToPasteboard("text", pasteboard: pasteboard, transient: false)
+
+        XCTAssertNil(pasteboard.data(forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType")))
+    }
 }

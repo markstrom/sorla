@@ -19,7 +19,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "Prata",
-            dependencies: ["PrataCore"],
+            dependencies: ["PrataCore", "KeyboardShortcuts"],
             path: "Sources/Prata"
         ),
         .testTarget(
