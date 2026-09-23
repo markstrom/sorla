@@ -1,4 +1,4 @@
-// Draws the link-preview image for the website (site/images/og.png, 1200×630) from the app icon and tagline.
+// Draws the link-preview image for the website (site/images/og.jpg, 1200×630) from the app icon and tagline.
 // Run: swift Scripts/make-og-image.swift
 import AppKit
 
@@ -35,6 +35,6 @@ text("Svensk diktering för Mac, helt på enheten", size: 30, weight: .regular, 
 text("Gratis · Öppen källkod · sorla.zerolabs.se", size: 26, weight: .medium, color: muted, at: NSPoint(x: 460, y: 100))
 
 NSGraphicsContext.restoreGraphicsState()
-let output = root.appendingPathComponent("site/images/og.png")
-try rep.representation(using: .png, properties: [:])!.write(to: output)
+let output = root.appendingPathComponent("site/images/og.jpg")
+try rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85])!.write(to: output)
 print("Wrote \(output.path)")
