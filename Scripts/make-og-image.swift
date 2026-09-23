@@ -32,7 +32,15 @@ text("Sorla", size: 44, weight: .semibold, color: muted, at: NSPoint(x: 460, y: 
 text("Prata. Släpp.", size: 84, weight: .bold, color: ink, at: NSPoint(x: 456, y: 300), kern: -2.5)
 text("Klart.", size: 84, weight: .bold, color: accent, at: NSPoint(x: 456, y: 205), kern: -2.5)
 text("Svensk diktering för Mac. Allt stannar på datorn", size: 30, weight: .regular, color: muted, at: NSPoint(x: 460, y: 150))
-text("Gratis · Öppen källkod · sorla.zerolabs.se", size: 26, weight: .medium, color: muted, at: NSPoint(x: 460, y: 100))
+let lead = NSAttributedString(string: "Gratis · Öppen källkod · ", attributes: [.font: NSFont.systemFont(ofSize: 26, weight: .medium), .foregroundColor: muted])
+lead.draw(at: NSPoint(x: 460, y: 100))
+// The address is set like on the website: system monospace on a chip tinted with the accent.
+let address = NSAttributedString(string: "sorla.zerolabs.se", attributes: [.font: NSFont.monospacedSystemFont(ofSize: 24, weight: .medium), .foregroundColor: accent])
+let chipOrigin = NSPoint(x: 460 + lead.size().width + 2, y: 100)
+let chip = NSRect(x: chipOrigin.x - 10, y: chipOrigin.y - 4, width: address.size().width + 20, height: address.size().height + 10)
+accent.withAlphaComponent(0.16).setFill()
+NSBezierPath(roundedRect: chip, xRadius: 9, yRadius: 9).fill()
+address.draw(at: NSPoint(x: chipOrigin.x, y: chipOrigin.y + 1))
 
 NSGraphicsContext.restoreGraphicsState()
 let output = root.appendingPathComponent("site/images/og.jpg")
