@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
     private var modelLoadingStatus: ModelLoadingStatus = .loading
+    private var didNotifyModelNotReady = false
+    private var isRefusedDictationHeld = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let appSettings = AppSettings()
@@ -109,17 +111,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in
-                guard let self, self.recordingController.startRecording() else { return false }
+                guard let self else { return false }
+                if let message = self.modelNotReadyMessage() {
+                    guard DictationGate.waitsForRelease(mode: self.appSettings.recordingMode) else {
+                        self.refuseDictation(message)
+                        return false
+                    }
+                    self.isRefusedDictationHeld = true
+                    return true
+                }
+                guard self.recordingController.startRecording() else { return false }
                 self.scheduleStartSound()
                 return true
             },
             onFinish: { [weak self] in
                 guard let self else { return }
+                if self.isRefusedDictationHeld {
+                    self.isRefusedDictationHeld = false
+                    if let message = self.modelNotReadyMessage() { self.refuseDictation(message) }
+                    return
+                }
                 self.pendingStartSound?.cancel()
                 guard self.recordingController.stopRecordingAndTranscribe() else { return }
                 self.playStopSoundAfterTail()
             },
             onCancel: { [weak self] in
+                self?.isRefusedDictationHeld = false
                 self?.pendingStartSound?.cancel()
                 self?.recordingController.cancelRecording()
             }
@@ -292,6 +309,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateIcon(isRecording: recordingController.isRecording)
         }
         updateStatusMenuItem(model: status)
+    }
+
+    private func modelNotReadyMessage() -> String? {
+        DictationGate.blockedMessage(isModelInstalled: modelManager.isInstalled, model: modelManager.status)
+    }
+
+    // The status row already shows the progress; the notification is only for the first refused attempt.
+    private func refuseDictation(_ message: String) {
+        Self.logger.info("dictation refused: model not installed yet")
+        guard !didNotifyModelNotReady else { return }
+        didNotifyModelNotReady = true
+        issueNotifier.post(message)
     }
 
     private func handleIssue(_ issue: PrataIssue) {
