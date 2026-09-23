@@ -11,8 +11,10 @@ public final class AudioRecorder {
     private var sampleRate: Double = 0
     private var samples: [Float] = []
     private let lock = NSLock()
+    private var analyzer: SpectrumAnalyzer?
 
     public var onLevel: (@Sendable (Float) -> Void)?
+    public var onSpectrum: (@Sendable (SIMD8<Float>) -> Void)?
 
     public init() {}
 
@@ -28,9 +30,14 @@ public final class AudioRecorder {
             throw AudioRecorderError.noInputDevice
         }
         sampleRate = format.sampleRate
+        if analyzer?.sampleRate != format.sampleRate {
+            analyzer = SpectrumAnalyzer(sampleRate: format.sampleRate)
+        }
+        let analyzer = self.analyzer
 
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            self?.append(buffer)
+        input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(SpectrumAnalyzer.frameCount), format: format) {
+            [weak self] buffer, _ in
+            self?.append(buffer, analyzer: analyzer)
         }
 
         engine.prepare()
@@ -54,7 +61,7 @@ public final class AudioRecorder {
         return try Self.resample(captured, sampleRate: sampleRate)
     }
 
-    private func append(_ buffer: AVAudioPCMBuffer) {
+    private func append(_ buffer: AVAudioPCMBuffer, analyzer: SpectrumAnalyzer?) {
         guard let channelData = buffer.floatChannelData else { return }
         let frameLength = Int(buffer.frameLength)
         let channel0 = UnsafeBufferPointer(start: channelData[0], count: frameLength)
@@ -64,6 +71,9 @@ public final class AudioRecorder {
         lock.unlock()
 
         onLevel?(AudioLevel.normalized(rms: AudioLevel.rms(channel0)))
+        if let onSpectrum, let analyzer {
+            onSpectrum(analyzer.analyze(channel0))
+        }
     }
 
     static func resample(_ nativeSamples: [Float], sampleRate: Double) throws -> [Float] {
