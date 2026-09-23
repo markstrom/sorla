@@ -1,6 +1,6 @@
 # Sorla
 
-**Talk. Let go. Done.**
+**Talk. Release. Done.**
 
 Sorla is push-to-talk dictation for the Mac. Hold a key (Right ⌘ by default), speak Swedish, and let go. The text is pasted where your cursor is, in whatever app you're using.
 

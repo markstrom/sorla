@@ -21,7 +21,7 @@ struct AboutView: View {
                 Text(versionString).font(.caption).foregroundStyle(.secondary)
             }
 
-            Text("Talk. Let go. Done.").font(.headline)
+            Text("Talk. Release. Done.").font(.headline)
 
             Text("Push-to-talk dictation for Mac. Runs entirely on your device.")
                 .font(.callout)

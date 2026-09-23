@@ -47,7 +47,7 @@ struct WelcomeView: View {
                 .resizable()
                 .frame(width: 64, height: 64)
 
-            Text("Talk. Let go. Done.").font(.headline)
+            Text("Talk. Release. Done.").font(.headline)
 
             VStack(alignment: .leading, spacing: 14) {
                 row(symbol: "mic.fill", title: "Microphone", description: "So Sorla can hear you.", status: microphone)
