@@ -31,6 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var didNotifyModelNotReady = false
     private var isRefusedDictationHeld = false
 
+    // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return false
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
             if try LegacyModelMigration.migrate(applicationSupport: PianissimoModel.applicationSupportDirectory) {

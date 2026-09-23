@@ -65,6 +65,12 @@ struct SettingsView: View {
             if loginItemRequiresApproval {
                 loginItemApprovalHint
             }
+
+            // The menu bar icon can hide behind the notch, so Settings also offers a way out.
+            HStack {
+                Spacer()
+                Button("Quit Sorla") { NSApp.terminate(nil) }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 460)
