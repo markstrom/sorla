@@ -9,7 +9,7 @@ struct IslandLayout: Equatable {
 
     static let compactWidth: CGFloat = 190
     static let compactCollapsedWidth: CGFloat = 36
-    // A tab exactly as tall as the menu bar reads as a misalignment, so it hangs clearly below.
+    // The no-notch pill hangs below the menu bar so it doesn't read as misaligned; a notch only grows sideways.
     static let depthBelowMenuBar: CGFloat = 6
     static let overshootMargin: CGFloat = 12
     static let notchBarCount = 5
@@ -58,7 +58,7 @@ struct IslandLayout: Equatable {
         let barsWidth = CGFloat(notchBarCount) * barWidth + CGFloat(notchBarCount - 1) * barSpacing
         let contentWidth = max(barsWidth, notchStatusSize)
         let sideWidth = contentWidth + 2 * notchContentPadding
-        return IslandLayout(notchWidth: notchWidth, sideWidth: sideWidth, height: notchHeight + depthBelowMenuBar)
+        return IslandLayout(notchWidth: notchWidth, sideWidth: sideWidth, height: notchHeight)
     }
 
     static func compactLayout(menuBarHeight: CGFloat) -> IslandLayout {
