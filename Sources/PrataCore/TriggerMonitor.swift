@@ -13,12 +13,12 @@ public final class TriggerMonitor {
     private var isCustomShortcutActive = false
     private var isRecordingActive = false
 
-    private let onStart: () -> Void
+    private let onStart: () -> Bool
     private let onFinish: () -> Void
     private let onCancel: () -> Void
 
     public init(
-        onStart: @escaping @MainActor () -> Void,
+        onStart: @escaping @MainActor () -> Bool,
         onFinish: @escaping @MainActor () -> Void,
         onCancel: @escaping @MainActor () -> Void
     ) {
@@ -33,6 +33,13 @@ public final class TriggerMonitor {
         }
         if let localMonitor {
             NSEvent.removeMonitor(localMonitor)
+        }
+        // KeyboardShortcuts.removeHandler(for:) is MainActor-isolated; deinit itself isn't, but this
+        // instance is only ever touched and released from the main actor, so the assumption holds.
+        if isCustomShortcutActive {
+            MainActor.assumeIsolated {
+                KeyboardShortcuts.removeHandler(for: .prataCustomTrigger)
+            }
         }
     }
 
@@ -86,9 +93,7 @@ public final class TriggerMonitor {
         }
     }
 
-    // The KeyboardShortcuts library only reports down/up of the registered combo itself, so
-    // there is no "other key while held" signal available for a custom shortcut the way there
-    // is for a bare modifier trigger observed via NSEvent monitors.
+    // KeyboardShortcuts only reports down/up of the registered combo, so there's no "other key while held" signal here.
     private func setUpCustomShortcut() {
         isCustomShortcutActive = true
 
@@ -127,8 +132,12 @@ public final class TriggerMonitor {
     private func dispatch(_ action: PushToTalkGesture.Action?) {
         switch action {
         case .start:
-            isRecordingActive = true
-            onStart()
+            if onStart() {
+                isRecordingActive = true
+            } else {
+                isRecordingActive = false
+                gesture.reset()
+            }
         case .finish:
             isRecordingActive = false
             onFinish()

@@ -43,14 +43,17 @@ public final class RecordingController {
         }
     }
 
-    public func startRecording() {
-        guard !isRecording, !isCapturingTail else { return }
+    @discardableResult
+    public func startRecording() -> Bool {
+        guard !isRecording, !isCapturingTail else { return false }
         do {
             try recorder.start()
             isRecording = true
             onStateChange?(true)
+            return true
         } catch {
             logger.error("failed to start recording: \(String(describing: error), privacy: .public)")
+            return false
         }
     }
 

@@ -64,9 +64,7 @@ public struct PushToTalkGesture {
         }
     }
 
-    // A clean tap (down then up with no otherKeyDown between) toggles idle->recording or
-    // recording->finished/cancelled; duration is measured from the start tap's down to the stop
-    // tap's up, so a quick start+stop pair still cancels like a push-to-talk short hold.
+    // A clean tap (down+up, no otherKeyDown between) toggles idle->recording or recording->finished/cancelled.
     private mutating func handleToggle(_ event: Event) -> Action? {
         switch (state, event) {
         case (.idle, .triggerDown(let at)):
@@ -101,11 +99,12 @@ public struct PushToTalkGesture {
             state = .recording(startedAt: startedAt)
             return nil
 
-        case (.idle, .otherKeyDown), (.recording, .otherKeyDown):
-            return nil
-
         default:
             return nil
         }
+    }
+
+    public mutating func reset() {
+        state = .idle
     }
 }

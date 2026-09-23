@@ -41,14 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(NSMenuItem(title: "Quit Prata", action: #selector(quit), keyEquivalent: "q"))
         statusItem.menu = menu
 
-        updateModelMenuItems()
+        updateModelMenuItems(selected: appSettings.model)
 
         recordingController.onStateChange = { [weak self] isRecording in
             self?.updateIcon(isRecording: isRecording)
         }
 
         let triggerMonitor = TriggerMonitor(
-            onStart: { [weak self] in self?.recordingController.startRecording() },
+            onStart: { [weak self] in self?.recordingController.startRecording() ?? false },
             onFinish: { [weak self] in self?.recordingController.stopRecordingAndTranscribe() },
             onCancel: { [weak self] in self?.recordingController.cancelRecording() }
         )
@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         Publishers.CombineLatest(appSettings.$triggerKey, appSettings.$recordingMode)
             .dropFirst()
+            .removeDuplicates(by: { $0.0 == $1.0 && $0.1 == $1.1 })
             .sink { [weak self] trigger, mode in
                 self?.triggerMonitor?.configure(trigger: trigger, mode: mode)
             }
@@ -64,15 +65,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         appSettings.$model
             .dropFirst()
+            .removeDuplicates()
             .sink { [weak self] model in
                 guard let self else { return }
                 self.recordingController.setEngine(ParakeetTranscriptionEngine(model: model), name: model.displayName)
-                self.updateModelMenuItems()
+                self.updateModelMenuItems(selected: model)
             }
             .store(in: &cancellables)
 
         appSettings.$keepClipboardContent
             .dropFirst()
+            .removeDuplicates()
             .sink { [weak self] keepClipboardContent in
                 self?.recordingController.keepClipboardContent = keepClipboardContent
             }
@@ -89,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        updateModelMenuItems()
+        updateModelMenuItems(selected: appSettings.model)
     }
 
     @objc private func selectModel(_ sender: NSMenuItem) {
@@ -99,11 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appSettings.model = model
     }
 
-    private func updateModelMenuItems() {
+    private func updateModelMenuItems(selected: SpeechModel) {
         for (model, item) in modelMenuItems {
             let installed = model.isInstalled
             item.isEnabled = installed
-            item.state = model == appSettings.model ? .on : .off
+            item.state = model == selected ? .on : .off
             item.title = installed ? model.displayName : "\(model.displayName) – not installed"
         }
     }

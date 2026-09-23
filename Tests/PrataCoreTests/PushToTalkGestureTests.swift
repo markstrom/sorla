@@ -50,6 +50,15 @@ final class PushToTalkGestureTests: XCTestCase {
 
         XCTAssertNil(gesture.handle(.otherKeyDown))
     }
+
+    func testResetWhileHoldingReturnsToIdle() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
+        gesture.reset()
+
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 1)), .start)
+    }
 }
 
 final class PushToTalkGestureToggleModeTests: XCTestCase {
@@ -133,5 +142,17 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
 
         XCTAssertNil(gesture.handle(.triggerDown(at: 1.0)))
         XCTAssertEqual(gesture.handle(.triggerUp(at: 1.05)), .finish)
+    }
+
+    func testResetWhileRecordingReturnsToIdleSoNextTapStartsAgain() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
+
+        gesture.reset()
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 1)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 1.05)), .start)
     }
 }
