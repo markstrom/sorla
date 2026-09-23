@@ -242,3 +242,11 @@ details:first-of-type { margin-top: 14px; }
 summary { cursor: pointer; font-weight: 650; }
 summary:hover { color: var(--accent); }
 details p { margin: 8px 0 4px; }
+
+/* Help page: the first-launch pointer, sub-steps and commands. A command
+   keeps its chip on one line; its row scrolls instead of the page. */
+.note { padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--rule); max-width: 60ch; }
+.policy h2.lead-section { font-size: 26px; letter-spacing: -0.015em; margin-top: 56px; }
+.policy h3 { font-size: 16px; margin-top: 24px; }
+.command { overflow-x: auto; margin: 8px 0; padding: 2px 0; }
+@media (max-width: 600px) { .policy h2.lead-section { font-size: 23px; } }

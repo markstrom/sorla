@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hjälp – Sorla</title>
-<meta name="description" content="Hjälp med Sorla: krav, kom igång, kortkommandon, urklipp och felsökning.">
+<meta name="description" content="Hjälp med Sorla: öppna appen första gången, krav, kom igång, kortkommandon, urklipp och felsökning.">
 <meta name="theme-color" content="#F7F5F1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://sorla.zerolabs.se/support">
@@ -31,6 +31,7 @@
     <p class="eyebrow">Hjälp</p>
     <h1 class="page-title">Hjälp</h1>
     <p class="lede">Krav, kom igång och svar på det som brukar dyka upp.</p>
+    <p class="note">Första gången: <a href="#oppna">Om macOS inte vill öppna Sorla</a>. Steg för steg, från nedladdning till första diktering.</p>
 
     <h2>Krav</h2>
     <ul>
@@ -39,13 +40,48 @@
       <li>Ungefär 700 MB för talmodellen, och cirka 1,4 GB ledigt utrymme under själva nedladdningen.</li>
     </ul>
 
+    <h2 id="oppna" class="lead-section">Om macOS inte vill öppna Sorla</h2>
+    <p>macOS skyddar dig mot appar som hämtats från internet. Skyddet heter Gatekeeper. Första gången du öppnar Sorla frågar macOS därför om du verkligen vill öppna appen. Du kan få se en av två rutor:</p>
+    <ul>
+      <li><strong>”Sorla är ett program som hämtats från internet …”</strong> Klicka på <strong>Öppna</strong>. Mer behövs inte.</li>
+      <li><strong>”Apple kunde inte kontrollera att Sorla är fritt från skadlig programvara …”</strong> Den visas när en version inte har granskats av Apple i förväg. Klicka på <strong>Klar</strong>, inte på Flytta till papperskorgen, och följ stegen nedan.</li>
+    </ul>
+    <p>Sorla är signerad av sin utvecklare. Varningen är macOS försiktighet, inget tecken på att något är fel.</p>
+
+    <h3>Steg för steg</h3>
+    <ol>
+      <li><strong>Lägg Sorla i Program.</strong> Öppna DMG-filen du laddade ner och dra Sorla till mappen Program (<code>/Applications</code>). Kör alltid Sorla därifrån, aldrig direkt från DMG-filen eller från Hämtade filer. Annars kör macOS en tillfällig kopia av appen, och behörigheterna du ger fastnar inte.</li>
+      <li><strong>Öppna Sorla från Program.</strong> Dubbelklicka på Sorla i mappen Program. Får du frågan om du vill öppna appen, klicka på <strong>Öppna</strong>.</li>
+      <li><strong>Om Sorla blockeras.</strong> Öppna Systeminställningar → Integritet och säkerhet. Rulla ner till avsnittet Säkerhet. Där står att Sorla blockerades. Klicka på <strong>Öppna ändå</strong>. Öppna sedan Sorla från Program igen och bekräfta med <strong>Öppna</strong>. På en del Mac-datorer behöver du skriva ditt lösenord eller använda Touch ID.</li>
+      <li><strong>Om du är van vid Terminal.</strong> Det går också att ta bort markeringen som macOS sätter på nedladdade filer. Öppna Terminal (i Program → Verktygsprogram), klistra in raden nedan och tryck på <code>Retur</code>:
+        <p class="command"><code>xattr -dr com.apple.quarantine /Applications/Sorla.app</code></p>
+        Öppna sedan Sorla från Program.</li>
+    </ol>
+    <p>När Sorla väl har öppnats en gång frågar macOS inte igen.</p>
+
+    <h3 id="hjalpmedel">Om Hjälpmedel inte blir grönt fast reglaget är på</h3>
+    <p>macOS kopplar behörigheten till en viss kopia av appen. Har Sorla körts från en annan plats, eller finns en äldre version kvar i listan, kan reglaget vara på utan att det gäller den Sorla du kör nu.</p>
+    <ol>
+      <li>Avsluta Sorla: klicka på Sorla i menyraden och välj Avsluta Sorla.</li>
+      <li>Öppna Systeminställningar → Integritet och säkerhet → Hjälpmedel. Markera Sorla i listan och klicka på minusknappen <code>−</code>. Finns en gammal rad som heter Prata, ta bort den också.</li>
+      <li>Öppna Terminal, klistra in raden nedan och tryck på <code>Retur</code>:
+        <p class="command"><code>tccutil reset Accessibility com.sorla.app</code></p></li>
+      <li>Öppna Sorla från Program igen och ge behörigheten Hjälpmedel på nytt.</li>
+      <li>Blir det ändå inte grönt: starta om Macen och öppna Sorla igen.</li>
+    </ol>
+
+    <h3 id="mikrofon">Om mikrofonen inte fungerar</h3>
+    <p>Öppna Systeminställningar → Integritet och säkerhet → Mikrofon och kontrollera att reglaget för Sorla är på. Hjälper inte det, avsluta Sorla och kör raden nedan i Terminal. Öppna sedan Sorla från Program och klicka på Tillåt.</p>
+    <p class="command"><code>tccutil reset Microphone com.sorla.app</code></p>
+
     <h2>Kom igång</h2>
-    <p>Första gången Sorla startar ber den om två behörigheter: <strong>Mikrofon</strong> och <strong>Hjälpmedel</strong>. Hjälpmedel ger du i Systeminställningar → Integritet och säkerhet → Hjälpmedel → slå på Sorla. Ibland behöver Sorla startas om efter det.</p>
-    <p>Sedan laddar Sorla ner den svenska talmodellen (688 MB) från Hugging Face och förbereder den för Macens Neural Engine, ungefär en minut. Förloppet syns i menyn. Därefter används inget nätverk.</p>
+    <p>Första gången Sorla startar öppnas ett välkomstfönster. Det visar de tre saker som behövs: <strong>Mikrofon</strong>, <strong>Hjälpmedel</strong> och <strong>talmodellen</strong>. Mikrofonen tillåter du direkt i fönstret. Hjälpmedel slår du på i Systeminställningar → Integritet och säkerhet → Hjälpmedel; knappen Öppna Systeminställningar tar dig dit. Varje rad blir grön när den är klar. Blir Hjälpmedel inte grönt, se <a href="#hjalpmedel">ovan</a>.</p>
+    <p>Talmodellen (688 MB) börjar laddas ner från Hugging Face av sig själv, medan du ger behörigheterna. Förloppet syns i fönstret och i menyn, först som ”Laddar ner modellen… 42 %” och sedan som ”Förbereder modellen… ~1 min” medan modellen görs klar för Macens Neural Engine. Första gången tar det ungefär en minut. Därefter behövs inget nätverk.</p>
+    <p>När allt är klart kan du prova i fältet Prova här: håll in <code>Höger ⌘</code>, prata och släpp. Sedan bor Sorla i menyraden, som en prick och några staplar.</p>
 
     <h2>Använda Sorla</h2>
     <p>Håll in <code>Höger ⌘</code> (standardtangenten), prata och släpp. Texten hamnar där markören står. Trycker du på en annan tangent medan du håller in avbryts inspelningen, så vanliga kortkommandon fungerar som vanligt. Korta tryck, under 0,3 sekunder, ignoreras.</p>
-    <p>Alternativt läge: tryck en gång för att börja, en gång till för att sluta. Tangenten — höger ⌘, ⌥, ⌃, Fn eller en egen kombination — och läget väljer du i Inställningar.</p>
+    <p>Alternativt läge: tryck en gång för att börja, en gång till för att sluta. Tangenten (<code>Höger ⌘</code>, <code>Höger ⌥</code>, <code>Höger ⌃</code>, <code>Fn</code> eller en egen kombination) och läget väljer du i Inställningar.</p>
 
     <h2>Klistra in senaste transkriberingen</h2>
     <p>Om fokus var fel när du släppte tangenten: <code>⌃⌥V</code> klistrar in senaste texten där du står nu. Kortkommandot går att ändra i Inställningar.</p>
@@ -56,7 +92,7 @@
     <h2>Felsökning</h2>
     <details>
       <summary>Ingen text klistras in</summary>
-      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet — tryck <code>⌘V</code>. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov.</p>
+      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet — tryck <code>⌘V</code>. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Hjälpmedel inte blir grönt</a>.</p>
     </details>
     <details>
       <summary>Tom eller konstig text</summary>
@@ -64,7 +100,7 @@
     </details>
     <details>
       <summary>Tangenten gör inget</summary>
-      <p>En annan app kan använda samma kombination. Använder du Fn: ställ in "Tryck på 🌐-tangenten för att" på "Gör ingenting" i Systeminställningar → Tangentbord. Sorlas inställningsfönster pausar tangenten medan det är öppet.</p>
+      <p>En annan app kan använda samma kombination. Använder du <code>Fn</code>: ställ in "Tryck på 🌐-tangenten för att" på "Gör ingenting" i Systeminställningar → Tangentbord. Sorlas inställningsfönster pausar tangenten medan det är öppet.</p>
     </details>
     <details>
       <summary>Texten hamnar inte där du tänkt</summary>
