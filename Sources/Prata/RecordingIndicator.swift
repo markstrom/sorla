@@ -80,6 +80,7 @@ final class RecordingIndicatorViewModel: ObservableObject {
 struct RecordingIndicatorView: View {
     @ObservedObject var viewModel: RecordingIndicatorViewModel
 
+    private let compactBarCount = 15
     private let minBarHeight: CGFloat = 3
     private let maxBarHeight: CGFloat = 26
     private let barWidth: CGFloat = 3
@@ -180,14 +181,14 @@ struct RecordingIndicatorView: View {
     private func bars(time: TimeInterval) -> some View {
         let transcribing = viewModel.mode == .transcribing
         let magnitudes = transcribing
-            ? Array(repeating: 0, count: VisualizerBars.barCount)
-            : VisualizerBars.magnitudes(bands: viewModel.bands, time: time, reduceMotion: viewModel.reduceMotion)
+            ? Array(repeating: Float(0), count: compactBarCount)
+            : VisualizerBars.magnitudes(bands: viewModel.bands, time: time, barCount: compactBarCount, reduceMotion: viewModel.reduceMotion)
         let shimmer = transcribing
-            ? VisualizerBars.shimmer(time: time, reduceMotion: viewModel.reduceMotion)
-            : Array(repeating: 0, count: VisualizerBars.barCount)
+            ? VisualizerBars.shimmer(time: time, barCount: compactBarCount, reduceMotion: viewModel.reduceMotion)
+            : Array(repeating: Float(0), count: compactBarCount)
 
         return HStack(alignment: .center, spacing: barSpacing) {
-            ForEach(0..<VisualizerBars.barCount, id: \.self) { index in
+            ForEach(0..<compactBarCount, id: \.self) { index in
                 let magnitude = Double(magnitudes[index])
                 Capsule()
                     .fill(barGradient)
