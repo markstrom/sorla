@@ -55,7 +55,11 @@ public final class ModelManager: ObservableObject {
     public func start() {
         guard !hasStarted else { return }
         hasStarted = true
-        swap.recoverInterruptedSwap()
+        do {
+            try swap.recoverInterruptedSwap()
+        } catch {
+            Self.logger.error("couldn't recover an interrupted model swap: \(ErrorSummary.of(error), privacy: .public)")
+        }
         let installed = isInstalled
         let version = installedVersion
         Self.logger.info("model manager started: installed=\(installed, privacy: .public) version=\(version ?? "unknown", privacy: .public) automaticChecks=\(self.automaticChecks, privacy: .public) automaticDownloads=\(self.automaticDownloads, privacy: .public)")
@@ -177,22 +181,43 @@ public final class ModelManager: ObservableObject {
             return
         }
         Self.logger.info("model \(version, privacy: .public) swapped in; loading it")
-        removeStaging(version: version)
         guard await reloadModel() else {
-            Self.logger.error("new model failed to load; rolling back")
-            try? swap.rollback()
-            if isUpdate { _ = await reloadModel() }
-            fail(ModelInstallError.installFailed, isUpdate: isUpdate)
+            await handleReloadFailure(version: version, isUpdate: isUpdate)
             return
         }
         swap.commit()
+        removeStaging(version: version)
         offered = nil
         status = .upToDate(version: version)
         Self.logger.info("model \(version, privacy: .public) installed and ready")
         onInstalled?(!isUpdate)
     }
 
-    // The swap moved the assembled model out, so the rest is only downloads; rollback relies on the previous model.
+    // A self-tested first install stays; an update rolls back but keeps its downloads so a retry needn't refetch.
+    private func handleReloadFailure(version: String, isUpdate: Bool) async {
+        guard isUpdate else {
+            Self.logger.error("new model \(version, privacy: .public) failed to load; keeping it installed")
+            swap.commit()
+            removeStaging(version: version)
+            offered = nil
+            status = .installed(version: version)
+            onFailure?(.modelNotLoaded)
+            return
+        }
+        Self.logger.error("model update \(version, privacy: .public) failed to load; rolling back")
+        do {
+            try swap.rollback()
+        } catch {
+            Self.logger.error("model rollback failed: \(ErrorSummary.of(error), privacy: .public)")
+        }
+        let previousLoaded = await reloadModel()
+        fail(ModelInstallError.installFailed, isUpdate: true)
+        if !previousLoaded {
+            Self.logger.error("previous model failed to load after rollback")
+            onFailure?(.modelNotLoaded)
+        }
+    }
+
     private func removeStaging(version: String) {
         do {
             try ModelStaging(modelsDirectory: installer.modelsDirectory, version: version).removeAll()

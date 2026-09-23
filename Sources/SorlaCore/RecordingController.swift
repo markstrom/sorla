@@ -67,10 +67,12 @@ public final class RecordingController {
     public func prepare() {
         isModelReady = false
         onModelReadyChange?(false)
-        Task { await self.loadModel() }
+        Task {
+            if await !self.loadModel() { self.onIssue?(.modelNotLoaded) }
+        }
     }
 
-    // Drops the loaded model and loads whatever is installed now; used after a model update.
+    // The caller reports a failure: after a failed update the previous model may still load fine.
     @discardableResult
     public func reloadModel() async -> Bool {
         isModelReady = false
@@ -79,7 +81,6 @@ public final class RecordingController {
         return await loadModel()
     }
 
-    @discardableResult
     private func loadModel() async -> Bool {
         let start = Date()
         do {
@@ -90,7 +91,6 @@ public final class RecordingController {
             return true
         } catch {
             logger.error("model preparation failed: \(self.modelName, privacy: .public): \(String(describing: error), privacy: .public)")
-            onIssue?(.modelNotLoaded)
             return false
         }
     }

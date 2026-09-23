@@ -109,9 +109,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.recordingIndicator.updateSpectrum(spectrum)
         }
         recordingController.onModelReadyChange = { [weak self] isReady in
-            guard let self, isReady else { return }
-            self.modelLoadingStatus = .ready
+            guard let self else { return }
+            self.modelLoadingStatus = isReady ? .ready : .loading
             self.updateIcon(isRecording: self.recordingController.isRecording)
+            self.updateStatusMenuItem()
         }
         recordingController.onIssue = { [weak self] issue in
             self?.handleIssue(issue)

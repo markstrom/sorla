@@ -36,7 +36,7 @@ final class RecordingControllerModelTests: XCTestCase {
         XCTAssertEqual(calls, ["unload", "prepare"])
     }
 
-    func testAFailedReloadReportsTheModelAsNotLoaded() async {
+    func testAFailedReloadLeavesReportingToTheCaller() async {
         let engine = RecordingEngineSpy()
         await engine.failPrepare()
         let controller = RecordingController(engine: engine, modelName: "test")
@@ -47,6 +47,22 @@ final class RecordingControllerModelTests: XCTestCase {
 
         XCTAssertFalse(loaded)
         XCTAssertFalse(controller.isModelReady)
+        XCTAssertEqual(issues, [])
+    }
+
+    func testAFailedPrepareAtLaunchReportsTheModelAsNotLoaded() async {
+        let engine = RecordingEngineSpy()
+        await engine.failPrepare()
+        let controller = RecordingController(engine: engine, modelName: "test")
+        var issues: [SorlaIssue] = []
+        controller.onIssue = { issues.append($0) }
+
+        controller.prepare()
+        let deadline = Date().addingTimeInterval(5)
+        while issues.isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+
         XCTAssertEqual(issues, [.modelNotLoaded])
     }
 }

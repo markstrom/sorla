@@ -20,6 +20,7 @@ final class ModelSwapTests: XCTestCase {
     func testPaths() {
         XCTAssertEqual(swap.installed.lastPathComponent, "pianissimo-sv-coreml")
         XCTAssertEqual(swap.previous.lastPathComponent, "pianissimo-sv-coreml.old")
+        XCTAssertEqual(swap.failed.lastPathComponent, "pianissimo-sv-coreml.failed")
         XCTAssertEqual(swap.installed.deletingLastPathComponent().path, modelsDirectory.path)
     }
 
@@ -91,7 +92,7 @@ final class ModelSwapTests: XCTestCase {
     func testRecoveryRestoresAModelLeftHalfwayThroughASwap() throws {
         try makeModel(at: swap.previous, marker: "old")
 
-        swap.recoverInterruptedSwap()
+        try swap.recoverInterruptedSwap()
 
         XCTAssertEqual(marker(at: swap.installed), "old")
         XCTAssertFalse(exists(swap.previous))
@@ -101,7 +102,7 @@ final class ModelSwapTests: XCTestCase {
         try makeModel(at: swap.previous, marker: "old")
         try makeModel(at: swap.installed, marker: "new")
 
-        swap.recoverInterruptedSwap()
+        try swap.recoverInterruptedSwap()
 
         XCTAssertEqual(marker(at: swap.installed), "new")
         XCTAssertFalse(exists(swap.previous))
@@ -110,9 +111,55 @@ final class ModelSwapTests: XCTestCase {
     func testRecoveryLeavesANormalInstallAlone() throws {
         try makeModel(at: swap.installed, marker: "current")
 
-        swap.recoverInterruptedSwap()
+        try swap.recoverInterruptedSwap()
 
         XCTAssertEqual(marker(at: swap.installed), "current")
+    }
+
+    func testRollbackMovesTheNewModelAsideBeforeRestoringTheOldOne() throws {
+        try makeModel(at: swap.installed, marker: "old")
+        try makeModel(at: staged, marker: "new")
+        try swap.install(staged)
+        try makeModel(at: swap.failed, marker: "leftover")
+
+        try swap.rollback()
+
+        XCTAssertEqual(marker(at: swap.installed), "old")
+        XCTAssertFalse(exists(swap.previous))
+        XCTAssertFalse(exists(swap.failed))
+    }
+
+    func testRecoveryAfterARollbackCutShortBeforeTheOldModelWasBack() throws {
+        try makeModel(at: swap.failed, marker: "new, partly deleted")
+        try makeModel(at: swap.previous, marker: "old")
+
+        try swap.recoverInterruptedSwap()
+
+        XCTAssertEqual(marker(at: swap.installed), "old")
+        XCTAssertFalse(exists(swap.previous))
+        XCTAssertFalse(exists(swap.failed))
+    }
+
+    func testRecoveryPrefersTheOldModelWheneverAFailedOneExists() throws {
+        try makeModel(at: swap.installed, marker: "new")
+        try makeModel(at: swap.failed, marker: "new, partly deleted")
+        try makeModel(at: swap.previous, marker: "old")
+
+        try swap.recoverInterruptedSwap()
+
+        XCTAssertEqual(marker(at: swap.installed), "old")
+        XCTAssertFalse(exists(swap.previous))
+        XCTAssertFalse(exists(swap.failed))
+    }
+
+    func testRecoveryAfterARollbackCutShortDuringCleanupKeepsTheRestoredModel() throws {
+        try makeModel(at: swap.installed, marker: "old")
+        try makeModel(at: swap.failed, marker: "new, partly deleted")
+
+        try swap.recoverInterruptedSwap()
+
+        XCTAssertEqual(marker(at: swap.installed), "old")
+        XCTAssertFalse(exists(swap.failed))
     }
 
     private func makeModel(at url: URL, marker: String) throws {
