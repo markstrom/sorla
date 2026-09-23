@@ -1,43 +1,43 @@
-# The Prata Manifesto
+# The Sorla Manifesto
 
 **Hold a key. Speak. Let go. Your words appear.**
 
-That is the whole product. Everything in Prata exists to make that moment faster, more accurate, more private, or more invisible. Anything that doesn't belong somewhere else.
+That is the whole product. Everything in Sorla exists to make that moment faster, more accurate, more private, or more invisible. Anything else belongs somewhere else.
 
 ---
 
-## What we believe
+## What Sorla is
 
-### 1. One job, done perfectly
-Prata puts your spoken words where your cursor is. It is not a note-taking app, a meeting recorder, a file transcriber, an AI assistant or a writing coach. Other apps do many things; Prata does one thing better than any of them.
+### Sorla does one thing
+Sorla puts your spoken words where your cursor is. Sorla is not a note-taking app, a meeting recorder, a file transcriber, an AI assistant or a writing coach.
 
-### 2. Private by construction
-Your voice never leaves your Mac. No account, no cloud, no analytics, no telemetry. Out of the box Prata talks to the internet exactly once: to download the speech model it needs to work. After that it is silent. Checking for a newer model happens only when you press *Check Now*, or automatically if you choose to turn that on. Privacy is not a setting; it is how the app is built.
+### Sorla never sends your voice anywhere
+Your voice never leaves your Mac. Sorla has no account, no cloud, no analytics and no telemetry. Out of the box Sorla goes online exactly once: to download the speech model it needs. After that it is silent. Sorla checks for a newer model only when you press *Check Now*, or automatically if you turn that on.
 
-### 3. Fast enough to disappear
-The text is there before you think about waiting for it. Prata starts instantly, uses no CPU while idle, and never makes you choose between speed and quality.
+### Sorla is fast enough to disappear
+The text is there before you think about waiting for it. Sorla starts instantly and uses no CPU while idle.
 
-### 4. Invisible until needed
-A menu bar icon, a small island while you speak, a soft sound when it starts and stops. Prata never steals focus, never interrupts, never asks for attention it doesn't need.
+### Sorla only shows up while you speak
+A menu bar icon, a small indicator while you speak, a soft sound when it starts and stops. Sorla never steals focus and never interrupts.
 
-### 5. Right out of the box
-Install, grant two permissions, hold Right ⌘. The defaults are the product. Every setting is optional, and the app is complete without touching any of them.
+### Sorla works right out of the box
+Install, grant two permissions, hold Right ⌘. The defaults are the product; every setting is optional.
 
-### 6. The best model for your language, not the most models
-We ship the most accurate on-device model we can find for the language we serve, and we keep it up to date. Quality beats choice.
+### Sorla runs the best model for your language
+Sorla ships the most accurate on-device model available for the language it serves, and keeps it up to date. One excellent model beats a menu of mediocre ones.
 
-### 7. Your words, untouched
-Prata writes what you said. It does not rewrite, summarize, "improve" or reformat your words, and it puts your clipboard back the way it found it.
+### Sorla leaves your words alone
+Sorla writes what you said. It never rewrites, summarizes, "improves" or reformats your words, and it puts your clipboard back the way it found it.
 
-### 8. Native and light
-Built for the Mac with the Mac's own tools. Small, few dependencies, no background services, no helper apps.
+### Sorla is native and light
+Sorla is built for the Mac with the Mac's own tools: small, few dependencies, no background services, no helper apps.
 
-### 9. Honest about where things come from
-Every model and library Prata stands on is credited, with its license, where users can see it.
+### Sorla credits what it stands on
+Every model and library Sorla uses is credited, with its license, where users can see it.
 
 ---
 
-## What Prata will not do
+## What Sorla never does
 
 - AI rewriting, "modes", prompts or tone adjustment
 - Per-app profiles or context awareness
@@ -48,24 +48,24 @@ Every model and library Prata stands on is credited, with its license, where use
 - Voice commands, plugins or scripting
 - Analytics of any kind
 
-Saying no to these is a feature. Every one of them exists in other apps, and every one of them makes those apps harder to understand.
+Every one of these exists in other apps, and every one of them makes those apps harder to understand.
 
 ---
 
 ## The feature test
 
-Before anything is added, it must pass all six questions. One "no" means we don't build it — or we build something smaller that passes.
+Before anything is added to Sorla, it must pass all six questions. One "no" means it is not built — or something smaller that passes is built instead.
 
-1. **Core loop** — Does it make *hold, speak, let go* better for most people who use Prata?
+1. **Core loop** — Does it make *hold, speak, let go* better for most people who use Sorla?
 2. **No new knob** — Can it work without a new setting? If it needs one, does a real person need a different default for a real reason?
-3. **Stays on the Mac** — Does it keep every word on the device?
-4. **Stays fast and quiet** — Does it keep dictation latency, launch time and idle CPU where they are?
+3. **Stays on the Mac** — Does every word stay on the device?
+4. **Stays fast and quiet** — Do dictation latency, launch time and idle CPU stay where they are?
 5. **One sentence** — Can a new user understand it from one sentence?
-6. **Worth keeping** — If we had to remove it in a year, would people miss it?
+6. **Worth keeping** — If it were removed in a year, would people miss it?
 
 ---
 
-## Budgets we keep
+## Budgets
 
 | | Limit |
 |---|---|
@@ -76,4 +76,4 @@ Before anything is added, it must pass all six questions. One "no" means we don'
 | Network traffic | the first model download; after that only when the user asks (or opts in to automatic update checks) |
 | Steps from install to first dictation | install, two permissions, speak |
 
-If a change would break a budget, it waits until it doesn't.
+A change that would break a budget waits until it doesn't.
