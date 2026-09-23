@@ -44,7 +44,7 @@ public struct MenuStatusRow: Equatable, Sendable {
             break
         }
         if modelLoadFailed {
-            return MenuStatusRow(title: "\(SorlaIssue.modelNotLoaded.menuTitle ?? "") — Try Again", action: .reloadModel)
+            return MenuStatusRow(title: String(localized: "\(SorlaIssue.modelNotLoaded.menuTitle ?? "") — Try Again", bundle: Localization.bundle), action: .reloadModel)
         }
         if case .updateAvailable(let version) = model {
             return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)
