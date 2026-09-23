@@ -11,18 +11,18 @@ final class DictationGateTests: XCTestCase {
     func testDownloadingShowsTheProgress() {
         XCTAssertEqual(
             DictationGate.blockedMessage(isModelInstalled: false, model: .downloading(version: "1.0.0", fraction: 0.345, isUpdate: false)),
-            "The Swedish model is still downloading (34%). Dictation will work once it's ready."
+            "The model is still downloading (34%). Dictation will work once it's ready."
         )
     }
 
-    func testPreparingSaysItIsAlmostReady() {
-        let message = "The Swedish model is being prepared. Dictation will work in a moment."
+    func testPreparingSaysHowLongItTakes() {
+        let message = "The model is being prepared (~1 min). Dictation will work once it's ready."
         XCTAssertEqual(DictationGate.blockedMessage(isModelInstalled: false, model: .preparing(version: "1.0.0", isUpdate: false)), message)
         XCTAssertEqual(DictationGate.blockedMessage(isModelInstalled: false, model: .waitingToInstall(version: "1.0.0")), message)
     }
 
     func testMissingModelPointsToTheMenu() {
-        let message = "The Swedish model isn't installed yet. Open the Sorla menu to download it."
+        let message = "The model isn't installed yet. Open the Sorla menu to download it."
         XCTAssertEqual(DictationGate.blockedMessage(isModelInstalled: false, model: .notInstalled), message)
         XCTAssertEqual(DictationGate.blockedMessage(isModelInstalled: false, model: .failed(.network, isUpdate: false)), message)
     }

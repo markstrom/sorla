@@ -10,7 +10,7 @@ final class ModelStatusTests: XCTestCase {
         XCTAssertEqual(ModelStatus.upToDate(version: "1.0.0").settingsText, "Up to date · Version 1.0.0")
         XCTAssertEqual(ModelStatus.updateAvailable(version: "1.1.0").settingsText, "Update available · Version 1.1.0")
         XCTAssertEqual(ModelStatus.downloading(version: "1.1.0", fraction: 0.345, isUpdate: true).settingsText, "Downloading 34%")
-        XCTAssertEqual(ModelStatus.preparing(version: "1.1.0", isUpdate: true).settingsText, "Preparing…")
+        XCTAssertEqual(ModelStatus.preparing(version: "1.1.0", isUpdate: true).settingsText, "Preparing… ~1 min")
         XCTAssertEqual(ModelStatus.waitingToInstall(version: "1.1.0").settingsText, "Installing when dictation ends…")
         XCTAssertEqual(
             ModelStatus.failed(.network, isUpdate: false).settingsText,

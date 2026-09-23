@@ -38,22 +38,22 @@ final class MenuStatusRowTests: XCTestCase {
     func testDownloadProgressComesBeforeFailures() {
         XCTAssertEqual(
             row(model: .downloading(version: "1.0.0", fraction: 0.34, isUpdate: false), modelLoadFailed: true),
-            MenuStatusRow(title: "Downloading Swedish model… 34%", action: .openSettings)
+            MenuStatusRow(title: "Downloading model… 34%", action: .openSettings)
         )
         XCTAssertEqual(
             row(model: .preparing(version: "1.0.0", isUpdate: false)),
-            MenuStatusRow(title: "Preparing Swedish model…", action: .openSettings)
+            MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings)
         )
         XCTAssertEqual(
             row(model: .waitingToInstall(version: "1.1.0")),
-            MenuStatusRow(title: "Preparing Swedish model…", action: .openSettings)
+            MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings)
         )
     }
 
     func testFailedDownloadOffersARetry() {
         XCTAssertEqual(
             row(model: .failed(.network, isUpdate: false)),
-            MenuStatusRow(title: "Swedish model download failed — Try Again", action: .downloadModel)
+            MenuStatusRow(title: "Model download failed — Try Again", action: .downloadModel)
         )
         XCTAssertEqual(
             row(model: .failed(.selfTestFailed, isUpdate: true)),
@@ -64,14 +64,14 @@ final class MenuStatusRowTests: XCTestCase {
     func testMissingModelOffersADownload() {
         XCTAssertEqual(
             row(model: .notInstalled),
-            MenuStatusRow(title: "Swedish model not installed — Download", action: .downloadModel)
+            MenuStatusRow(title: "Model not installed — Download", action: .downloadModel)
         )
     }
 
     func testLoadFailureOpensSettings() {
         XCTAssertEqual(
             row(modelLoadFailed: true),
-            MenuStatusRow(title: "Swedish model couldn't be loaded", action: .openSettings)
+            MenuStatusRow(title: "Model couldn't be loaded", action: .openSettings)
         )
     }
 

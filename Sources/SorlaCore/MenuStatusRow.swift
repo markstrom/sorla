@@ -29,14 +29,14 @@ public struct MenuStatusRow: Equatable, Sendable {
         }
         switch model {
         case .downloading(_, let fraction, _):
-            return MenuStatusRow(title: "Downloading Swedish model… \(ModelStatus.percent(fraction))%", action: .openSettings)
+            return MenuStatusRow(title: "Downloading model… \(ModelStatus.percent(fraction))%", action: .openSettings)
         case .preparing, .waitingToInstall:
-            return MenuStatusRow(title: "Preparing Swedish model…", action: .openSettings)
+            return MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings)
         case .failed(_, let isUpdate):
             let issue: SorlaIssue = isUpdate ? .modelUpdateFailed : .modelDownloadFailed
             return MenuStatusRow(title: "\(issue.menuTitle ?? "") — Try Again", action: .downloadModel)
         case .notInstalled:
-            return MenuStatusRow(title: "Swedish model not installed — Download", action: .downloadModel)
+            return MenuStatusRow(title: "Model not installed — Download", action: .downloadModel)
         default:
             break
         }

@@ -18,7 +18,7 @@ public enum ModelStatus: Equatable, Sendable {
         case .upToDate(let version): return "Up to date · Version \(version)"
         case .updateAvailable(let version): return "Update available · Version \(version)"
         case .downloading(_, let fraction, _): return "Downloading \(Self.percent(fraction))%"
-        case .preparing: return "Preparing…"
+        case .preparing: return "Preparing… ~1 min"
         case .waitingToInstall: return "Installing when dictation ends…"
         case .failed(let error, _), .checkFailed(let error): return "Failed: \(error.reason)"
         }

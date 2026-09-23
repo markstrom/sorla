@@ -14,8 +14,8 @@ public enum SorlaIssue: Hashable, Sendable {
         switch self {
         case .microphoneAccessNeeded: return "Microphone access needed"
         case .accessibilityAccessNeeded: return "Accessibility access needed to paste"
-        case .modelNotLoaded: return "Swedish model couldn't be loaded"
-        case .modelDownloadFailed: return "Swedish model download failed"
+        case .modelNotLoaded: return "Model couldn't be loaded"
+        case .modelDownloadFailed: return "Model download failed"
         case .modelUpdateFailed: return "Model update failed"
         case .noInputDevice, .transcriptionFailed: return nil
         }

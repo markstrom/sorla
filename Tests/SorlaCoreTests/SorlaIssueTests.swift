@@ -39,7 +39,7 @@ final class SorlaIssueTests: XCTestCase {
     }
 
     func testModelNotLoadedMenuTitle() {
-        XCTAssertEqual(SorlaIssue.modelNotLoaded.menuTitle, "Swedish model couldn't be loaded")
+        XCTAssertEqual(SorlaIssue.modelNotLoaded.menuTitle, "Model couldn't be loaded")
     }
 
     func testModelNotLoadedNotificationBody() {
@@ -78,7 +78,7 @@ final class SorlaIssueTests: XCTestCase {
     }
 
     func testModelDownloadFailedWording() {
-        XCTAssertEqual(SorlaIssue.modelDownloadFailed.menuTitle, "Swedish model download failed")
+        XCTAssertEqual(SorlaIssue.modelDownloadFailed.menuTitle, "Model download failed")
         XCTAssertEqual(
             SorlaIssue.modelDownloadFailed.notificationBody,
             "Couldn't download the Swedish model. Open the Sorla menu to try again."

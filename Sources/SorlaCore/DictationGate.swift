@@ -4,11 +4,11 @@ public enum DictationGate {
         guard !isModelInstalled else { return nil }
         switch model {
         case .downloading(_, let fraction, _):
-            return "The Swedish model is still downloading (\(ModelStatus.percent(fraction))%). Dictation will work once it's ready."
+            return "The model is still downloading (\(ModelStatus.percent(fraction))%). Dictation will work once it's ready."
         case .preparing, .waitingToInstall:
-            return "The Swedish model is being prepared. Dictation will work in a moment."
+            return "The model is being prepared (~1 min). Dictation will work once it's ready."
         default:
-            return "The Swedish model isn't installed yet. Open the Sorla menu to download it."
+            return "The model isn't installed yet. Open the Sorla menu to download it."
         }
     }
 
