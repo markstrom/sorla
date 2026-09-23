@@ -6,7 +6,7 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onKeyStateChange: ((Bool) -> Void)?
 
-    convenience init(appSettings: AppSettings) {
+    convenience init(appSettings: AppSettings, modelLoadingStatus: ModelLoadingStatus) {
         let window = NSWindow(
             contentRect: .zero,
             styleMask: [.titled, .closable, .miniaturizable],
@@ -14,7 +14,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.title = "Prata Settings"
-        window.contentViewController = NSHostingController(rootView: SettingsView(appSettings: appSettings))
+        window.contentViewController = NSHostingController(
+            rootView: SettingsView(appSettings: appSettings, modelLoadingStatus: modelLoadingStatus)
+        )
         window.isReleasedWhenClosed = false
         window.center()
 

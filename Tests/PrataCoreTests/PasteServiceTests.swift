@@ -99,4 +99,17 @@ final class PasteServiceTests: XCTestCase {
         XCTAssertFalse(PasteService.isSyntheticMarker(0))
         XCTAssertFalse(PasteService.isSyntheticMarker(PasteService.syntheticEventMarker + 1))
     }
+
+    func testShouldAutoPasteWhenFrontmostAppUnchangedReturnsTrue() {
+        XCTAssertTrue(PasteService.shouldAutoPaste(frontmostPIDAtRelease: 100, frontmostPIDAtDelivery: 100))
+    }
+
+    func testShouldAutoPasteWhenFrontmostAppChangedReturnsFalse() {
+        XCTAssertFalse(PasteService.shouldAutoPaste(frontmostPIDAtRelease: 100, frontmostPIDAtDelivery: 200))
+    }
+
+    func testShouldAutoPasteWhenEitherPIDUnknownReturnsTrue() {
+        XCTAssertTrue(PasteService.shouldAutoPaste(frontmostPIDAtRelease: nil, frontmostPIDAtDelivery: 200))
+        XCTAssertTrue(PasteService.shouldAutoPaste(frontmostPIDAtRelease: 100, frontmostPIDAtDelivery: nil))
+    }
 }

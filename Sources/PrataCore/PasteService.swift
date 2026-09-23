@@ -101,6 +101,12 @@ public enum PasteService {
         keepSetting && pasteDelivered && changeCountAfterWrite == currentChangeCount
     }
 
+    // Frontmost app may have changed between key release and transcript delivery; paste would land in the wrong place.
+    public static func shouldAutoPaste(frontmostPIDAtRelease: pid_t?, frontmostPIDAtDelivery: pid_t?) -> Bool {
+        guard let frontmostPIDAtRelease, let frontmostPIDAtDelivery else { return true }
+        return frontmostPIDAtRelease == frontmostPIDAtDelivery
+    }
+
     // Without Accessibility permission the OS drops these events; the text stays on the pasteboard.
     public static func paste() {
         let virtualKeyV: CGKeyCode = 0x09

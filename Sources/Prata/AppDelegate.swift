@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingIndicator: RecordingIndicatorPanel!
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var cancellables = Set<AnyCancellable>()
+    private let modelLoadingStatus = ModelLoadingStatus()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let appSettings = AppSettings()
@@ -61,6 +62,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         recordingController.onLevel = { [weak self] level in
             self?.recordingIndicator.updateLevel(level)
+        }
+        recordingController.onModelReadyChange = { [weak self] isReady in
+            guard let self else { return }
+            self.modelLoadingStatus.isModelReady = isReady
+            self.updateIcon(isRecording: self.recordingController.isRecording)
         }
 
         let triggerMonitor = TriggerMonitor(
@@ -113,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func showSettings() {
         if settingsWindowController == nil {
-            let controller = SettingsWindowController(appSettings: appSettings)
+            let controller = SettingsWindowController(appSettings: appSettings, modelLoadingStatus: modelLoadingStatus)
             controller.onKeyStateChange = { [weak self] isKey in
                 self?.triggerMonitor?.isSuspended = isKey
             }
@@ -139,11 +145,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateIcon(isRecording: Bool) {
-        let symbolName = isRecording ? "mic.fill" : "mic"
-        statusItem.button?.image = NSImage(
-            systemSymbolName: symbolName,
-            accessibilityDescription: isRecording ? "Prata (recording)" : "Prata"
-        )
+        let symbolName: String
+        let description: String
+        if !modelLoadingStatus.isModelReady {
+            symbolName = "hourglass"
+            description = "Prata (loading model)"
+        } else if isRecording {
+            symbolName = "mic.fill"
+            description = "Prata (recording)"
+        } else {
+            symbolName = "mic"
+            description = "Prata"
+        }
+        statusItem.button?.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
     }
 
     @objc private func quit() {

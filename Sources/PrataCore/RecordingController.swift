@@ -19,6 +19,9 @@ public final class RecordingController {
     public var keepClipboardContent = true
     private var clipboardOwnership = ClipboardOwnershipTracker()
 
+    public private(set) var isModelReady = false
+    public var onModelReadyChange: ((Bool) -> Void)?
+
     public init(engine: TranscriptionEngine, modelName: String, tailDuration: TimeInterval = 0.15) {
         self.engine = engine
         self.modelName = modelName
@@ -58,11 +61,16 @@ public final class RecordingController {
     public func prepare() {
         let engine = self.engine
         let modelName = self.modelName
+        isModelReady = false
+        onModelReadyChange?(false)
         Task {
             let start = Date()
             do {
                 try await engine.prepare()
                 self.logger.info("model ready: \(modelName, privacy: .public) in \(Self.format(Date().timeIntervalSince(start)), privacy: .public)")
+                guard modelName == self.modelName else { return }
+                self.isModelReady = true
+                self.onModelReadyChange?(true)
             } catch {
                 self.logger.error("model preparation failed: \(modelName, privacy: .public): \(String(describing: error), privacy: .public)")
             }
@@ -90,6 +98,7 @@ public final class RecordingController {
         onStateChange?(false)
 
         let released = Date()
+        let frontmostPIDAtRelease = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let tailDuration = self.tailDuration
         let engine = self.engine
         let modelName = self.modelName
@@ -120,6 +129,17 @@ public final class RecordingController {
                     return
                 }
                 let keepClipboardContent = self.keepClipboardContent
+                let frontmostPIDAtDelivery = NSWorkspace.shared.frontmostApplication?.processIdentifier
+                guard PasteService.shouldAutoPaste(
+                    frontmostPIDAtRelease: frontmostPIDAtRelease,
+                    frontmostPIDAtDelivery: frontmostPIDAtDelivery
+                ) else {
+                    self.clipboardOwnership.cancel()
+                    PasteService.writeToPasteboard(text)
+                    self.logger.info("paste skipped (frontmost app changed)")
+                    return
+                }
+
                 let generation: Int? = keepClipboardContent
                     ? self.clipboardOwnership.begin { PasteService.snapshot() }.generation
                     : nil
