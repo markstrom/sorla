@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyController: HotkeyController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        recordingController = RecordingController()
+        recordingController = RecordingController(engine: ParakeetTranscriptionEngine())
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateIcon(isRecording: false)
