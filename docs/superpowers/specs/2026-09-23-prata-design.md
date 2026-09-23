@@ -220,3 +220,12 @@ measure real speed/quality on this hardware:
 Everything else in this spec (HUD, dictionary, model manager UI,
 Pianissimo) is built incrementally on top of this once it's confirmed
 working.
+
+## 13. Decisions after the first build (2026-09-23)
+
+- **Push-to-talk key:** right ⌘ held on its own (other apps on the user's machine own ⌥Space). Pressing any other key while holding cancels the recording so normal ⌘-shortcuts keep working; holds under 0.3 s are ignored.
+- **Next UI step:** a settings window with a user-defined shortcut and a mode choice — push-to-talk (hold) or toggle (press to start, press to stop).
+- **Two models side by side:** stock Parakeet v3 and Pianissimo, selectable from the menu bar, so their Swedish quality and speed can be compared on real dictation.
+- **Model distribution:** models are converted offline with a reproducible recipe, hosted as compiled-on-device CoreML bundles (the user's own Hugging Face repo, private until release), and downloaded/updated from inside the app. No in-app conversion: it would require shipping Python/PyTorch/NeMo and the full checkpoint.
+- **Licence obligations when distributing:** Pianissimo is CC BY 4.0 — any redistributed copy (hosted bundle or app that ships/downloads it for others) must credit Klang AI AB with a link and licence, in the model repo and in the app (e.g. an About section). Library licences (FluidAudio Apache-2.0) ship inside the app bundle, copied in by the build script, not written into source files.
+- **Public releases** additionally need a Developer ID Application certificate and notarization.
