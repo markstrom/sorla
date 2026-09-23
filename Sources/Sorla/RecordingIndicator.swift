@@ -185,13 +185,7 @@ struct RecordingIndicatorView: View {
             }
         } else {
             HStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    statusIndicator(time: time)
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(viewModel.mode == .transcribing ? .white.opacity(0.4) : .white)
-                        .frame(width: 14, height: 14)
-                }
+                statusIndicator(time: time)
                 Spacer(minLength: 0)
                 bars(time: time, barCount: compactBarCount, maxHeight: layout.maxBarHeight)
             }
