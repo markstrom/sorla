@@ -229,3 +229,17 @@ working.
 - **Model distribution:** models are converted offline with a reproducible recipe, hosted as compiled-on-device CoreML bundles (the user's own Hugging Face repo, private until release), and downloaded/updated from inside the app. No in-app conversion: it would require shipping Python/PyTorch/NeMo and the full checkpoint.
 - **Licence obligations when distributing:** Pianissimo is CC BY 4.0 — any redistributed copy (hosted bundle or app that ships/downloads it for others) must credit Klang AI AB with a link and licence, in the model repo and in the app (e.g. an About section). Library licences (FluidAudio Apache-2.0) ship inside the app bundle, copied in by the build script, not written into source files.
 - **Public releases** additionally need a Developer ID Application certificate and notarization.
+
+## 14. v1 scope (user decision 2026-09-23)
+
+In v1, on top of what is built: settings window (trigger + mode), recording indicator, keep clipboard content, launch at login. Explicitly **not** in v1: Esc-to-cancel, personal dictionary, model manager UI, onboarding screen (the §5 dictionary and §4 model manager move to a later version).
+
+- **Settings window** (menu "Settings…", ⌘,; SwiftUI in an AppKit window, menu-bar app stays without Dock icon):
+  - *Trigger:* a bare modifier key held/tapped on its own — right ⌘ (default), right ⌥, right ⌃, or Fn — or a custom key combination recorded by the user.
+  - *Mode:* push-to-talk (hold to record, release to transcribe) or toggle (tap to start, tap again to stop). For bare-modifier triggers in toggle mode a "tap" is a press and release with no other key in between, so ⌘-shortcuts never toggle recording.
+  - *Model:* Parakeet v3 / Pianissimo (same as the menu).
+  - *Keep clipboard content* (default on) and *Launch at login* (default off).
+  - All settings persist in `UserDefaults` and apply immediately.
+- **Recording indicator:** a small non-activating floating panel at the top centre of the active screen, shown while recording: red record dot, mic glyph, and a live waveform driven by the input level. Hidden on finish/cancel. No live text in v1.
+- **Keep clipboard content:** before pasting, snapshot every pasteboard item; after the ⌘V has been delivered (short delay so the target app reads the transcript first), restore the snapshot — unless the pasteboard changed in the meantime, or the paste could not be delivered (no Accessibility), in which case the transcript is left on the clipboard so it isn't lost.
+- **Launch at login:** `SMAppService.mainApp` register/unregister, reflecting the real status in the toggle.
