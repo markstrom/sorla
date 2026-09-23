@@ -41,8 +41,7 @@ struct IslandLayout: Equatable {
         return compactLayout(menuBarHeight: menuBarHeight)
     }
 
-    // As narrow as possible on each side: just enough for the wider of the 5-bar waveform or the
-    // dot/spinner, plus a small pad against the notch and against the outer edge.
+    // Each side is just wide enough for its content plus a small pad on both edges.
     static func notchLayout(notchWidth: CGFloat, notchHeight: CGFloat) -> IslandLayout {
         let barsWidth = CGFloat(notchBarCount) * barWidth + CGFloat(notchBarCount - 1) * barSpacing
         let contentWidth = max(barsWidth, notchStatusSize)

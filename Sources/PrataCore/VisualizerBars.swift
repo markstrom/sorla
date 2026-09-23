@@ -10,9 +10,9 @@ public enum VisualizerBars {
     private static let shimmerPeriod = 1.1
     private static let shimmerWidth = 2.2
 
-    // Distance d (0...barCount/2) from the centre maps to the band range [d*8/(half+1), (d+1)*8/(half+1)).
-    // For barCount 15, half+1 == 8, so every bar gets exactly one band, matching the original mapping.
+    // Bars mirror around a centre bar, so each distance from it gets an equal slice of the 8 bands.
     public static func bandRange(forBar index: Int, barCount: Int) -> Range<Int> {
+        precondition(barCount % 2 == 1, "bar count must be odd")
         let half = barCount / 2
         let distance = abs(index - half)
         let lower = distance * 8 / (half + 1)

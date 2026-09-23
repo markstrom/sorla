@@ -2,8 +2,7 @@ import XCTest
 @testable import Prata
 
 final class IslandLayoutTests: XCTestCase {
-    // Side content is 5 bars (3pt wide, 3pt spacing) = 27pt, wider than the 16pt dot/spinner,
-    // so each side is 27 + 10pt (notch-side padding) + 10pt (outer-edge padding) = 47pt.
+    // 5 bars of 3pt with 3pt gaps (27pt) plus 10pt padding on each edge.
     func testNotchSideWidthFitsTheWaveformPlusPadding() {
         let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 32)
         XCTAssertEqual(layout.sideWidth, 47)
