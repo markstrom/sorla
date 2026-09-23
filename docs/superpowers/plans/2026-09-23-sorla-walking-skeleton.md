@@ -147,7 +147,7 @@ app.run()
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Sorla behöver mikrofonåtkomst för att transkribera din röst till text.</string>
+    <string>Sorla needs microphone access to transcribe your voice into text.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
