@@ -19,6 +19,7 @@ public final class AudioRecorder {
         lock.unlock()
 
         let input = engine.inputNode
+        input.removeTap(onBus: 0)
         let format = input.inputFormat(forBus: 0)
         sampleRate = format.sampleRate
 
@@ -27,7 +28,12 @@ public final class AudioRecorder {
         }
 
         engine.prepare()
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            input.removeTap(onBus: 0)
+            throw error
+        }
     }
 
     public func stop() throws -> [Float] {
