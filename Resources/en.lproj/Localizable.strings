@@ -106,3 +106,4 @@
 "Hide Licenses" = "Hide Licenses";
 "Pianissimo model credit" = "Pianissimo model credit";
 "License texts are included with the app." = "License texts are included with the app.";
+"The model is loading (~1 min). Dictation will work once it's ready." = "The model is loading (~1 min). Dictation will work once it's ready.";

@@ -111,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
+            if isReady { self.didNotifyModelNotReady = false }
             self.updateIcon(isRecording: self.recordingController.isRecording)
             self.updateStatusMenuItem()
         }
@@ -307,7 +308,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             microphoneDenied: PermissionsManager.isMicrophoneAccessDenied(),
             accessibilityMissing: !PermissionsManager.isAccessibilityTrusted(),
             model: model ?? modelManager.status,
-            modelLoadFailed: modelLoadingStatus == .failed
+            modelLoadFailed: modelLoadingStatus == .failed,
+            modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading
         )
         statusMenuAction = row?.action
         statusMenuItem.title = row?.title ?? ""
@@ -323,12 +325,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func modelNotReadyMessage() -> String? {
-        DictationGate.blockedMessage(isModelInstalled: modelManager.isInstalled, model: modelManager.status)
+        DictationGate.blockedMessage(isModelInstalled: modelManager.isInstalled, isModelLoading: modelLoadingStatus == .loading, model: modelManager.status)
     }
 
     // The status row already shows the progress; the notification is only for the first refused attempt.
     private func refuseDictation(_ message: String) {
-        Self.logger.info("dictation refused: model not installed yet")
+        Self.logger.info("dictation refused: model not ready yet")
         guard !didNotifyModelNotReady else { return }
         didNotifyModelNotReady = true
         issueNotifier.post(message)

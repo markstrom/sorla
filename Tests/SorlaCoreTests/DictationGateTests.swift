@@ -27,6 +27,13 @@ final class DictationGateTests: XCTestCase {
         XCTAssertEqual(DictationGate.blockedMessage(isModelInstalled: false, model: .failed(.network, isUpdate: false)), message)
     }
 
+    func testAnInstalledModelThatIsStillLoadingIsRefused() {
+        XCTAssertEqual(
+            DictationGate.blockedMessage(isModelInstalled: true, isModelLoading: true, model: .installed(version: "1.0.0")),
+            "The model is loading (~1 min). Dictation will work once it's ready."
+        )
+    }
+
     func testPushToTalkWaitsForTheReleaseSoShortcutsStaySilent() {
         XCTAssertTrue(DictationGate.waitsForRelease(mode: .pushToTalk))
         XCTAssertFalse(DictationGate.waitsForRelease(mode: .toggle))

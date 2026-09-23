@@ -22,7 +22,8 @@ public struct MenuStatusRow: Equatable, Sendable {
         microphoneDenied: Bool,
         accessibilityMissing: Bool,
         model: ModelStatus,
-        modelLoadFailed: Bool
+        modelLoadFailed: Bool,
+        modelLoading: Bool = false
     ) -> MenuStatusRow? {
         if microphoneDenied {
             return MenuStatusRow(title: SorlaIssue.microphoneAccessNeeded.menuTitle ?? "", action: .openMicrophoneSettings)
@@ -42,6 +43,9 @@ public struct MenuStatusRow: Equatable, Sendable {
             return MenuStatusRow(title: String(localized: "Model not installed — Download", bundle: Localization.bundle), action: .downloadModel)
         default:
             break
+        }
+        if modelLoading {
+            return MenuStatusRow(title: String(localized: "Preparing model… ~1 min", bundle: Localization.bundle), action: .openSettings)
         }
         if modelLoadFailed {
             return MenuStatusRow(title: String(localized: "\(SorlaIssue.modelNotLoaded.menuTitle ?? "") — Try Again", bundle: Localization.bundle), action: .reloadModel)

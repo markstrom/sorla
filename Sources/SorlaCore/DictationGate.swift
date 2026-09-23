@@ -1,9 +1,13 @@
 import Foundation
 
-// Without an installed model a transcription can only fail, so dictation is refused with a reason instead.
+// Without a loaded model a recording can't be transcribed in time, so dictation is refused with a reason instead.
 public enum DictationGate {
-    public static func blockedMessage(isModelInstalled: Bool, model: ModelStatus) -> String? {
-        guard !isModelInstalled else { return nil }
+    public static func blockedMessage(isModelInstalled: Bool, isModelLoading: Bool = false, model: ModelStatus) -> String? {
+        if isModelInstalled {
+            return isModelLoading
+                ? String(localized: "The model is loading (~1 min). Dictation will work once it's ready.", bundle: Localization.bundle)
+                : nil
+        }
         switch model {
         case .downloading(_, let fraction, _):
             return String(localized: "The model is still downloading (\(ModelStatus.percent(fraction))%). Dictation will work once it's ready.", bundle: Localization.bundle)

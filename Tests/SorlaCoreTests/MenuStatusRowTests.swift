@@ -6,14 +6,20 @@ final class MenuStatusRowTests: XCTestCase {
         microphoneDenied: Bool = false,
         accessibilityMissing: Bool = false,
         model: ModelStatus = .installed(version: "1.0.0"),
-        modelLoadFailed: Bool = false
+        modelLoadFailed: Bool = false,
+        modelLoading: Bool = false
     ) -> MenuStatusRow? {
         MenuStatusRow.current(
             microphoneDenied: microphoneDenied,
             accessibilityMissing: accessibilityMissing,
             model: model,
-            modelLoadFailed: modelLoadFailed
+            modelLoadFailed: modelLoadFailed,
+            modelLoading: modelLoading
         )
+    }
+
+    func testLoadingAnInstalledModelSaysHowLongItTakes() {
+        XCTAssertEqual(row(modelLoading: true), MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings))
     }
 
     func testNothingToShowHidesTheRow() {

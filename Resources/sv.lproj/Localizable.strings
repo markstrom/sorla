@@ -106,3 +106,4 @@
 "Hide Licenses" = "Dölj licenser";
 "Pianissimo model credit" = "Pianissimo-modellen";
 "License texts are included with the app." = "Licenstexterna följer med appen.";
+"The model is loading (~1 min). Dictation will work once it's ready." = "Modellen läses in (~1 min). Diktering fungerar när den är klar.";
