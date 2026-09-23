@@ -69,11 +69,38 @@ final class ModelManifestTests: XCTestCase {
         XCTAssertFalse(Self.release(loader: nil).isCompatible)
     }
 
+    func testATotalSizeThatDoesNotMatchTheFilesIsRejected() {
+        XCTAssertThrowsError(try Self.release(totalSize: 2).validate())
+        XCTAssertThrowsError(try Self.release(totalSize: 0).validate())
+    }
+
+    func testANegativeOrHugeTotalSizeIsRejected() {
+        XCTAssertThrowsError(try Self.release(totalSize: -1).validate())
+        let huge = ModelRelease.maximumTotalSize + 1
+        XCTAssertThrowsError(try Self.release(totalSize: huge, files: [Self.vocabulary(size: huge)]).validate())
+    }
+
+    func testFileSizesThatOverflowWhenAddedAreRejected() {
+        let files = [Self.vocabulary(size: .max), ModelFile(path: "README.md", size: .max, sha256: String(repeating: "a", count: 64))]
+
+        XCTAssertThrowsError(try Self.release(totalSize: 1, files: files).validate())
+        XCTAssertNil(ModelRelease.checkedSum([.max, 1]))
+        XCTAssertEqual(ModelRelease.checkedSum([1, 2, 3]), 6)
+    }
+
+    static func vocabulary(size: Int64) -> ModelFile {
+        ModelFile(path: "parakeet_vocab.json", size: size, sha256: String(repeating: "a", count: 64))
+    }
+
     static func release(
         version: String = "1.0.0",
         loader: ModelLoader? = ModelLoader(library: "FluidAudio", version: "v3"),
-        files: [ModelFile] = [ModelFile(path: "parakeet_vocab.json", size: 1, sha256: String(repeating: "a", count: 64))]
+        totalSize: Int64? = nil,
+        files: [ModelFile] = [vocabulary(size: 1)]
     ) -> ModelRelease {
-        ModelRelease(id: "pianissimo-sv", name: "Pianissimo (Swedish)", version: version, loader: loader, totalSize: files.reduce(0) { $0 + $1.size }, files: files)
+        ModelRelease(
+            id: "pianissimo-sv", name: "Pianissimo (Swedish)", version: version, loader: loader,
+            totalSize: totalSize ?? ModelRelease.checkedSum(files.map(\.size)) ?? 0, files: files
+        )
     }
 }

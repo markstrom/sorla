@@ -3,7 +3,12 @@ import os
 
 public protocol ModelNetwork: Sendable {
     func data(from url: URL) async throws -> Data
-    func download(from url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws
+    func download(from url: URL, to destination: URL, maxBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws
+}
+
+public enum ModelNetworkError: Error, Equatable, Sendable {
+    case httpStatus(Int)
+    case tooLarge
 }
 
 public protocol ModelPreparer: Sendable {
@@ -60,7 +65,7 @@ public struct ModelInstaller: Sendable {
         do {
             data = try await network.data(from: manifestURL)
         } catch {
-            throw Self.networkError(error)
+            throw Self.installError(error)
         }
         guard let manifest = try? ModelManifest.decode(data),
               let release = manifest.release(id: ModelManifest.pianissimoID)
@@ -105,9 +110,9 @@ public struct ModelInstaller: Sendable {
     }
 
     private func download(_ release: ModelRelease, into staging: ModelStaging, progress: @escaping @Sendable (ModelInstallProgress) -> Void) async throws {
-        let total = max(release.files.reduce(Int64(0)) { $0 + $1.size }, 1)
+        let total = max(release.totalSize, 1)
         let pending = staging.filesNeedingDownload(release.files)
-        var completed = total - pending.reduce(Int64(0)) { $0 + $1.size }
+        var completed = total - (ModelRelease.checkedSum(pending.map(\.size)) ?? total)
         Self.logger.info("staging model \(release.version, privacy: .public): \(pending.count, privacy: .public) of \(release.files.count, privacy: .public) files to download, \(completed, privacy: .public) bytes already verified")
         progress(.downloading(fraction: Double(completed) / Double(total)))
 
@@ -117,11 +122,16 @@ public struct ModelInstaller: Sendable {
             try? FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
             let base = completed
             do {
-                try await network.download(from: ModelStaging.remoteURL(base: filesBaseURL, version: release.version, path: file.path), to: destination) { received in
+                let url = ModelStaging.remoteURL(base: filesBaseURL, version: release.version, path: file.path)
+                try await network.download(from: url, to: destination, maxBytes: file.size) { received in
                     progress(.downloading(fraction: Double(base + min(received, file.size)) / Double(total)))
                 }
+            } catch ModelNetworkError.tooLarge {
+                try? FileManager.default.removeItem(at: destination)
+                Self.logger.error("download exceeded its declared size: \(file.path, privacy: .public)")
+                throw ModelInstallError.verificationFailed(path: file.path)
             } catch {
-                throw Self.networkError(error)
+                throw Self.installError(error)
             }
             guard FileVerifier.matches(destination, size: file.size, sha256: file.sha256) else {
                 try? FileManager.default.removeItem(at: destination)
@@ -172,9 +182,15 @@ public struct ModelInstaller: Sendable {
         Self.logger.info("model self-test passed")
     }
 
-    private static func networkError(_ error: Error) -> Error {
+    // Only transport failures mean "no connection"; server answers and local file errors get their own wording.
+    static func installError(_ error: Error) -> Error {
         if error is CancellationError { return error }
-        logger.error("model network request failed: \(ErrorSummary.of(error), privacy: .public)")
-        return ModelInstallError.network
+        logger.error("model download failed: \(ErrorSummary.of(error), privacy: .public)")
+        switch error {
+        case is URLError: return ModelInstallError.network
+        case ModelNetworkError.httpStatus: return ModelInstallError.serverUnavailable
+        case let installError as ModelInstallError: return installError
+        default: return ModelInstallError.diskWriteFailed
+        }
     }
 }

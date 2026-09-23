@@ -3,6 +3,8 @@ import Foundation
 public enum ModelInstallError: Error, Equatable, Sendable {
     case invalidManifest
     case network
+    case serverUnavailable
+    case diskWriteFailed
     case insufficientDiskSpace(required: Int64)
     case verificationFailed(path: String)
     case compileFailed
@@ -13,6 +15,8 @@ public enum ModelInstallError: Error, Equatable, Sendable {
         switch self {
         case .invalidManifest: return "The model list couldn't be read."
         case .network: return "Couldn't reach Hugging Face. Check your internet connection."
+        case .serverUnavailable: return "Hugging Face couldn't provide the model right now. Try again later."
+        case .diskWriteFailed: return "The model files couldn't be saved. Check that there's free disk space."
         case .insufficientDiskSpace(let required): return "Not enough disk space (\(Self.gigabytes(required)) free needed)."
         case .verificationFailed: return "A downloaded file was damaged."
         case .compileFailed: return "The model couldn't be prepared for this Mac."

@@ -3,8 +3,11 @@ import Foundation
 
 actor FakeModelNetwork: ModelNetwork {
     private(set) var requests: [URL] = []
+    private(set) var downloadLimits: [URL: Int64] = [:]
     private var responses: [URL: Data] = [:]
     private var failing: Set<URL> = []
+    private var errors: [URL: Error] = [:]
+    private var holdsDownloads = false
 
     func serve(_ data: Data, at url: URL) {
         responses[url] = data
@@ -18,15 +21,34 @@ actor FakeModelNetwork: ModelNetwork {
         failing.remove(url)
     }
 
+    func fail(_ url: URL, with error: Error) {
+        errors[url] = error
+    }
+
+    func holdDownloads() {
+        holdsDownloads = true
+    }
+
+    func releaseDownloads() {
+        holdsDownloads = false
+    }
+
     func data(from url: URL) async throws -> Data {
         requests.append(url)
+        if let error = errors[url] { throw error }
         guard !failing.contains(url), let data = responses[url] else { throw URLError(.notConnectedToInternet) }
         return data
     }
 
-    func download(from url: URL, to destination: URL, progress: @escaping @Sendable (Int64) -> Void) async throws {
+    func download(from url: URL, to destination: URL, maxBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws {
         requests.append(url)
+        downloadLimits[url] = maxBytes
+        while holdsDownloads {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        if let error = errors[url] { throw error }
         guard !failing.contains(url), let data = responses[url] else { throw URLError(.notConnectedToInternet) }
+        guard Int64(data.count) <= maxBytes else { throw ModelNetworkError.tooLarge }
         try data.write(to: destination)
         progress(Int64(data.count))
     }

@@ -72,7 +72,8 @@ public struct ModelStaging: Sendable {
 public enum DiskSpace {
     // Room for the downloaded packages plus their compiled copies side by side.
     public static func required(forDownloadOf totalSize: Int64) -> Int64 {
-        totalSize * 2
+        let (doubled, overflow) = totalSize.multipliedReportingOverflow(by: 2)
+        return overflow ? .max : doubled
     }
 
     public static func hasRoom(available: Int64?, forDownloadOf totalSize: Int64) -> Bool {

@@ -41,6 +41,8 @@ public struct ModelRelease: Decodable, Equatable, Sendable {
     public static let supportedLoader = ModelLoader(library: "FluidAudio", version: "v3")
     public static let vocabularyPath = "parakeet_vocab.json"
     public static let licensePath = "LICENSE-and-attribution.txt"
+    // Far above the ~700 MB model; sizes come from the network and must stay clear of Int64 overflow.
+    public static let maximumTotalSize: Int64 = 10_000_000_000
 
     public let id: String
     public let name: String
@@ -78,6 +80,19 @@ public struct ModelRelease: Decodable, Equatable, Sendable {
                 throw ModelInstallError.invalidManifest
             }
         }
+        guard (0...Self.maximumTotalSize).contains(totalSize), Self.checkedSum(files.map(\.size)) == totalSize else {
+            throw ModelInstallError.invalidManifest
+        }
+    }
+
+    public static func checkedSum(_ sizes: [Int64]) -> Int64? {
+        var sum: Int64 = 0
+        for size in sizes {
+            let (next, overflow) = sum.addingReportingOverflow(size)
+            if overflow { return nil }
+            sum = next
+        }
+        return sum
     }
 
     // Paths come from the network, so they must never resolve outside the staging directory.

@@ -113,6 +113,10 @@ final class ModelStagingTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: staging.directory.path))
     }
 
+    func testDiskSpaceRequirementSaturatesInsteadOfOverflowing() {
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: .max), .max)
+    }
+
     func testDiskSpaceNeedsTwiceTheDownload() {
         XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_257_471), 1_376_514_942)
         XCTAssertTrue(DiskSpace.hasRoom(available: 1_376_514_942, forDownloadOf: 688_257_471))

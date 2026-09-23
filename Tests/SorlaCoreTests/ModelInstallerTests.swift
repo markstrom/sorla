@@ -153,6 +153,42 @@ final class ModelInstallerTests: XCTestCase {
         XCTAssertEqual(last, 1, accuracy: 0.0001)
     }
 
+    func testAServerErrorIsNotReportedAsAMissingConnection() async throws {
+        await network.fail(published.url(for: "README.md"), with: ModelNetworkError.httpStatus(404))
+
+        await assertThrows(.serverUnavailable) { _ = try await self.installer().stage(self.published.latest) { _ in } }
+    }
+
+    func testAManifestServerErrorIsNotReportedAsAMissingConnection() async throws {
+        await network.fail(PublishedModelFixture.manifestURL, with: ModelNetworkError.httpStatus(503))
+
+        await assertThrows(.serverUnavailable) { _ = try await self.installer().fetchLatest() }
+    }
+
+    func testAFileErrorWhileSavingADownloadIsADiskProblem() async throws {
+        await network.fail(published.url(for: "README.md"), with: CocoaError(.fileWriteOutOfSpace))
+
+        await assertThrows(.diskWriteFailed) { _ = try await self.installer().stage(self.published.latest) { _ in } }
+    }
+
+    func testEachDownloadIsCappedAtItsDeclaredSize() async throws {
+        _ = try await installer().stage(published.latest) { _ in }
+
+        let limits = await network.downloadLimits
+        for file in published.files {
+            XCTAssertEqual(limits[published.url(for: file.path)], file.size, file.path)
+        }
+    }
+
+    func testAnOversizedDownloadIsRejectedAndDiscarded() async throws {
+        let path = "README.md"
+        await network.serve(Data(String(repeating: "x", count: 10_000).utf8), at: published.url(for: path))
+
+        await assertThrows(.verificationFailed(path: path)) { _ = try await self.installer().stage(self.published.latest) { _ in } }
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.downloadLocation(for: path).path))
+    }
+
     private func place(_ contents: String, at url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data(contents.utf8).write(to: url)
