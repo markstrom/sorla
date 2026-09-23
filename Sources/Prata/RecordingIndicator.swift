@@ -9,6 +9,8 @@ struct IslandLayout: Equatable {
 
     static let compactWidth: CGFloat = 190
     static let compactCollapsedWidth: CGFloat = 36
+    // A tab exactly as tall as the menu bar reads as a misalignment, so it hangs clearly below.
+    static let depthBelowMenuBar: CGFloat = 6
     static let overshootMargin: CGFloat = 12
     static let notchBarCount = 5
     static let notchStatusSize: CGFloat = 16
@@ -56,11 +58,11 @@ struct IslandLayout: Equatable {
         let barsWidth = CGFloat(notchBarCount) * barWidth + CGFloat(notchBarCount - 1) * barSpacing
         let contentWidth = max(barsWidth, notchStatusSize)
         let sideWidth = contentWidth + 2 * notchContentPadding
-        return IslandLayout(notchWidth: notchWidth, sideWidth: sideWidth, height: notchHeight)
+        return IslandLayout(notchWidth: notchWidth, sideWidth: sideWidth, height: notchHeight + depthBelowMenuBar)
     }
 
     static func compactLayout(menuBarHeight: CGFloat) -> IslandLayout {
-        let height = menuBarHeight > 0 ? menuBarHeight : 30
+        let height = (menuBarHeight > 0 ? menuBarHeight : 30) + depthBelowMenuBar
         return IslandLayout(notchWidth: 0, sideWidth: 0, height: height)
     }
 }
@@ -265,7 +267,7 @@ final class RecordingIndicatorPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: IslandLayout.compactWidth, height: 30)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: IslandLayout.compactWidth, height: 36)),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
