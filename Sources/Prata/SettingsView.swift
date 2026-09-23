@@ -62,6 +62,8 @@ struct SettingsView: View {
 
             Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
 
+            Toggle("Play sounds", isOn: $appSettings.playSounds)
+
             KeyboardShortcuts.Recorder("Paste last transcription", name: .pasteLastTranscription)
 
             Toggle("Launch at login", isOn: launchAtLoginBinding)

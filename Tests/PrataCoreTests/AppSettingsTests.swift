@@ -24,6 +24,16 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.recordingMode, .pushToTalk)
         XCTAssertEqual(settings.model, .parakeet)
         XCTAssertTrue(settings.keepClipboardContent)
+        XCTAssertTrue(settings.playSounds)
+    }
+
+    func testPlaySoundsPersistsImmediatelyAndRoundTrips() {
+        let settings = AppSettings(defaults: defaults)
+
+        settings.playSounds = false
+
+        XCTAssertEqual(defaults.object(forKey: "playSounds") as? Bool, false)
+        XCTAssertFalse(AppSettings(defaults: defaults).playSounds)
     }
 
     func testTriggerKeyPersistsImmediatelyAndRoundTrips() {

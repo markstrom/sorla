@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
+    private var feedbackSounds: FeedbackSoundPlayer!
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var pasteLastMenuItem: NSMenuItem!
     private var triggerHintMenuItem: NSMenuItem!
@@ -67,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateTriggerHintMenuItem()
 
         recordingIndicator = RecordingIndicatorPanel()
+        feedbackSounds = FeedbackSoundPlayer()
 
         recordingController.onStateChange = { [weak self] isRecording in
             self?.updateIcon(isRecording: isRecording)
@@ -89,8 +91,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         let triggerMonitor = TriggerMonitor(
-            onStart: { [weak self] in self?.recordingController.startRecording() ?? false },
-            onFinish: { [weak self] in self?.recordingController.stopRecordingAndTranscribe() },
+            onStart: { [weak self] in
+                guard let self, self.recordingController.startRecording() else { return false }
+                if self.appSettings.playSounds {
+                    self.feedbackSounds.playStart()
+                }
+                return true
+            },
+            onFinish: { [weak self] in
+                guard let self, self.recordingController.stopRecordingAndTranscribe() else { return }
+                if self.appSettings.playSounds {
+                    self.feedbackSounds.playStop()
+                }
+            },
             onCancel: { [weak self] in self?.recordingController.cancelRecording() }
         )
         self.triggerMonitor = triggerMonitor

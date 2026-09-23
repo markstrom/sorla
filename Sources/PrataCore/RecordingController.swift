@@ -104,8 +104,9 @@ public final class RecordingController {
         }
     }
 
-    public func stopRecordingAndTranscribe() {
-        guard isRecording else { return }
+    @discardableResult
+    public func stopRecordingAndTranscribe() -> Bool {
+        guard isRecording else { return false }
         isRecording = false
         isCapturingTail = true
         onStateChange?(false)
@@ -165,6 +166,7 @@ public final class RecordingController {
                 self.logger.error("\(modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
             }
         }
+        return true
     }
 
     // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
