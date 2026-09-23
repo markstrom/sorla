@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
     @State private var customShortcutDescription = KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
 
+    static let windowTitle = String(localized: "Sorla Settings")
+
     private static let logger = Logger(subsystem: "com.sorla.app", category: "SettingsView")
 
     var body: some View {
@@ -48,7 +50,7 @@ struct SettingsView: View {
             .foregroundStyle(.secondary)
 
             Picker("Model", selection: .constant(PianissimoModel.displayName)) {
-                Text(PianissimoModel.displayName).tag(PianissimoModel.displayName)
+                Text(LocalizedStringKey(PianissimoModel.displayName)).tag(PianissimoModel.displayName)
             }
             modelUpdates
 
@@ -69,7 +71,7 @@ struct SettingsView: View {
         .fixedSize(horizontal: false, vertical: true)
         .onAppear(perform: refreshLoginItemStatus)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
-            guard (notification.object as? NSWindow)?.title == "Sorla Settings" else { return }
+            guard (notification.object as? NSWindow)?.title == Self.windowTitle else { return }
             refreshLoginItemStatus()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

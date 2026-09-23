@@ -31,11 +31,11 @@ public enum TriggerKey: String, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .rightCommand: return "Right ⌘"
-        case .rightOption: return "Right ⌥"
-        case .rightControl: return "Right ⌃"
+        case .rightCommand: return String(localized: "Right ⌘", bundle: Localization.bundle)
+        case .rightOption: return String(localized: "Right ⌥", bundle: Localization.bundle)
+        case .rightControl: return String(localized: "Right ⌃", bundle: Localization.bundle)
         case .fn: return "Fn"
-        case .customShortcut: return "Custom shortcut"
+        case .customShortcut: return String(localized: "Custom shortcut", bundle: Localization.bundle)
         }
     }
 }
@@ -48,8 +48,8 @@ public enum RecordingMode: String, CaseIterable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .pushToTalk: return "Push to talk"
-        case .toggle: return "Toggle"
+        case .pushToTalk: return String(localized: "Push to talk", bundle: Localization.bundle)
+        case .toggle: return String(localized: "Toggle", bundle: Localization.bundle)
         }
     }
 }

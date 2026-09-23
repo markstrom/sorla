@@ -13,7 +13,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Sorla Settings"
+        window.title = SettingsView.windowTitle
         window.contentViewController = NSHostingController(
             rootView: SettingsView(appSettings: appSettings, modelManager: modelManager)
         )

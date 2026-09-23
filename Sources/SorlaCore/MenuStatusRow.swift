@@ -1,3 +1,5 @@
+import Foundation
+
 public enum MenuStatusAction: Equatable, Sendable {
     case openMicrophoneSettings
     case openAccessibilitySettings
@@ -29,14 +31,14 @@ public struct MenuStatusRow: Equatable, Sendable {
         }
         switch model {
         case .downloading(_, let fraction, _):
-            return MenuStatusRow(title: "Downloading model… \(ModelStatus.percent(fraction))%", action: .openSettings)
+            return MenuStatusRow(title: String(localized: "Downloading model… \(ModelStatus.percent(fraction))%", bundle: Localization.bundle), action: .openSettings)
         case .preparing, .waitingToInstall:
-            return MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings)
+            return MenuStatusRow(title: String(localized: "Preparing model… ~1 min", bundle: Localization.bundle), action: .openSettings)
         case .failed(_, let isUpdate):
             let issue: SorlaIssue = isUpdate ? .modelUpdateFailed : .modelDownloadFailed
-            return MenuStatusRow(title: "\(issue.menuTitle ?? "") — Try Again", action: .downloadModel)
+            return MenuStatusRow(title: String(localized: "\(issue.menuTitle ?? "") — Try Again", bundle: Localization.bundle), action: .downloadModel)
         case .notInstalled:
-            return MenuStatusRow(title: "Model not installed — Download", action: .downloadModel)
+            return MenuStatusRow(title: String(localized: "Model not installed — Download", bundle: Localization.bundle), action: .downloadModel)
         default:
             break
         }
@@ -44,7 +46,7 @@ public struct MenuStatusRow: Equatable, Sendable {
             return MenuStatusRow(title: SorlaIssue.modelNotLoaded.menuTitle ?? "", action: .openSettings)
         }
         if case .updateAvailable(let version) = model {
-            return MenuStatusRow(title: "Model update available (\(version))", action: .downloadModel)
+            return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)
         }
         return nil
     }

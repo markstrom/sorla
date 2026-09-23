@@ -1,0 +1,108 @@
+/* Status menu */
+"Hold %@ to Record" = "Håll %@ för att spela in";
+"Press %@ to Record" = "Tryck på %@ för att spela in";
+"Record: Shortcut Not Set" = "Spela in: inget kortkommando valt";
+"Paste Last Transcription" = "Klistra in senaste transkriberingen";
+"About Sorla" = "Om Sorla";
+"Settings…" = "Inställningar…";
+"Quit Sorla" = "Avsluta Sorla";
+"Sorla (loading model)" = "Sorla (läser in modellen)";
+"Sorla (recording)" = "Sorla (spelar in)";
+
+/* Status row */
+"Downloading model… %lld%%" = "Laddar ner modellen… %lld %%";
+"Preparing model… ~1 min" = "Förbereder modellen… ~1 min";
+"Model not installed — Download" = "Modellen är inte installerad – Ladda ner";
+"%@ — Try Again" = "%@ – Försök igen";
+"Model update available (%@)" = "Modelluppdatering tillgänglig (%@)";
+"Microphone access needed" = "Mikrofonåtkomst behövs";
+"Accessibility access needed to paste" = "Hjälpmedelsåtkomst behövs för att klistra in";
+"Model couldn't be loaded" = "Modellen kunde inte läsas in";
+"Model download failed" = "Nedladdningen av modellen misslyckades";
+"Model update failed" = "Uppdateringen av modellen misslyckades";
+
+/* Notifications */
+"Couldn't record — grant Sorla access to the microphone in System Settings." = "Kunde inte spela in – ge Sorla åtkomst till mikrofonen i Systeminställningar.";
+"Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you." = "Texten ligger i urklippet – tryck ⌘V. Ge Sorla åtkomst under Hjälpmedel så kan Sorla klistra in åt dig.";
+"The model couldn't be loaded. Dictation won't work until this is fixed." = "Modellen kunde inte läsas in. Diktering fungerar inte förrän det är åtgärdat.";
+"Couldn't start recording: no microphone found." = "Kunde inte börja spela in: ingen mikrofon hittades.";
+"Couldn't transcribe that recording." = "Kunde inte transkribera inspelningen.";
+"Couldn't download the model. Open the Sorla menu to try again." = "Kunde inte ladda ner modellen. Öppna Sorla-menyn för att försöka igen.";
+"Couldn't install the model update. Sorla keeps using the current model." = "Kunde inte installera uppdateringen av modellen. Sorla fortsätter med den nuvarande modellen.";
+"The model is still downloading (%lld%%). Dictation will work once it's ready." = "Modellen laddas fortfarande ner (%lld %%). Diktering fungerar när den är klar.";
+"The model is being prepared (~1 min). Dictation will work once it's ready." = "Modellen förbereds (~1 min). Diktering fungerar när den är klar.";
+"The model isn't installed yet. Open the Sorla menu to download it." = "Modellen är inte installerad än. Öppna Sorla-menyn för att ladda ner den.";
+"Sorla is ready. Set a shortcut in Settings to dictate." = "Sorla är redo. Välj ett kortkommando i Inställningar för att diktera.";
+"Sorla is ready. Hold %@ to dictate." = "Sorla är redo. Håll %@ för att diktera.";
+"Sorla is ready. Press %@ to dictate." = "Sorla är redo. Tryck på %@ för att diktera.";
+
+/* Settings */
+"Sorla Settings" = "Inställningar för Sorla";
+"Trigger" = "Tangent";
+"Right ⌘" = "Höger ⌘";
+"Right ⌥" = "Höger ⌥";
+"Right ⌃" = "Höger ⌃";
+"Custom shortcut" = "Eget kortkommando";
+"Shortcut" = "Kortkommando";
+"Not set" = "Inte valt";
+"Mode" = "Läge";
+"Push to talk" = "Håll in";
+"Toggle" = "Av/på";
+"Record a shortcut above to start dictating." = "Spela in ett kortkommando ovan för att börja diktera.";
+"Hold %@ while speaking; release to paste." = "Håll %@ medan du pratar och släpp för att klistra in.";
+"Press %@ to start, press again to stop." = "Tryck på %@ för att börja och tryck igen för att sluta.";
+"Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings." = "Ett tryck på bara 🌐/Fn kan också köra systemets val för ”Tryck på 🌐-tangenten för att” (byta inmatningskälla, visa emojier eller starta diktering). Ställ in det på ”Gör ingenting” i inställningarna för Tangentbord.";
+"Open Keyboard Settings…" = "Öppna inställningar för Tangentbord…";
+"Model" = "Modell";
+"Pianissimo (Swedish)" = "Pianissimo (svenska)";
+"Not installed" = "Inte installerad";
+"Installed" = "Installerad";
+"Version %@" = "Version %@";
+"Checking for updates…" = "Söker efter uppdateringar…";
+"Up to date · Version %@" = "Uppdaterad · Version %@";
+"Update available · Version %@" = "Uppdatering tillgänglig · Version %@";
+"Downloading %lld%%" = "Laddar ner %lld %%";
+"Preparing… ~1 min" = "Förbereder… ~1 min";
+"Installing when dictation ends…" = "Installeras när dikteringen är klar…";
+"Failed: %@" = "Misslyckades: %@";
+"Download" = "Ladda ner";
+"Try Again" = "Försök igen";
+"Check for model updates automatically" = "Sök efter modelluppdateringar automatiskt";
+"Download updates automatically" = "Ladda ner uppdateringar automatiskt";
+"Check Now" = "Sök nu";
+"Keep clipboard content" = "Behåll urklippets innehåll";
+"Play sounds" = "Spela upp ljud";
+"Paste last transcription" = "Klistra in senaste transkriberingen";
+"Launch at login" = "Starta vid inloggning";
+"Sorla needs approval in Login Items to launch at login." = "Sorla behöver godkännas under Inloggningsobjekt för att starta vid inloggning.";
+"Open Login Items Settings…" = "Öppna inställningar för Inloggningsobjekt…";
+
+/* Model errors */
+"The model list couldn't be read." = "Modellistan kunde inte läsas.";
+"Couldn't reach Hugging Face. Check your internet connection." = "Kunde inte nå Hugging Face. Kontrollera internetanslutningen.";
+"Hugging Face couldn't provide the model right now. Try again later." = "Hugging Face kan inte leverera modellen just nu. Försök igen senare.";
+"The model files couldn't be saved. Check that there's free disk space." = "Modellfilerna kunde inte sparas. Kontrollera att det finns ledigt utrymme.";
+"Not enough disk space (%@ free needed)." = "Inte tillräckligt med ledigt utrymme (%@ behövs).";
+"A downloaded file was damaged." = "En nedladdad fil var skadad.";
+"The model couldn't be prepared for this Mac." = "Modellen kunde inte förberedas för den här Macen.";
+"The new model didn't pass its self-test." = "Den nya modellen klarade inte sitt självtest.";
+"The new model couldn't be installed." = "Den nya modellen kunde inte installeras.";
+
+/* Recording indicator */
+"Recording" = "Spelar in";
+"Transcribing" = "Transkriberar";
+
+/* About */
+"Version %@ (%@)" = "Version %@ (%@)";
+"Push-to-talk dictation for Mac. Runs entirely on your device." = "Håll in och prata – diktering för Mac. Allt körs på enheten.";
+"Credits" = "Medverkande";
+"Speech model: Klang Pianissimo" = "Talmodell: Klang Pianissimo";
+"By Klang AI AB" = "Av Klang AI AB";
+"Converted to Core ML for on-device use; weights unchanged." = "Konverterad till Core ML för att köras på din Mac, med oförändrade vikter.";
+"Based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)." = "Baserad på NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).";
+"License (CC BY 4.0)" = "Licens (CC BY 4.0)";
+"Project" = "Projekt";
+"Licenses" = "Licenser";
+"Hide Licenses" = "Dölj licenser";
+"Pianissimo model credit" = "Pianissimo-modellen";
+"License texts are included with the app." = "Licenstexterna följer med appen.";

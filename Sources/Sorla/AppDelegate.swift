@@ -72,20 +72,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let triggerHintItem = NSMenuItem(title: "", action: #selector(showSettings), keyEquivalent: "")
         menu.addItem(triggerHintItem)
         triggerHintMenuItem = triggerHintItem
-        let pasteLastItem = NSMenuItem(title: "Paste Last Transcription", action: #selector(pasteLastTranscription), keyEquivalent: "")
+        let pasteLastItem = NSMenuItem(title: String(localized: "Paste Last Transcription"), action: #selector(pasteLastTranscription), keyEquivalent: "")
         pasteLastItem.target = self
         pasteLastItem.setShortcut(for: .pasteLastTranscription)
         pasteLastItem.isEnabled = false
         menu.addItem(pasteLastItem)
         pasteLastMenuItem = pasteLastItem
         menu.addItem(.separator())
-        let aboutItem = NSMenuItem(title: "About Sorla", action: #selector(showAbout), keyEquivalent: "")
+        let aboutItem = NSMenuItem(title: String(localized: "About Sorla"), action: #selector(showAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: String(localized: "Settings…"), action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
-        menu.addItem(NSMenuItem(title: "Quit Sorla", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: String(localized: "Quit Sorla"), action: #selector(quit), keyEquivalent: "q"))
         statusItem.menu = menu
 
         updateStatusMenuItem()

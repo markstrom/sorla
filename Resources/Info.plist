@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>sv</string>
+    </array>
     <key>CFBundleName</key>
     <string>Sorla</string>
     <key>CFBundleDisplayName</key>
@@ -21,7 +28,7 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Sorla behöver mikrofonåtkomst för att transkribera din röst till text.</string>
+    <string>Sorla needs microphone access to transcribe your voice into text.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

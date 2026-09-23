@@ -14,6 +14,7 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp .build/release/Sorla "$APP_DIR/Contents/MacOS/Sorla"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 cp -R Resources/Licenses "$APP_DIR/Contents/Resources/Licenses"
+cp -R Resources/*.lproj "$APP_DIR/Contents/Resources/"
 
 shopt -s nullglob
 for bundle in .build/release/*.bundle; do

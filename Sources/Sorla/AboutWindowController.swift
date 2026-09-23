@@ -10,7 +10,7 @@ final class AboutWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "About Sorla"
+        window.title = String(localized: "About Sorla")
         window.contentViewController = NSHostingController(rootView: AboutView())
         window.isReleasedWhenClosed = false
         window.center()

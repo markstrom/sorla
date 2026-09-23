@@ -12,11 +12,11 @@ public enum SorlaIssue: Hashable, Sendable {
 
     public var menuTitle: String? {
         switch self {
-        case .microphoneAccessNeeded: return "Microphone access needed"
-        case .accessibilityAccessNeeded: return "Accessibility access needed to paste"
-        case .modelNotLoaded: return "Model couldn't be loaded"
-        case .modelDownloadFailed: return "Model download failed"
-        case .modelUpdateFailed: return "Model update failed"
+        case .microphoneAccessNeeded: return String(localized: "Microphone access needed", bundle: Localization.bundle)
+        case .accessibilityAccessNeeded: return String(localized: "Accessibility access needed to paste", bundle: Localization.bundle)
+        case .modelNotLoaded: return String(localized: "Model couldn't be loaded", bundle: Localization.bundle)
+        case .modelDownloadFailed: return String(localized: "Model download failed", bundle: Localization.bundle)
+        case .modelUpdateFailed: return String(localized: "Model update failed", bundle: Localization.bundle)
         case .noInputDevice, .transcriptionFailed: return nil
         }
     }
@@ -24,19 +24,19 @@ public enum SorlaIssue: Hashable, Sendable {
     public var notificationBody: String? {
         switch self {
         case .microphoneAccessNeeded:
-            return "Couldn't record — grant Sorla access to the microphone in System Settings."
+            return String(localized: "Couldn't record — grant Sorla access to the microphone in System Settings.", bundle: Localization.bundle)
         case .accessibilityAccessNeeded:
-            return "Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you."
+            return String(localized: "Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you.", bundle: Localization.bundle)
         case .modelNotLoaded:
-            return "The Swedish model couldn't be loaded. Dictation won't work until this is fixed."
+            return String(localized: "The model couldn't be loaded. Dictation won't work until this is fixed.", bundle: Localization.bundle)
         case .noInputDevice:
-            return "Couldn't start recording: no microphone found."
+            return String(localized: "Couldn't start recording: no microphone found.", bundle: Localization.bundle)
         case .transcriptionFailed:
-            return "Couldn't transcribe that recording."
+            return String(localized: "Couldn't transcribe that recording.", bundle: Localization.bundle)
         case .modelDownloadFailed:
-            return "Couldn't download the Swedish model. Open the Sorla menu to try again."
+            return String(localized: "Couldn't download the model. Open the Sorla menu to try again.", bundle: Localization.bundle)
         case .modelUpdateFailed:
-            return "Couldn't install the model update. Sorla keeps using the current model."
+            return String(localized: "Couldn't install the model update. Sorla keeps using the current model.", bundle: Localization.bundle)
         }
     }
 

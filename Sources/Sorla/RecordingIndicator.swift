@@ -169,6 +169,8 @@ struct RecordingIndicatorView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(viewModel.mode == .transcribing ? Text("Transcribing") : Text("Recording"))
     }
 
     @ViewBuilder

@@ -1,0 +1,108 @@
+/* Status menu */
+"Hold %@ to Record" = "Hold %@ to Record";
+"Press %@ to Record" = "Press %@ to Record";
+"Record: Shortcut Not Set" = "Record: Shortcut Not Set";
+"Paste Last Transcription" = "Paste Last Transcription";
+"About Sorla" = "About Sorla";
+"Settings…" = "Settings…";
+"Quit Sorla" = "Quit Sorla";
+"Sorla (loading model)" = "Sorla (loading model)";
+"Sorla (recording)" = "Sorla (recording)";
+
+/* Status row */
+"Downloading model… %lld%%" = "Downloading model… %lld%%";
+"Preparing model… ~1 min" = "Preparing model… ~1 min";
+"Model not installed — Download" = "Model not installed — Download";
+"%@ — Try Again" = "%@ — Try Again";
+"Model update available (%@)" = "Model update available (%@)";
+"Microphone access needed" = "Microphone access needed";
+"Accessibility access needed to paste" = "Accessibility access needed to paste";
+"Model couldn't be loaded" = "Model couldn't be loaded";
+"Model download failed" = "Model download failed";
+"Model update failed" = "Model update failed";
+
+/* Notifications */
+"Couldn't record — grant Sorla access to the microphone in System Settings." = "Couldn't record — grant Sorla access to the microphone in System Settings.";
+"Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you." = "Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you.";
+"The model couldn't be loaded. Dictation won't work until this is fixed." = "The model couldn't be loaded. Dictation won't work until this is fixed.";
+"Couldn't start recording: no microphone found." = "Couldn't start recording: no microphone found.";
+"Couldn't transcribe that recording." = "Couldn't transcribe that recording.";
+"Couldn't download the model. Open the Sorla menu to try again." = "Couldn't download the model. Open the Sorla menu to try again.";
+"Couldn't install the model update. Sorla keeps using the current model." = "Couldn't install the model update. Sorla keeps using the current model.";
+"The model is still downloading (%lld%%). Dictation will work once it's ready." = "The model is still downloading (%lld%%). Dictation will work once it's ready.";
+"The model is being prepared (~1 min). Dictation will work once it's ready." = "The model is being prepared (~1 min). Dictation will work once it's ready.";
+"The model isn't installed yet. Open the Sorla menu to download it." = "The model isn't installed yet. Open the Sorla menu to download it.";
+"Sorla is ready. Set a shortcut in Settings to dictate." = "Sorla is ready. Set a shortcut in Settings to dictate.";
+"Sorla is ready. Hold %@ to dictate." = "Sorla is ready. Hold %@ to dictate.";
+"Sorla is ready. Press %@ to dictate." = "Sorla is ready. Press %@ to dictate.";
+
+/* Settings */
+"Sorla Settings" = "Sorla Settings";
+"Trigger" = "Trigger";
+"Right ⌘" = "Right ⌘";
+"Right ⌥" = "Right ⌥";
+"Right ⌃" = "Right ⌃";
+"Custom shortcut" = "Custom shortcut";
+"Shortcut" = "Shortcut";
+"Not set" = "Not set";
+"Mode" = "Mode";
+"Push to talk" = "Push to talk";
+"Toggle" = "Toggle";
+"Record a shortcut above to start dictating." = "Record a shortcut above to start dictating.";
+"Hold %@ while speaking; release to paste." = "Hold %@ while speaking; release to paste.";
+"Press %@ to start, press again to stop." = "Press %@ to start, press again to stop.";
+"Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings." = "Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.";
+"Open Keyboard Settings…" = "Open Keyboard Settings…";
+"Model" = "Model";
+"Pianissimo (Swedish)" = "Pianissimo (Swedish)";
+"Not installed" = "Not installed";
+"Installed" = "Installed";
+"Version %@" = "Version %@";
+"Checking for updates…" = "Checking for updates…";
+"Up to date · Version %@" = "Up to date · Version %@";
+"Update available · Version %@" = "Update available · Version %@";
+"Downloading %lld%%" = "Downloading %lld%%";
+"Preparing… ~1 min" = "Preparing… ~1 min";
+"Installing when dictation ends…" = "Installing when dictation ends…";
+"Failed: %@" = "Failed: %@";
+"Download" = "Download";
+"Try Again" = "Try Again";
+"Check for model updates automatically" = "Check for model updates automatically";
+"Download updates automatically" = "Download updates automatically";
+"Check Now" = "Check Now";
+"Keep clipboard content" = "Keep clipboard content";
+"Play sounds" = "Play sounds";
+"Paste last transcription" = "Paste last transcription";
+"Launch at login" = "Launch at login";
+"Sorla needs approval in Login Items to launch at login." = "Sorla needs approval in Login Items to launch at login.";
+"Open Login Items Settings…" = "Open Login Items Settings…";
+
+/* Model errors */
+"The model list couldn't be read." = "The model list couldn't be read.";
+"Couldn't reach Hugging Face. Check your internet connection." = "Couldn't reach Hugging Face. Check your internet connection.";
+"Hugging Face couldn't provide the model right now. Try again later." = "Hugging Face couldn't provide the model right now. Try again later.";
+"The model files couldn't be saved. Check that there's free disk space." = "The model files couldn't be saved. Check that there's free disk space.";
+"Not enough disk space (%@ free needed)." = "Not enough disk space (%@ free needed).";
+"A downloaded file was damaged." = "A downloaded file was damaged.";
+"The model couldn't be prepared for this Mac." = "The model couldn't be prepared for this Mac.";
+"The new model didn't pass its self-test." = "The new model didn't pass its self-test.";
+"The new model couldn't be installed." = "The new model couldn't be installed.";
+
+/* Recording indicator */
+"Recording" = "Recording";
+"Transcribing" = "Transcribing";
+
+/* About */
+"Version %@ (%@)" = "Version %@ (%@)";
+"Push-to-talk dictation for Mac. Runs entirely on your device." = "Push-to-talk dictation for Mac. Runs entirely on your device.";
+"Credits" = "Credits";
+"Speech model: Klang Pianissimo" = "Speech model: Klang Pianissimo";
+"By Klang AI AB" = "By Klang AI AB";
+"Converted to Core ML for on-device use; weights unchanged." = "Converted to Core ML for on-device use; weights unchanged.";
+"Based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)." = "Based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).";
+"License (CC BY 4.0)" = "License (CC BY 4.0)";
+"Project" = "Project";
+"Licenses" = "Licenses";
+"Hide Licenses" = "Hide Licenses";
+"Pianissimo model credit" = "Pianissimo model credit";
+"License texts are included with the app." = "License texts are included with the app.";
