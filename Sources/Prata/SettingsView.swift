@@ -9,6 +9,7 @@ struct SettingsView: View {
     @ObservedObject var modelLoadingStatus: ModelLoadingStatus
     @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
+    @State private var customShortcutDescription = KeyboardShortcuts.getShortcut(for: .prataCustomTrigger)?.description
 
     private static let logger = Logger(subsystem: "com.prata.app", category: "SettingsView")
 
@@ -21,7 +22,11 @@ struct SettingsView: View {
             }
 
             if appSettings.triggerKey == .customShortcut {
-                KeyboardShortcuts.Recorder("Shortcut", name: .prataCustomTrigger)
+                KeyboardShortcuts.Recorder("Shortcut", name: .prataCustomTrigger) { shortcut in
+                    MainActor.assumeIsolated {
+                        customShortcutDescription = shortcut?.description
+                    }
+                }
             }
 
             if appSettings.triggerKey == .fn {
@@ -34,6 +39,13 @@ struct SettingsView: View {
                 }
             }
             .pickerStyle(.segmented)
+            Text(TriggerHint.explanation(
+                trigger: appSettings.triggerKey,
+                mode: appSettings.recordingMode,
+                customShortcut: customShortcutDescription
+            ))
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             Picker("Model", selection: $appSettings.model) {
                 ForEach(SpeechModel.allCases, id: \.self) { model in

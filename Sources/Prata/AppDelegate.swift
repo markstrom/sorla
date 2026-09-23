@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingIndicator: RecordingIndicatorPanel!
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var pasteLastMenuItem: NSMenuItem!
+    private var triggerHintMenuItem: NSMenuItem!
     private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
     private let modelLoadingStatus = ModelLoadingStatus()
@@ -33,9 +34,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         menu.autoenablesItems = false
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
+        let triggerHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        triggerHintItem.isEnabled = false
+        menu.addItem(triggerHintItem)
+        triggerHintMenuItem = triggerHintItem
+        let pasteLastItem = NSMenuItem(title: "Paste Last Transcription", action: #selector(pasteLastTranscription), keyEquivalent: "")
+        pasteLastItem.target = self
+        pasteLastItem.setShortcut(for: .pasteLastTranscription)
+        pasteLastItem.isEnabled = false
+        menu.addItem(pasteLastItem)
+        pasteLastMenuItem = pasteLastItem
         menu.addItem(.separator())
         for model in SpeechModel.allCases {
             let item = NSMenuItem(
@@ -49,17 +57,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        let pasteLastItem = NSMenuItem(title: "Paste Last Transcription", action: #selector(pasteLastTranscription), keyEquivalent: "")
-        pasteLastItem.target = self
-        pasteLastItem.setShortcut(for: .pasteLastTranscription)
-        pasteLastItem.isEnabled = false
-        menu.addItem(pasteLastItem)
-        pasteLastMenuItem = pasteLastItem
-        menu.addItem(.separator())
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
         menu.addItem(NSMenuItem(title: "Quit Prata", action: #selector(quit), keyEquivalent: "q"))
         statusItem.menu = menu
 
         updateModelMenuItems(selected: appSettings.model)
+        updateTriggerHintMenuItem()
 
         recordingIndicator = RecordingIndicatorPanel()
 
@@ -102,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .removeDuplicates(by: { $0.0 == $1.0 && $0.1 == $1.1 })
             .sink { [weak self] trigger, mode in
                 self?.triggerMonitor?.configure(trigger: trigger, mode: mode)
+                self?.updateTriggerHintMenuItem(trigger: trigger, mode: mode)
             }
             .store(in: &cancellables)
 
@@ -135,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         updateModelMenuItems(selected: appSettings.model)
+        updateTriggerHintMenuItem()
         pasteLastMenuItem.isEnabled = recordingController.lastTranscript != nil
     }
 
@@ -197,6 +204,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.state = model == selected ? .on : .off
             item.title = installed ? model.displayName : "\(model.displayName) – not installed"
         }
+    }
+
+    // A modifier-only trigger can't be a keyEquivalent, so the key is right-aligned with a tab stop instead.
+    private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
+        guard let menu = statusItem.menu else { return }
+        let font = NSFont.menuFont(ofSize: 0)
+        let title = TriggerHint.menuTitle(for: mode ?? appSettings.recordingMode)
+        let key = TriggerHint.keyLabel(
+            for: trigger ?? appSettings.triggerKey,
+            customShortcut: KeyboardShortcuts.getShortcut(for: .prataCustomTrigger)?.description
+        )
+        let otherTitleWidths = menu.items
+            .filter { $0 !== triggerHintMenuItem && !$0.isSeparatorItem }
+            .map { Self.width(of: $0.title, font: font) }
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.tabStops = [
+            NSTextTab(
+                textAlignment: .right,
+                location: TriggerHint.menuTabStop(
+                    titleWidth: Self.width(of: title, font: font),
+                    keyWidth: Self.width(of: key, font: font),
+                    otherTitleWidths: otherTitleWidths
+                )
+            ),
+        ]
+        triggerHintMenuItem.attributedTitle = NSAttributedString(
+            string: "\(title)\t\(key)",
+            attributes: [.font: font, .paragraphStyle: paragraph]
+        )
+    }
+
+    private static func width(of string: String, font: NSFont) -> CGFloat {
+        ceil((string as NSString).size(withAttributes: [.font: font]).width)
     }
 
     private func updateIcon(isRecording: Bool) {
