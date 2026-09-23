@@ -12,12 +12,17 @@ public enum PianissimoModel {
         "parakeet_vocab.json",
     ]
 
-    public static var directory: URL {
+    public static let directoryName = "pianissimo-sv-coreml"
+
+    public static var modelsDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return appSupport
             .appendingPathComponent("Prata", isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent("pianissimo-sv-coreml", isDirectory: true)
+    }
+
+    public static var directory: URL {
+        modelsDirectory.appendingPathComponent(directoryName, isDirectory: true)
     }
 
     public static var isInstalled: Bool {
@@ -36,12 +41,13 @@ public enum PianissimoModel {
 
     public static func installedVersion(at directory: URL) -> String? {
         struct Manifest: Decodable {
-            struct Model: Decodable { let version: String }
+            struct Model: Decodable { let id: String?; let version: String }
             let models: [Model]
         }
         guard let data = try? Data(contentsOf: directory.appendingPathComponent("manifest.json")),
               let manifest = try? JSONDecoder().decode(Manifest.self, from: data)
         else { return nil }
-        return manifest.models.first?.version
+        let model = manifest.models.first { $0.id == ModelManifest.pianissimoID } ?? manifest.models.first
+        return model?.version
     }
 }
