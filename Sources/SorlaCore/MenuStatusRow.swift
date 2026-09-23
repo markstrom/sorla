@@ -1,8 +1,7 @@
 import Foundation
 
 public enum MenuStatusAction: Equatable, Sendable {
-    case openMicrophoneSettings
-    case openAccessibilitySettings
+    case showWelcome
     case downloadModel
     case reloadModel
     case openSettings
@@ -26,10 +25,10 @@ public struct MenuStatusRow: Equatable, Sendable {
         modelLoading: Bool = false
     ) -> MenuStatusRow? {
         if microphoneDenied {
-            return MenuStatusRow(title: SorlaIssue.microphoneAccessNeeded.menuTitle ?? "", action: .openMicrophoneSettings)
+            return MenuStatusRow(title: SorlaIssue.microphoneAccessNeeded.menuTitle ?? "", action: .showWelcome)
         }
         if accessibilityMissing {
-            return MenuStatusRow(title: SorlaIssue.accessibilityAccessNeeded.menuTitle ?? "", action: .openAccessibilitySettings)
+            return MenuStatusRow(title: SorlaIssue.accessibilityAccessNeeded.menuTitle ?? "", action: .showWelcome)
         }
         switch model {
         case .downloading(_, let fraction, _):

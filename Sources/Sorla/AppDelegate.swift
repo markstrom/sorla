@@ -271,10 +271,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func performStatusAction() {
         switch statusMenuAction {
-        case .openMicrophoneSettings:
-            if let url = SorlaIssue.microphoneAccessNeeded.settingsURL { NSWorkspace.shared.open(url) }
-        case .openAccessibilitySettings:
-            if let url = SorlaIssue.accessibilityAccessNeeded.settingsURL { NSWorkspace.shared.open(url) }
+        case .showWelcome:
+            showWelcome()
         case .downloadModel:
             modelManager.downloadModel()
         case .reloadModel:

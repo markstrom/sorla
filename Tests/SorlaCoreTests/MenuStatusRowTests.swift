@@ -32,13 +32,13 @@ final class MenuStatusRowTests: XCTestCase {
     func testMicrophoneComesFirst() {
         let row = row(microphoneDenied: true, accessibilityMissing: true, model: .failed(.network, isUpdate: false), modelLoadFailed: true)
 
-        XCTAssertEqual(row, MenuStatusRow(title: "Microphone access needed", action: .openMicrophoneSettings))
+        XCTAssertEqual(row, MenuStatusRow(title: "Microphone access needed", action: .showWelcome))
     }
 
     func testAccessibilityComesBeforeTheModel() {
         let row = row(accessibilityMissing: true, model: .downloading(version: "1.0.0", fraction: 0.5, isUpdate: false))
 
-        XCTAssertEqual(row, MenuStatusRow(title: "Accessibility access needed to paste", action: .openAccessibilitySettings))
+        XCTAssertEqual(row, MenuStatusRow(title: "Accessibility access needed to paste", action: .showWelcome))
     }
 
     func testDownloadProgressComesBeforeFailures() {
