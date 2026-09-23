@@ -6,7 +6,7 @@ public protocol TranscriptionEngine: Sendable {
 }
 
 public actor ParakeetTranscriptionEngine: TranscriptionEngine {
-    private var asrManager: AsrManager?
+    private var loadTask: Task<AsrManager, Error>?
 
     public init() {}
 
@@ -22,12 +22,21 @@ public actor ParakeetTranscriptionEngine: TranscriptionEngine {
         return result.text
     }
 
+    // Reentrant actor: overlapping callers must await the same in-flight load, not each start their own.
     private func loadedManager() async throws -> AsrManager {
-        if let asrManager { return asrManager }
-        let models = try await AsrModels.downloadAndLoad(version: .v3)
-        let manager = AsrManager(config: .default)
-        try await manager.loadModels(models)
-        asrManager = manager
-        return manager
+        if let loadTask { return try await loadTask.value }
+        let task = Task<AsrManager, Error> {
+            let models = try await AsrModels.downloadAndLoad(version: .v3)
+            let manager = AsrManager(config: .default)
+            try await manager.loadModels(models)
+            return manager
+        }
+        loadTask = task
+        do {
+            return try await task.value
+        } catch {
+            loadTask = nil
+            throw error
+        }
     }
 }
