@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Prata</string>
+    <string>Sorla</string>
     <key>CFBundleDisplayName</key>
-    <string>Prata</string>
+    <string>Sorla</string>
     <key>CFBundleIdentifier</key>
-    <string>com.prata.app</string>
+    <string>com.sorla.app</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleExecutable</key>
-    <string>Prata</string>
+    <string>Sorla</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
@@ -21,7 +21,7 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Prata behöver mikrofonåtkomst för att transkribera din röst till text.</string>
+    <string>Sorla behöver mikrofonåtkomst för att transkribera din röst till text.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

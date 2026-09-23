@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Prata",
+    name: "Sorla",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", .upToNextMinor(from: "0.16.1")),
@@ -10,27 +10,27 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "PrataCore",
+            name: "SorlaCore",
             dependencies: [
                 "FluidAudio",
                 "KeyboardShortcuts",
             ],
-            path: "Sources/PrataCore"
+            path: "Sources/SorlaCore"
         ),
         .executableTarget(
-            name: "Prata",
-            dependencies: ["PrataCore", "KeyboardShortcuts"],
-            path: "Sources/Prata"
+            name: "Sorla",
+            dependencies: ["SorlaCore", "KeyboardShortcuts"],
+            path: "Sources/Sorla"
         ),
         .testTarget(
-            name: "PrataCoreTests",
-            dependencies: ["PrataCore"],
-            path: "Tests/PrataCoreTests"
+            name: "SorlaCoreTests",
+            dependencies: ["SorlaCore"],
+            path: "Tests/SorlaCoreTests"
         ),
         .testTarget(
-            name: "PrataTests",
-            dependencies: ["Prata"],
-            path: "Tests/PrataTests"
+            name: "SorlaTests",
+            dependencies: ["Sorla"],
+            path: "Tests/SorlaTests"
         ),
     ]
 )
