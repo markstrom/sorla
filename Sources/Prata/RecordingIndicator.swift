@@ -7,7 +7,8 @@ struct IslandLayout: Equatable {
     var sideWidth: CGFloat
     var height: CGFloat
 
-    static let compactWidth: CGFloat = 170
+    static let compactWidth: CGFloat = 240
+    static let extraDepth: CGFloat = 14
 
     var size: NSSize {
         notchWidth > 0
@@ -22,10 +23,10 @@ struct IslandLayout: Equatable {
             let right = screen.auxiliaryTopRightArea
         {
             let notchWidth = screen.frame.width - left.width - right.width
-            return IslandLayout(notchWidth: notchWidth, sideWidth: 112, height: notchHeight)
+            return IslandLayout(notchWidth: notchWidth, sideWidth: 150, height: notchHeight + extraDepth)
         }
         let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
-        let height = (menuBarHeight > 0 ? menuBarHeight : 30) + 4
+        let height = (menuBarHeight > 0 ? menuBarHeight : 30) + extraDepth
         return IslandLayout(notchWidth: 0, sideWidth: 0, height: height)
     }
 }
@@ -35,7 +36,7 @@ final class RecordingIndicatorViewModel: ObservableObject {
     @Published private(set) var smoothedLevel: Float = 0
     @Published private(set) var isVisible = false
     @Published private(set) var isExpanded = false
-    @Published private(set) var layout = IslandLayout(notchWidth: 0, sideWidth: 0, height: 34)
+    @Published private(set) var layout = IslandLayout(notchWidth: 0, sideWidth: 0, height: 44)
     @Published private(set) var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     private var smoother = LevelSmoother()
 
@@ -69,15 +70,15 @@ struct RecordingIndicatorView: View {
     @ObservedObject var viewModel: RecordingIndicatorViewModel
 
     private let minBarHeight: CGFloat = 3
-    private let maxBarHeight: CGFloat = 18
-    private let barWidth: CGFloat = 3
-    private let barSpacing: CGFloat = 3
+    private let maxBarHeight: CGFloat = 26
+    private let barWidth: CGFloat = 4
+    private let barSpacing: CGFloat = 4
     private let barCount = 15
 
     var body: some View {
         let layout = viewModel.layout
         let size = layout.size
-        let cornerRadius = min(size.height / 2, 14)
+        let cornerRadius = min(size.height / 2, 20)
         let collapsed = !viewModel.isExpanded
 
         content(layout: layout)
@@ -99,7 +100,7 @@ struct RecordingIndicatorView: View {
     private func content(layout: IslandLayout) -> some View {
         if layout.notchWidth > 0 {
             HStack(spacing: 0) {
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
                     recordDot
                     micGlyph
                 }
@@ -109,7 +110,7 @@ struct RecordingIndicatorView: View {
                     .frame(width: layout.sideWidth)
             }
         } else {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 recordDot
                 micGlyph
                 visualizer
@@ -120,12 +121,12 @@ struct RecordingIndicatorView: View {
     private var recordDot: some View {
         Circle()
             .fill(Color.red)
-            .frame(width: 8, height: 8)
+            .frame(width: 10, height: 10)
     }
 
     private var micGlyph: some View {
         Image(systemName: "mic.fill")
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: 16, weight: .medium))
             .foregroundColor(.white)
     }
 
@@ -169,7 +170,7 @@ final class RecordingIndicatorPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: IslandLayout.compactWidth, height: 34)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: IslandLayout.compactWidth, height: 44)),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
