@@ -36,8 +36,33 @@ public struct ModelStaging: Sendable {
         }
     }
 
-    public func removeAll() {
-        try? FileManager.default.removeItem(at: directory)
+    public func removeAll() throws {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: directory.path) {
+            try fileManager.removeItem(at: directory)
+        }
+        Self.removeRootIfEmpty(root)
+    }
+
+    // Staging for the installed version or older can never be used again; newer versions may resume.
+    @discardableResult
+    public static func removeStale(in modelsDirectory: URL, installedVersion: String?) -> [String] {
+        guard let installed = installedVersion.flatMap(SemanticVersion.init) else { return [] }
+        let root = modelsDirectory.appendingPathComponent(rootName, isDirectory: true)
+        let prefix = "pianissimo-sv-"
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: root.path) else { return [] }
+        var removed: [String] = []
+        for name in entries where name.hasPrefix(prefix) {
+            guard let version = SemanticVersion(String(name.dropFirst(prefix.count))), version <= installed else { continue }
+            if (try? FileManager.default.removeItem(at: root.appendingPathComponent(name))) != nil {
+                removed.append(name)
+            }
+        }
+        removeRootIfEmpty(root)
+        return removed
+    }
+
+    private static func removeRootIfEmpty(_ root: URL) {
         if let remaining = try? FileManager.default.contentsOfDirectory(atPath: root.path), remaining.isEmpty {
             try? FileManager.default.removeItem(at: root)
         }

@@ -56,6 +56,7 @@ public struct ModelInstaller: Sendable {
 
     public func fetchLatest() async throws -> PublishedModel {
         let data: Data
+        Self.logger.info("fetching model manifest")
         do {
             data = try await network.data(from: manifestURL)
         } catch {
@@ -63,25 +64,36 @@ public struct ModelInstaller: Sendable {
         }
         guard let manifest = try? ModelManifest.decode(data),
               let release = manifest.release(id: ModelManifest.pianissimoID)
-        else { throw ModelInstallError.invalidManifest }
+        else {
+            Self.logger.error("model manifest couldn't be read")
+            throw ModelInstallError.invalidManifest
+        }
+        Self.logger.info("model manifest: \(release.id, privacy: .public) \(release.version, privacy: .public), \(release.files.count, privacy: .public) files, \(release.totalSize, privacy: .public) bytes")
         return PublishedModel(release: release, manifestData: data)
     }
 
     // Downloads, verifies, compiles and self-tests into staging; the installed model is never touched here.
     public func stage(_ published: PublishedModel, progress: @escaping @Sendable (ModelInstallProgress) -> Void) async throws -> URL {
         let release = published.release
-        try release.validate()
+        do {
+            try release.validate()
+        } catch {
+            Self.logger.error("model manifest failed validation")
+            throw error
+        }
         let staging = ModelStaging(modelsDirectory: modelsDirectory, version: release.version)
         let fileManager = FileManager.default
 
         try? fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
         guard DiskSpace.hasRoom(available: availableDiskSpace(modelsDirectory), forDownloadOf: release.totalSize) else {
+            Self.logger.error("not enough disk space for model \(release.version, privacy: .public): \(DiskSpace.required(forDownloadOf: release.totalSize), privacy: .public) bytes needed")
             throw ModelInstallError.insufficientDiskSpace(required: DiskSpace.required(forDownloadOf: release.totalSize))
         }
         try? staging.removeOtherVersions()
         try? fileManager.removeItem(at: staging.assembledDirectory)
 
         try await download(release, into: staging, progress: progress)
+        Self.logger.info("all model files downloaded and verified")
         progress(.preparing)
         do {
             try await assemble(published, from: staging)
@@ -96,6 +108,7 @@ public struct ModelInstaller: Sendable {
         let total = max(release.files.reduce(Int64(0)) { $0 + $1.size }, 1)
         let pending = staging.filesNeedingDownload(release.files)
         var completed = total - pending.reduce(Int64(0)) { $0 + $1.size }
+        Self.logger.info("staging model \(release.version, privacy: .public): \(pending.count, privacy: .public) of \(release.files.count, privacy: .public) files to download, \(completed, privacy: .public) bytes already verified")
         progress(.downloading(fraction: Double(completed) / Double(total)))
 
         for file in pending {
@@ -115,6 +128,7 @@ public struct ModelInstaller: Sendable {
                 Self.logger.error("verification failed: \(file.path, privacy: .public)")
                 throw ModelInstallError.verificationFailed(path: file.path)
             }
+            Self.logger.info("verified \(file.path, privacy: .public) (\(file.size, privacy: .public) bytes)")
             completed += file.size
             progress(.downloading(fraction: Double(completed) / Double(total)))
         }
@@ -133,9 +147,10 @@ public struct ModelInstaller: Sendable {
                     into: assembled.appendingPathComponent("\(name).mlmodelc")
                 )
             } catch {
-                Self.logger.error("compile failed: \(name, privacy: .public): \(String(describing: error), privacy: .public)")
+                Self.logger.error("compile failed: \(name, privacy: .public): \(ErrorSummary.of(error), privacy: .public) \(String(describing: error), privacy: .private)")
                 throw ModelInstallError.compileFailed
             }
+            Self.logger.info("compiled \(name, privacy: .public)")
         }
         do {
             for path in [ModelRelease.vocabularyPath, ModelRelease.licensePath] where release.files.contains(where: { $0.path == path }) {
@@ -143,6 +158,7 @@ public struct ModelInstaller: Sendable {
             }
             try published.manifestData.write(to: assembled.appendingPathComponent("manifest.json"))
         } catch {
+            Self.logger.error("couldn't copy model files: \(ErrorSummary.of(error), privacy: .public)")
             throw ModelInstallError.installFailed
         }
         guard PianissimoModel.hasRequiredFiles(at: assembled) else { throw ModelInstallError.invalidManifest }
@@ -150,14 +166,15 @@ public struct ModelInstaller: Sendable {
         do {
             try await preparer.selfTest(modelDirectory: assembled)
         } catch {
-            Self.logger.error("self-test failed: \(String(describing: error), privacy: .public)")
+            Self.logger.error("model self-test failed: \(ErrorSummary.of(error), privacy: .public) \(String(describing: error), privacy: .private)")
             throw ModelInstallError.selfTestFailed
         }
+        Self.logger.info("model self-test passed")
     }
 
     private static func networkError(_ error: Error) -> Error {
         if error is CancellationError { return error }
-        logger.error("network request failed: \(String(describing: error), privacy: .public)")
+        logger.error("model network request failed: \(ErrorSummary.of(error), privacy: .public)")
         return ModelInstallError.network
     }
 }

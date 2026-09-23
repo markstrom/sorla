@@ -25,7 +25,12 @@ final class ModelManagerTests: XCTestCase {
 
     private var swap: ModelSwap { ModelSwap(modelsDirectory: modelsDirectory) }
 
-    private func makeManager(autoCheck: Bool = false, autoDownload: Bool = false, checkInterval: TimeInterval = 86_400) -> ModelManager {
+    private func makeManager(
+        autoCheck: Bool = false,
+        autoDownload: Bool = false,
+        checkInterval: TimeInterval = 86_400,
+        onReload: @escaping @MainActor () -> Void = {}
+    ) -> ModelManager {
         let installer = ModelInstaller(
             modelsDirectory: modelsDirectory,
             manifestURL: PublishedModelFixture.manifestURL,
@@ -39,6 +44,7 @@ final class ModelManagerTests: XCTestCase {
             isDictationIdle: { [unowned self] in self.isIdle },
             reloadModel: { [unowned self] in
                 self.reloads += 1
+                onReload()
                 return self.reloadResults.isEmpty ? true : self.reloadResults.removeFirst()
             },
             automaticChecks: autoCheck,
@@ -251,6 +257,35 @@ final class ModelManagerTests: XCTestCase {
         await waitUntil(manager.status == .checkFailed(.network))
 
         XCTAssertEqual(failures, [])
+    }
+
+    func testStartCleansStagingLeftFromTheInstalledVersion() async throws {
+        try installModel(version: "1.0.0")
+        let leftover = ModelStaging(modelsDirectory: modelsDirectory, version: "1.0.0")
+        try FileManager.default.createDirectory(at: leftover.downloadsDirectory, withIntermediateDirectories: true)
+        let manager = makeManager()
+
+        manager.start()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: leftover.root.path))
+        let requests = await network.requests
+        XCTAssertEqual(requests, [])
+    }
+
+    func testStagingIsRemovedBeforeTheNewModelFinishesLoading() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.1.0")
+        var stagingExistedDuringReload: Bool?
+        let manager = makeManager(autoDownload: true, onReload: {
+            stagingExistedDuringReload = FileManager.default.fileExists(atPath: staging.directory.path)
+        })
+
+        manager.checkNow()
+        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+
+        XCTAssertEqual(stagingExistedDuringReload, false)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.root.path))
     }
 
     func testStartRecoversAnInterruptedSwap() async throws {

@@ -63,6 +63,56 @@ final class ModelStagingTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: stale.directory.path))
     }
 
+    func testRemoveAllDeletesTheVersionAndTheEmptyRoot() throws {
+        let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.0.0")
+        try place("x", at: staging.downloadLocation(for: "Encoder.mlpackage/Manifest.json"))
+
+        try staging.removeAll()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.root.path))
+    }
+
+    func testRemoveAllKeepsTheRootWhileOtherVersionsRemain() throws {
+        let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.0.0")
+        let other = ModelStaging(modelsDirectory: modelsDirectory, version: "1.1.0")
+        try place("x", at: staging.downloadLocation(for: "x"))
+        try place("y", at: other.downloadLocation(for: "y"))
+
+        try staging.removeAll()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.directory.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: other.directory.path))
+    }
+
+    func testStaleStagingUpToTheInstalledVersionIsRemoved() throws {
+        for version in ["0.9.0", "1.0.0", "1.1.0"] {
+            try place("x", at: ModelStaging(modelsDirectory: modelsDirectory, version: version).downloadLocation(for: "x"))
+        }
+
+        let removed = ModelStaging.removeStale(in: modelsDirectory, installedVersion: "1.0.0")
+
+        XCTAssertEqual(removed.sorted(), ["pianissimo-sv-0.9.0", "pianissimo-sv-1.0.0"])
+        let remaining = try FileManager.default.contentsOfDirectory(atPath: ModelStaging(modelsDirectory: modelsDirectory, version: "x").root.path)
+        XCTAssertEqual(remaining, ["pianissimo-sv-1.1.0"])
+    }
+
+    func testStaleStagingCleanupRemovesTheEmptyRoot() throws {
+        let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.0.0")
+        try place("x", at: staging.downloadLocation(for: "x"))
+
+        _ = ModelStaging.removeStale(in: modelsDirectory, installedVersion: "1.0.0")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.root.path))
+    }
+
+    func testStaleStagingCleanupWithoutAKnownVersionKeepsEverything() throws {
+        let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.0.0")
+        try place("x", at: staging.downloadLocation(for: "x"))
+
+        XCTAssertEqual(ModelStaging.removeStale(in: modelsDirectory, installedVersion: nil), [])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staging.directory.path))
+    }
+
     func testDiskSpaceNeedsTwiceTheDownload() {
         XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_257_471), 1_376_514_942)
         XCTAssertTrue(DiskSpace.hasRoom(available: 1_376_514_942, forDownloadOf: 688_257_471))

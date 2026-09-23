@@ -56,8 +56,17 @@ public final class ModelManager: ObservableObject {
         guard !hasStarted else { return }
         hasStarted = true
         swap.recoverInterruptedSwap()
-        status = isInstalled ? .installed(version: installedVersion) : .notInstalled
-        switch ModelUpdatePolicy.launchAction(isInstalled: isInstalled, autoCheck: automaticChecks) {
+        let installed = isInstalled
+        let version = installedVersion
+        Self.logger.info("model manager started: installed=\(installed, privacy: .public) version=\(version ?? "unknown", privacy: .public) automaticChecks=\(self.automaticChecks, privacy: .public) automaticDownloads=\(self.automaticDownloads, privacy: .public)")
+        if installed {
+            let removed = ModelStaging.removeStale(in: installer.modelsDirectory, installedVersion: version)
+            if !removed.isEmpty {
+                Self.logger.info("removed stale staging: \(removed.joined(separator: ", "), privacy: .public)")
+            }
+        }
+        status = installed ? .installed(version: version) : .notInstalled
+        switch ModelUpdatePolicy.launchAction(isInstalled: installed, autoCheck: automaticChecks) {
         case .none:
             break
         case .check:
@@ -72,16 +81,21 @@ public final class ModelManager: ObservableObject {
         guard work == nil else { return }
         guard isInstalled else { return downloadModel() }
         status = .checking
+        Self.logger.info("model update check started")
         work = Task {
             defer { self.work = nil }
             let latest: PublishedModel
             do {
                 latest = try await self.fetchLatest()
             } catch {
-                self.status = .checkFailed(error as? ModelInstallError ?? .network)
+                let checkError = error as? ModelInstallError ?? .network
+                Self.logger.error("model update check failed: \(String(describing: checkError), privacy: .public)")
+                self.status = .checkFailed(checkError)
                 return
             }
-            switch ModelUpdatePolicy.decide(installedVersion: self.installedVersion, isInstalled: true, latest: latest.release, autoDownload: self.automaticDownloads) {
+            let decision = ModelUpdatePolicy.decide(installedVersion: self.installedVersion, isInstalled: true, latest: latest.release, autoDownload: self.automaticDownloads)
+            Self.logger.info("model update check: installed \(self.installedVersion ?? "unknown", privacy: .public), latest \(latest.release.version, privacy: .public), decision \(String(describing: decision), privacy: .public)")
+            switch decision {
             case .none:
                 self.status = self.installedVersion.map { .upToDate(version: $0) } ?? .installed(version: nil)
             case .notify(let version):
@@ -113,6 +127,7 @@ public final class ModelManager: ObservableObject {
             }
             let decision = ModelUpdatePolicy.decide(installedVersion: self.installedVersion, isInstalled: isUpdate, latest: latest.release, autoDownload: true)
             guard case .download = decision else {
+                Self.logger.info("model \(latest.release.version, privacy: .public) is already installed")
                 self.offered = nil
                 self.status = self.installedVersion.map { .upToDate(version: $0) } ?? .notInstalled
                 return
@@ -128,6 +143,7 @@ public final class ModelManager: ObservableObject {
 
     private func install(_ latest: PublishedModel, isUpdate: Bool) async {
         let version = latest.release.version
+        Self.logger.info("model download started: \(version, privacy: .public) (\(isUpdate ? "update" : "first install", privacy: .public))")
         status = .downloading(version: version, fraction: 0, isUpdate: isUpdate)
         stagingVersion = version
         let installer = self.installer
@@ -147,6 +163,7 @@ public final class ModelManager: ObservableObject {
         }
 
         if !isDictationIdle() {
+            Self.logger.info("model \(version, privacy: .public) staged; waiting for dictation to finish")
             status = .waitingToInstall(version: version)
             while !isDictationIdle() {
                 try? await Task.sleep(nanoseconds: UInt64(idlePollInterval * 1_000_000_000))
@@ -159,6 +176,8 @@ public final class ModelManager: ObservableObject {
             fail(error, isUpdate: isUpdate)
             return
         }
+        Self.logger.info("model \(version, privacy: .public) swapped in; loading it")
+        removeStaging(version: version)
         guard await reloadModel() else {
             Self.logger.error("new model failed to load; rolling back")
             try? swap.rollback()
@@ -167,11 +186,20 @@ public final class ModelManager: ObservableObject {
             return
         }
         swap.commit()
-        ModelStaging(modelsDirectory: installer.modelsDirectory, version: version).removeAll()
         offered = nil
         status = .upToDate(version: version)
-        Self.logger.info("installed model \(version, privacy: .public)")
+        Self.logger.info("model \(version, privacy: .public) installed and ready")
         onInstalled?(!isUpdate)
+    }
+
+    // The swap moved the assembled model out, so the rest is only downloads; rollback relies on the previous model.
+    private func removeStaging(version: String) {
+        do {
+            try ModelStaging(modelsDirectory: installer.modelsDirectory, version: version).removeAll()
+            Self.logger.info("removed staging for \(version, privacy: .public)")
+        } catch {
+            Self.logger.error("couldn't remove staging for \(version, privacy: .public): \(ErrorSummary.of(error), privacy: .public)")
+        }
     }
 
     private func apply(_ progress: ModelInstallProgress, version: String, isUpdate: Bool) {
