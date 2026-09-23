@@ -26,4 +26,15 @@ public enum TriggerHint {
         case .toggle: return "Press \(key) to start, press again to stop."
         }
     }
+
+    public static func readyMessage(trigger: TriggerKey, mode: RecordingMode, customShortcut: String?) -> String {
+        if trigger == .customShortcut, customShortcut?.isEmpty ?? true {
+            return "Prata is ready. Set a shortcut in Settings to dictate."
+        }
+        let key = keyLabel(for: trigger, customShortcut: customShortcut)
+        switch mode {
+        case .pushToTalk: return "Prata is ready. Hold \(key) to dictate."
+        case .toggle: return "Prata is ready. Press \(key) to dictate."
+        }
+    }
 }

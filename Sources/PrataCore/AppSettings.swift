@@ -8,6 +8,8 @@ public final class AppSettings: ObservableObject {
         static let recordingMode = "recordingMode"
         static let keepClipboardContent = "keepClipboardContent"
         static let playSounds = "playSounds"
+        static let autoCheckModelUpdates = "autoCheckModelUpdates"
+        static let autoDownloadModelUpdates = "autoDownloadModelUpdates"
     }
 
     @Published public var triggerKey: TriggerKey {
@@ -26,6 +28,14 @@ public final class AppSettings: ObservableObject {
         didSet { defaults.set(playSounds, forKey: Keys.playSounds) }
     }
 
+    @Published public var autoCheckModelUpdates: Bool {
+        didSet { defaults.set(autoCheckModelUpdates, forKey: Keys.autoCheckModelUpdates) }
+    }
+
+    @Published public var autoDownloadModelUpdates: Bool {
+        didSet { defaults.set(autoDownloadModelUpdates, forKey: Keys.autoDownloadModelUpdates) }
+    }
+
     private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
@@ -36,5 +46,7 @@ public final class AppSettings: ObservableObject {
 
         keepClipboardContent = defaults.object(forKey: Keys.keepClipboardContent) as? Bool ?? true
         playSounds = defaults.object(forKey: Keys.playSounds) as? Bool ?? true
+        autoCheckModelUpdates = defaults.object(forKey: Keys.autoCheckModelUpdates) as? Bool ?? false
+        autoDownloadModelUpdates = defaults.object(forKey: Keys.autoDownloadModelUpdates) as? Bool ?? false
     }
 }

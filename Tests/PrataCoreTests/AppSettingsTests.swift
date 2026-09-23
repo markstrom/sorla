@@ -77,4 +77,24 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.recordingMode, .pushToTalk)
     }
+
+    func testModelUpdateTogglesDefaultToOff() {
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertFalse(settings.autoCheckModelUpdates)
+        XCTAssertFalse(settings.autoDownloadModelUpdates)
+    }
+
+    func testModelUpdateTogglesPersistImmediatelyAndRoundTrip() {
+        let settings = AppSettings(defaults: defaults)
+
+        settings.autoCheckModelUpdates = true
+        settings.autoDownloadModelUpdates = true
+
+        XCTAssertEqual(defaults.object(forKey: "autoCheckModelUpdates") as? Bool, true)
+        XCTAssertEqual(defaults.object(forKey: "autoDownloadModelUpdates") as? Bool, true)
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertTrue(reloaded.autoCheckModelUpdates)
+        XCTAssertTrue(reloaded.autoDownloadModelUpdates)
+    }
 }

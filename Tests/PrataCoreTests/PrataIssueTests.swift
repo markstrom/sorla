@@ -76,4 +76,22 @@ final class PrataIssueTests: XCTestCase {
     func testTranscriptionFailedHasNoSettingsURL() {
         XCTAssertNil(PrataIssue.transcriptionFailed.settingsURL)
     }
+
+    func testModelDownloadFailedWording() {
+        XCTAssertEqual(PrataIssue.modelDownloadFailed.menuTitle, "Swedish model download failed")
+        XCTAssertEqual(
+            PrataIssue.modelDownloadFailed.notificationBody,
+            "Couldn't download the Swedish model. Open the Prata menu to try again."
+        )
+        XCTAssertNil(PrataIssue.modelDownloadFailed.settingsURL)
+    }
+
+    func testModelUpdateFailedWording() {
+        XCTAssertEqual(PrataIssue.modelUpdateFailed.menuTitle, "Model update failed")
+        XCTAssertEqual(
+            PrataIssue.modelUpdateFailed.notificationBody,
+            "Couldn't install the model update. Prata keeps using the current model."
+        )
+        XCTAssertNil(PrataIssue.modelUpdateFailed.settingsURL)
+    }
 }

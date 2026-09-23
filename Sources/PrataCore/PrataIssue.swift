@@ -7,12 +7,16 @@ public enum PrataIssue: Hashable, Sendable {
     case modelNotLoaded
     case noInputDevice
     case transcriptionFailed
+    case modelDownloadFailed
+    case modelUpdateFailed
 
     public var menuTitle: String? {
         switch self {
         case .microphoneAccessNeeded: return "Microphone access needed"
         case .accessibilityAccessNeeded: return "Accessibility access needed to paste"
         case .modelNotLoaded: return "Swedish model couldn't be loaded"
+        case .modelDownloadFailed: return "Swedish model download failed"
+        case .modelUpdateFailed: return "Model update failed"
         case .noInputDevice, .transcriptionFailed: return nil
         }
     }
@@ -29,6 +33,10 @@ public enum PrataIssue: Hashable, Sendable {
             return "Couldn't start recording: no microphone found."
         case .transcriptionFailed:
             return "Couldn't transcribe that recording."
+        case .modelDownloadFailed:
+            return "Couldn't download the Swedish model. Open the Prata menu to try again."
+        case .modelUpdateFailed:
+            return "Couldn't install the model update. Prata keeps using the current model."
         }
     }
 
@@ -38,7 +46,7 @@ public enum PrataIssue: Hashable, Sendable {
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
         case .accessibilityAccessNeeded:
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-        case .modelNotLoaded, .noInputDevice, .transcriptionFailed:
+        case .modelNotLoaded, .noInputDevice, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed:
             return nil
         }
     }
