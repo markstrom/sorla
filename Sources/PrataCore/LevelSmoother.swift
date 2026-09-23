@@ -21,3 +21,17 @@ public struct LevelSmoother {
         min(max(value, 0), 1)
     }
 }
+
+public struct BandSmoother {
+    private var smoothers = Array(repeating: LevelSmoother(), count: 8)
+
+    public init() {}
+
+    public mutating func update(target: SIMD8<Float>) -> SIMD8<Float> {
+        var result = SIMD8<Float>(repeating: 0)
+        for band in 0..<8 {
+            result[band] = smoothers[band].update(target: target[band])
+        }
+        return result
+    }
+}

@@ -10,12 +10,16 @@ public final class RecordingController {
     private var modelName: String
     private let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.prata.app", category: "RecordingController")
-    private let pendingLevel = OSAllocatedUnfairLock<Float?>(initialState: nil)
 
     public private(set) var isRecording = false
     private var isCapturingTail = false
     public var onStateChange: ((Bool) -> Void)?
     public var onLevel: ((Float) -> Void)?
+    public var onSpectrum: ((SIMD8<Float>) -> Void)?
+    public var onPhaseChange: ((DictationPhase) -> Void)?
+    public var phase: DictationPhase { phaseTracker.phase }
+    private var phaseTracker = DictationPhaseTracker()
+    private var recordingID = 0
     public var keepClipboardContent = true
     private var clipboardOwnership = ClipboardOwnershipTracker()
 
@@ -26,27 +30,33 @@ public final class RecordingController {
         self.engine = engine
         self.modelName = modelName
         self.tailDuration = tailDuration
-        setUpLevelForwarding()
+        setUpForwarding()
     }
 
-    private func setUpLevelForwarding() {
-        let pendingLevel = self.pendingLevel
-        recorder.onLevel = { [pendingLevel, weak self] level in
-            let shouldSchedule = pendingLevel.withLock { state -> Bool in
-                let wasEmpty = state == nil
-                state = level
-                return wasEmpty
+    private func setUpForwarding() {
+        recorder.onLevel = Self.latestValueForwarder { [weak self] level in self?.onLevel?(level) }
+        recorder.onSpectrum = Self.latestValueForwarder { [weak self] bands in self?.onSpectrum?(bands) }
+    }
+
+    // Keeps only the newest value so a busy main actor gets one hop per burst, not one per buffer.
+    private static func latestValueForwarder<Value: Sendable>(
+        _ deliver: @escaping @Sendable @MainActor (Value) -> Void
+    ) -> @Sendable (Value) -> Void {
+        let pending = OSAllocatedUnfairLock<Value?>(initialState: nil)
+        return { value in
+            let shouldSchedule = pending.withLock { state -> Bool in
+                defer { state = value }
+                return state == nil
             }
             guard shouldSchedule else { return }
 
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let level = pendingLevel.withLock { state -> Float? in
+            Task { @MainActor in
+                let latest = pending.withLock { state -> Value? in
                     defer { state = nil }
                     return state
                 }
-                if let level {
-                    self.onLevel?(level)
+                if let latest {
+                    deliver(latest)
                 }
             }
         }
@@ -83,7 +93,9 @@ public final class RecordingController {
         do {
             try recorder.start()
             isRecording = true
+            recordingID = phaseTracker.beginRecording()
             onStateChange?(true)
+            onPhaseChange?(.recording)
             return true
         } catch {
             logger.error("failed to start recording: \(String(describing: error), privacy: .public)")
@@ -96,6 +108,8 @@ public final class RecordingController {
         isRecording = false
         isCapturingTail = true
         onStateChange?(false)
+        let dictationID = recordingID
+        updatePhase { $0.release(dictationID) }
 
         let released = Date()
         let frontmostPIDAtRelease = NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -104,6 +118,7 @@ public final class RecordingController {
         let modelName = self.modelName
 
         Task { @MainActor in
+            defer { self.updatePhase { $0.finish(dictationID) } }
             try? await Task.sleep(nanoseconds: UInt64(tailDuration * 1_000_000_000))
             self.isCapturingTail = false
 
@@ -149,6 +164,7 @@ public final class RecordingController {
                 let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
                 PasteService.paste()
                 let pasted = AXIsProcessTrusted()
+                self.updatePhase { $0.finish(dictationID) }
                 self.logger.info("\(modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(pasted, privacy: .public): \(text, privacy: .private)")
 
                 if let generation {
@@ -191,7 +207,15 @@ public final class RecordingController {
         }
         isRecording = false
         onStateChange?(false)
+        let dictationID = recordingID
+        updatePhase { $0.cancel(dictationID) }
         logger.info("recording cancelled")
+    }
+
+    private func updatePhase(_ transition: (inout DictationPhaseTracker) -> Bool) {
+        if transition(&phaseTracker) {
+            onPhaseChange?(phaseTracker.phase)
+        }
     }
 
     private static func format(_ seconds: TimeInterval) -> String {

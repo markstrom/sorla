@@ -55,14 +55,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         recordingController.onStateChange = { [weak self] isRecording in
             self?.updateIcon(isRecording: isRecording)
-            if isRecording {
-                self?.recordingIndicator.showNearMouse()
-            } else {
-                self?.recordingIndicator.hide()
+        }
+        recordingController.onPhaseChange = { [weak self] phase in
+            guard let indicator = self?.recordingIndicator else { return }
+            switch phase {
+            case .recording: indicator.showRecording()
+            case .transcribing: indicator.showTranscribing()
+            case .idle: indicator.hide()
             }
         }
-        recordingController.onLevel = { [weak self] level in
-            self?.recordingIndicator.updateLevel(level)
+        recordingController.onSpectrum = { [weak self] spectrum in
+            self?.recordingIndicator.updateSpectrum(spectrum)
         }
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
