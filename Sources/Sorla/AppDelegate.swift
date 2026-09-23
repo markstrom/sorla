@@ -29,6 +29,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isRefusedDictationHeld = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        do {
+            if try LegacyModelMigration.migrate(applicationSupport: PianissimoModel.applicationSupportDirectory) {
+                Self.logger.info("moved the model from the legacy folder")
+            }
+        } catch {
+            Self.logger.error("legacy model move failed: \(error.localizedDescription, privacy: .public)")
+        }
+
         let appSettings = AppSettings()
         self.appSettings = appSettings
 

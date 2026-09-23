@@ -14,10 +14,17 @@ public enum PianissimoModel {
 
     public static let directoryName = "pianissimo-sv-coreml"
 
+    public static var applicationSupportDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
+
     public static var modelsDirectory: URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return appSupport
-            .appendingPathComponent("Sorla", isDirectory: true)
+        modelsDirectory(in: applicationSupportDirectory)
+    }
+
+    static func modelsDirectory(in applicationSupport: URL, appFolderName: String = "Sorla") -> URL {
+        applicationSupport
+            .appendingPathComponent(appFolderName, isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
     }
 
