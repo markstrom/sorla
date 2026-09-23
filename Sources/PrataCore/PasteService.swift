@@ -112,6 +112,11 @@ public enum PasteService {
         return frontmostPIDAtRelease == frontmostPIDAtDelivery
     }
 
+    // A dictation in progress owns the pasteboard/paste path; paste-last must wait until it's idle.
+    public static func shouldPasteLast(hasTranscript: Bool, phase: DictationPhase) -> Bool {
+        hasTranscript && phase == .idle
+    }
+
     // Without Accessibility permission the OS drops these events; the text stays on the pasteboard.
     public static func paste() {
         let virtualKeyV: CGKeyCode = 0x09

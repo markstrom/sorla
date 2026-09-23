@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import KeyboardShortcuts
 import PrataCore
 
 @MainActor
@@ -11,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsWindowController: SettingsWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
+    private var pasteLastMenuItem: NSMenuItem!
+    private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
     private let modelLoadingStatus = ModelLoadingStatus()
 
@@ -46,6 +49,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
+        let pasteLastItem = NSMenuItem(title: "Paste Last Transcription", action: #selector(pasteLastTranscription), keyEquivalent: "")
+        pasteLastItem.target = self
+        pasteLastItem.setShortcut(for: .pasteLastTranscription)
+        pasteLastItem.isEnabled = false
+        menu.addItem(pasteLastItem)
+        pasteLastMenuItem = pasteLastItem
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Prata", action: #selector(quit), keyEquivalent: "q"))
         statusItem.menu = menu
 
@@ -80,6 +90,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         self.triggerMonitor = triggerMonitor
         triggerMonitor.configure(trigger: appSettings.triggerKey, mode: appSettings.recordingMode)
+
+        KeyboardShortcuts.onKeyDown(for: .pasteLastTranscription) { [weak self] in
+            MainActor.assumeIsolated {
+                self?.recordingController.pasteLastTranscript()
+            }
+        }
 
         Publishers.CombineLatest(appSettings.$triggerKey, appSettings.$recordingMode)
             .dropFirst()
@@ -119,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         updateModelMenuItems(selected: appSettings.model)
+        pasteLastMenuItem.isEnabled = recordingController.lastTranscript != nil
     }
 
     @objc private func showSettings() {
@@ -126,10 +143,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let controller = SettingsWindowController(appSettings: appSettings, modelLoadingStatus: modelLoadingStatus)
             controller.onKeyStateChange = { [weak self] isKey in
                 self?.triggerMonitor?.isSuspended = isKey
+                if isKey {
+                    KeyboardShortcuts.disable(.pasteLastTranscription)
+                } else {
+                    KeyboardShortcuts.enable(.pasteLastTranscription)
+                }
             }
             settingsWindowController = controller
         }
+        frontmostAppBeforeSettingsActivated = NSWorkspace.shared.frontmostApplication
         settingsWindowController?.show()
+    }
+
+    // Opening the status-item menu doesn't activate an accessory app, so the frontmost app right after the
+    // menu closes is still whatever the user was working in – unless Prata's own Settings window was key.
+    @objc private func pasteLastTranscription() {
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier == NSRunningApplication.current.processIdentifier,
+           let previousApp = frontmostAppBeforeSettingsActivated,
+           previousApp.processIdentifier != NSRunningApplication.current.processIdentifier {
+            previousApp.activate()
+        }
+        recordingController.pasteLastTranscript()
     }
 
     @objc private func selectModel(_ sender: NSMenuItem) {

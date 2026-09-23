@@ -50,6 +50,8 @@ struct SettingsView: View {
 
             Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
 
+            KeyboardShortcuts.Recorder("Paste last transcription", name: .pasteLastTranscription)
+
             Toggle("Launch at login", isOn: launchAtLoginBinding)
 
             if loginItemRequiresApproval {

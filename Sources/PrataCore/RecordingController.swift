@@ -26,6 +26,8 @@ public final class RecordingController {
     public private(set) var isModelReady = false
     public var onModelReadyChange: ((Bool) -> Void)?
 
+    public private(set) var lastTranscript: String?
+
     public init(engine: TranscriptionEngine, modelName: String, tailDuration: TimeInterval = 0.15) {
         self.engine = engine
         self.modelName = modelName
@@ -143,7 +145,8 @@ public final class RecordingController {
                     self.logger.info("\(modelName, privacy: .public): empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
                     return
                 }
-                let keepClipboardContent = self.keepClipboardContent
+                self.lastTranscript = text
+
                 let frontmostPIDAtDelivery = NSWorkspace.shared.frontmostApplication?.processIdentifier
                 guard PasteService.shouldAutoPaste(
                     frontmostPIDAtRelease: frontmostPIDAtRelease,
@@ -155,45 +158,75 @@ public final class RecordingController {
                     return
                 }
 
-                let generation: Int? = keepClipboardContent
-                    ? self.clipboardOwnership.begin { PasteService.snapshot() }.generation
-                    : nil
-                if !keepClipboardContent {
-                    self.clipboardOwnership.cancel()
-                }
-                let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
-                PasteService.paste()
-                let pasted = AXIsProcessTrusted()
+                let outcome = self.issuePaste(text)
                 self.updatePhase { $0.finish(dictationID) }
-                self.logger.info("\(modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(pasted, privacy: .public): \(text, privacy: .private)")
-
-                if let generation {
-                    if !pasted {
-                        self.clipboardOwnership.cancel()
-                        self.logger.info("clipboard kept (not pasted)")
-                    } else {
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        switch self.clipboardOwnership.finish(generation: generation) {
-                        case .skip:
-                            self.logger.info("clipboard kept (superseded)")
-                        case .evaluate(let original):
-                            let currentChangeCount = NSPasteboard.general.changeCount
-                            if PasteService.shouldRestoreClipboard(
-                                keepSetting: keepClipboardContent,
-                                pasteDelivered: pasted,
-                                changeCountAfterWrite: changeCountAfterWrite,
-                                currentChangeCount: currentChangeCount
-                            ) {
-                                PasteService.restore(original)
-                                self.logger.info("clipboard restored")
-                            } else {
-                                self.logger.info("clipboard kept (clipboard changed)")
-                            }
-                        }
-                    }
-                }
+                self.logger.info("\(modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(outcome.pasted, privacy: .public): \(text, privacy: .private)")
+                await self.settleClipboard(outcome)
             } catch {
                 self.logger.error("\(modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
+    // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
+    public func pasteLastTranscript() {
+        guard PasteService.shouldPasteLast(hasTranscript: lastTranscript != nil, phase: phase), let text = lastTranscript else {
+            logger.info("paste-last skipped (no transcript or dictation in progress)")
+            return
+        }
+        Task { @MainActor in
+            let outcome = self.issuePaste(text)
+            self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
+            await self.settleClipboard(outcome)
+        }
+    }
+
+    private struct PasteOutcome {
+        let pasted: Bool
+        let generation: Int?
+        let changeCountAfterWrite: Int
+        let keepClipboardContent: Bool
+    }
+
+    // Writes the text to the pasteboard, posts the tagged ⌘V, and reports whether it was likely delivered.
+    private func issuePaste(_ text: String) -> PasteOutcome {
+        let keepClipboardContent = self.keepClipboardContent
+        let generation: Int? = keepClipboardContent
+            ? clipboardOwnership.begin { PasteService.snapshot() }.generation
+            : nil
+        if !keepClipboardContent {
+            clipboardOwnership.cancel()
+        }
+        let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
+        PasteService.paste()
+        let pasted = AXIsProcessTrusted()
+        return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)
+    }
+
+    // Restores the user's original clipboard once the paste has had time to land, unless it was superseded or changed.
+    private func settleClipboard(_ outcome: PasteOutcome) async {
+        guard let generation = outcome.generation else { return }
+        guard outcome.pasted else {
+            clipboardOwnership.cancel()
+            logger.info("clipboard kept (not pasted)")
+            return
+        }
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        switch clipboardOwnership.finish(generation: generation) {
+        case .skip:
+            logger.info("clipboard kept (superseded)")
+        case .evaluate(let original):
+            let currentChangeCount = NSPasteboard.general.changeCount
+            if PasteService.shouldRestoreClipboard(
+                keepSetting: outcome.keepClipboardContent,
+                pasteDelivered: outcome.pasted,
+                changeCountAfterWrite: outcome.changeCountAfterWrite,
+                currentChangeCount: currentChangeCount
+            ) {
+                PasteService.restore(original)
+                logger.info("clipboard restored")
+            } else {
+                logger.info("clipboard kept (clipboard changed)")
             }
         }
     }

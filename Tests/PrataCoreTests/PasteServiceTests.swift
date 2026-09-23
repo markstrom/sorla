@@ -124,4 +124,20 @@ final class PasteServiceTests: XCTestCase {
 
         XCTAssertNil(pasteboard.data(forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType")))
     }
+
+    func testShouldPasteLastWhenIdleWithTranscriptReturnsTrue() {
+        XCTAssertTrue(PasteService.shouldPasteLast(hasTranscript: true, phase: .idle))
+    }
+
+    func testShouldPasteLastWithoutTranscriptReturnsFalse() {
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: false, phase: .idle))
+    }
+
+    func testShouldPasteLastWhileRecordingReturnsFalse() {
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .recording))
+    }
+
+    func testShouldPasteLastWhileTranscribingReturnsFalse() {
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .transcribing))
+    }
 }

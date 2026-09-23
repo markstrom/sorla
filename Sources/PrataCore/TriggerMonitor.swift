@@ -3,6 +3,7 @@ import KeyboardShortcuts
 
 public extension KeyboardShortcuts.Name {
     static let prataCustomTrigger = Self("prataCustomTrigger")
+    static let pasteLastTranscription = Self("pasteLastTranscription", initial: .init(.v, modifiers: [.control, .option]))
 }
 
 @MainActor
