@@ -3,7 +3,7 @@ import Foundation
 
 public enum VisualizerBars {
     // Above 1 so differences between bands grow instead of every bar sitting near the same height.
-    private static let contrastExponent: Float = 1.6
+    private static let contrastExponent: Float = 1.35
     private static let wobbleFloor: Float = 0.45
     private static let shimmerPeriod = 1.1
     private static let shimmerWidth = 2.2
