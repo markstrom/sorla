@@ -108,3 +108,8 @@
 "License texts are included with the app." = "Licenstexterna följer med appen.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "Modellen läses in (~1 min). Diktering fungerar när den är klar.";
 "Talk. Let go. Done." = "Prata. Släpp. Klart.";
+
+/* Welcome */
+"Allow" = "Tillåt";
+"Open System Settings" = "Öppna Systeminställningar";
+"Dictation works once all three are done." = "Diktering fungerar när alla tre är klara.";

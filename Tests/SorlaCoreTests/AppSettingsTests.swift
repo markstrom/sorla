@@ -97,4 +97,17 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertTrue(reloaded.autoCheckModelUpdates)
         XCTAssertTrue(reloaded.autoDownloadModelUpdates)
     }
+
+    func testOnboardingIsNotCompletedByDefault() {
+        XCTAssertFalse(AppSettings(defaults: defaults).hasCompletedOnboarding)
+    }
+
+    func testOnboardingCompletionPersistsImmediatelyAndRoundTrips() {
+        let settings = AppSettings(defaults: defaults)
+
+        settings.hasCompletedOnboarding = true
+
+        XCTAssertEqual(defaults.object(forKey: "hasCompletedOnboarding") as? Bool, true)
+        XCTAssertTrue(AppSettings(defaults: defaults).hasCompletedOnboarding)
+    }
 }

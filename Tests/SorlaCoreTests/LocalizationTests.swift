@@ -102,6 +102,28 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testSwedishWelcomeRows() throws {
+        try Localization.$bundle.withValue(swedish) {
+            XCTAssertEqual(WelcomeChecklist.microphoneRow(.notDetermined), .needsAction(.requestMicrophone, buttonTitle: "Tillåt", note: nil))
+            XCTAssertEqual(
+                WelcomeChecklist.accessibilityRow(isTrusted: false),
+                .needsAction(.openAccessibilitySettings, buttonTitle: "Öppna Systeminställningar", note: nil)
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .downloading(version: "1", fraction: 0.34, isUpdate: false)),
+                .inProgress("Laddar ner modellen… 34 %")
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .notInstalled),
+                .needsAction(.downloadModel, buttonTitle: "Ladda ner", note: "Inte installerad")
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
+                "Sorla är redo. Håll Höger ⌘ för att diktera."
+            )
+        }
+    }
+
     func testSwedishDiskSpaceUsesADecimalComma() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(

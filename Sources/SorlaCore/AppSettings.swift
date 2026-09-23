@@ -10,6 +10,7 @@ public final class AppSettings: ObservableObject {
         static let playSounds = "playSounds"
         static let autoCheckModelUpdates = "autoCheckModelUpdates"
         static let autoDownloadModelUpdates = "autoDownloadModelUpdates"
+        static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 
     @Published public var triggerKey: TriggerKey {
@@ -36,6 +37,10 @@ public final class AppSettings: ObservableObject {
         didSet { defaults.set(autoDownloadModelUpdates, forKey: Keys.autoDownloadModelUpdates) }
     }
 
+    @Published public var hasCompletedOnboarding: Bool {
+        didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) }
+    }
+
     private let defaults: UserDefaults
 
     public init(defaults: UserDefaults = .standard) {
@@ -48,5 +53,6 @@ public final class AppSettings: ObservableObject {
         playSounds = defaults.object(forKey: Keys.playSounds) as? Bool ?? true
         autoCheckModelUpdates = defaults.object(forKey: Keys.autoCheckModelUpdates) as? Bool ?? false
         autoDownloadModelUpdates = defaults.object(forKey: Keys.autoDownloadModelUpdates) as? Bool ?? false
+        hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
     }
 }
