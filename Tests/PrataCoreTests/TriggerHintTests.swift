@@ -2,12 +2,29 @@ import XCTest
 @testable import PrataCore
 
 final class TriggerHintTests: XCTestCase {
-    func testMenuTitleSaysHoldForPushToTalk() {
-        XCTAssertEqual(TriggerHint.menuTitle(for: .pushToTalk), "Hold to Record")
+    func testMenuTitleNamesTheKeyForPushToTalk() {
+        XCTAssertEqual(
+            TriggerHint.menuTitle(trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
+            "Hold Right ⌘ to Record"
+        )
     }
 
-    func testMenuTitleSaysPressForToggle() {
-        XCTAssertEqual(TriggerHint.menuTitle(for: .toggle), "Press to Record")
+    func testMenuTitleNamesTheKeyForToggle() {
+        XCTAssertEqual(TriggerHint.menuTitle(trigger: .fn, mode: .toggle, customShortcut: nil), "Press Fn to Record")
+    }
+
+    func testMenuTitleUsesTheCustomShortcut() {
+        XCTAssertEqual(
+            TriggerHint.menuTitle(trigger: .customShortcut, mode: .pushToTalk, customShortcut: "⌃⌥Space"),
+            "Hold ⌃⌥Space to Record"
+        )
+    }
+
+    func testMenuTitleWhenTheCustomShortcutIsNotSet() {
+        XCTAssertEqual(
+            TriggerHint.menuTitle(trigger: .customShortcut, mode: .toggle, customShortcut: nil),
+            "Record: Shortcut Not Set"
+        )
     }
 
     func testKeyLabelUsesTheModifierKeyName() {

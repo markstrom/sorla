@@ -14,7 +14,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
     private var pendingStartSound: Task<Void, Never>?
-    private let triggerHintRowView = MenuShortcutRowView()
     private static let logger = Logger(subsystem: "com.prata.app", category: "AppDelegate")
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var pasteLastMenuItem: NSMenuItem!
@@ -39,9 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         menu.autoenablesItems = false
-        let triggerHintItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        triggerHintItem.isEnabled = false
-        triggerHintItem.view = triggerHintRowView
+        let triggerHintItem = NSMenuItem(title: "", action: #selector(showSettings), keyEquivalent: "")
         menu.addItem(triggerHintItem)
         triggerHintMenuItem = triggerHintItem
         let pasteLastItem = NSMenuItem(title: "Paste Last Transcription", action: #selector(pasteLastTranscription), keyEquivalent: "")
@@ -229,12 +226,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
-        let title = TriggerHint.menuTitle(for: mode ?? appSettings.recordingMode)
-        let key = TriggerHint.keyLabel(
-            for: trigger ?? appSettings.triggerKey,
+        triggerHintMenuItem.title = TriggerHint.menuTitle(
+            trigger: trigger ?? appSettings.triggerKey,
+            mode: mode ?? appSettings.recordingMode,
             customShortcut: KeyboardShortcuts.getShortcut(for: .prataCustomTrigger)?.description
         )
-        triggerHintRowView.update(title: title, key: key)
     }
 
     // The mic keeps recording for the tail after release, so the chirp waits until it's closed.

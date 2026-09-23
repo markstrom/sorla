@@ -1,8 +1,12 @@
 public enum TriggerHint {
-    public static func menuTitle(for mode: RecordingMode) -> String {
+    public static func menuTitle(trigger: TriggerKey, mode: RecordingMode, customShortcut: String?) -> String {
+        if trigger == .customShortcut, customShortcut?.isEmpty ?? true {
+            return "Record: Shortcut Not Set"
+        }
+        let key = keyLabel(for: trigger, customShortcut: customShortcut)
         switch mode {
-        case .pushToTalk: return "Hold to Record"
-        case .toggle: return "Press to Record"
+        case .pushToTalk: return "Hold \(key) to Record"
+        case .toggle: return "Press \(key) to Record"
         }
     }
 
