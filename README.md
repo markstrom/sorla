@@ -1,0 +1,103 @@
+# Sorla
+
+**Talk. Let go. Done.**
+
+Sorla is push-to-talk dictation for the Mac. Hold a key (Right ⌘ by default), speak Swedish, and let go. The text is pasted where your cursor is, in whatever app you're using.
+
+Sorla lives in the menu bar and stays out of the way until you use it. Speech recognition runs entirely on your Mac, on the Apple Neural Engine. No account, no cloud, no analytics.
+
+Website: [sorla.zerolabs.se](https://sorla.zerolabs.se)
+
+## Built on Klang Pianissimo
+
+Sorla understands Swedish thanks to **Klang Pianissimo**, a Swedish speech recognition model by **Klang AI AB**, released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+- Model: [KlangAI/pianissimo-sv](https://huggingface.co/KlangAI/pianissimo-sv)
+- Pianissimo is fine-tuned from [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (CC BY 4.0).
+- Sorla runs a Core ML conversion of Pianissimo with unchanged weights: [markstrom/pianissimo-sv-coreml](https://huggingface.co/markstrom/pianissimo-sv-coreml).
+
+Thank you, Klang, for building Pianissimo and sharing it openly. Sorla would not exist without it.
+
+> Sorla is an independent app. It is not made, endorsed or supported by Klang AI AB.
+
+Sorla also builds on:
+
+- [FluidAudio](https://github.com/FluidInference/FluidAudio) (Apache-2.0), which runs the model with Core ML.
+- [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (MIT), for custom shortcuts.
+
+## Features
+
+- **Push to talk or toggle.** Hold the key while you speak, or press once to start and once more to stop.
+- **Your key.** Right ⌘ by default. Pick Right ⌥, Right ⌃ or a custom shortcut instead.
+- **A small indicator** at the top of the screen, with a live waveform while you speak.
+- **Paste Last.** ⌃⌥V pastes the most recent text again, wherever you are now.
+- **Your clipboard is kept.** Whatever you had copied is still there after Sorla pastes.
+- Soft start and stop sounds, and optional launch at login.
+- English and Swedish user interface.
+
+## Requirements
+
+- A Mac with Apple Silicon (M1 or later)
+- macOS 14 Sonoma or later
+- About 700 MB of free space for the speech model, which is downloaded on first launch
+
+## Install
+
+1. Download the DMG from [Releases](../../releases).
+2. Open it and drag **Sorla** to **Applications**.
+3. Open Sorla from the Applications folder.
+4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both and downloads the model.
+5. Hold Right ⌘ and speak.
+
+### If macOS blocks the app
+
+If macOS says Sorla can't be opened, either:
+
+- open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**, or
+- remove the quarantine flag in Terminal:
+
+  ```sh
+  xattr -dr com.apple.quarantine /Applications/Sorla.app
+  ```
+
+## Privacy
+
+Your voice and your text never leave your Mac. Audio is processed in memory and never saved.
+
+Sorla uses the network only to:
+
+- download the speech model from Hugging Face on first launch, and
+- check for model updates, either when you ask it to or, if you turn it on, automatically.
+
+There are no accounts, no analytics and no tracking. Once the model is installed, Sorla works offline. Read the full [privacy policy](https://sorla.zerolabs.se/privacy).
+
+## Principles
+
+Every feature in Sorla is weighed against [the Sorla Manifesto](MANIFESTO.md): one purpose, nothing leaves the Mac, never make the user wait, calm by default.
+
+## Building from source
+
+Sorla is a Swift package. You need Xcode (or the Swift toolchain) for macOS 14 or later.
+
+```sh
+swift build                 # debug build
+swift test                  # run the tests
+Scripts/build-app.sh        # build and sign .build/Sorla.app
+Scripts/release.sh          # build a signed DMG in .build/release-artifacts
+```
+
+`Scripts/build-app.sh` signs with the hardened runtime, using the first Apple Development identity in your keychain, or ad hoc if there is none. Set `SORLA_SIGN_IDENTITY` to choose another identity.
+
+`Scripts/release.sh` signs with a Developer ID Application identity when one is available and falls back to Apple Development. With a Developer ID identity, `SORLA_NOTARIZE=1 Scripts/release.sh` also notarizes and staples the DMG.
+
+## License
+
+No license has been chosen yet for Sorla's own source code.
+
+Third-party components keep their own licenses, which are included in [`Resources/Licenses`](Resources/Licenses) and shipped with the app:
+
+| Component | License |
+|---|---|
+| Klang Pianissimo (Klang AI AB), based on NVIDIA Parakeet TDT 0.6B v3 | [CC BY 4.0](Resources/Licenses/Pianissimo.txt) |
+| FluidAudio | [Apache-2.0](Resources/Licenses/FluidAudio/LICENSE) |
+| KeyboardShortcuts | [MIT](Resources/Licenses/KeyboardShortcuts/LICENSE) |
