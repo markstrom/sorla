@@ -6,19 +6,12 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var appSettings: AppSettings
+    @ObservedObject var modelManager: ModelManager
     @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
     @State private var customShortcutDescription = KeyboardShortcuts.getShortcut(for: .prataCustomTrigger)?.description
 
     private static let logger = Logger(subsystem: "com.prata.app", category: "SettingsView")
-
-    private var modelStatus: String {
-        guard PianissimoModel.isInstalled else { return "Not installed" }
-        if let version = PianissimoModel.installedVersion {
-            return "Version \(version) · Installed"
-        }
-        return "Installed"
-    }
 
     var body: some View {
         Form {
@@ -57,9 +50,7 @@ struct SettingsView: View {
             Picker("Model", selection: .constant(PianissimoModel.displayName)) {
                 Text(PianissimoModel.displayName).tag(PianissimoModel.displayName)
             }
-            Text(modelStatus)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            modelUpdates
 
             Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
 
@@ -104,6 +95,29 @@ struct SettingsView: View {
                 loginItemRequiresApproval = LoginItem.requiresApproval
             }
         )
+    }
+
+    @ViewBuilder
+    private var modelUpdates: some View {
+        HStack {
+            Text(modelManager.status.settingsText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            switch modelManager.status {
+            case .updateAvailable:
+                Button("Download") { modelManager.downloadModel() }
+            case .failed, .notInstalled:
+                Button("Try Again") { modelManager.downloadModel() }
+            default:
+                EmptyView()
+            }
+        }
+        Toggle("Check for model updates automatically", isOn: $appSettings.autoCheckModelUpdates)
+        Toggle("Download updates automatically", isOn: $appSettings.autoDownloadModelUpdates)
+            .disabled(!appSettings.autoCheckModelUpdates)
+        Button("Check Now") { modelManager.checkNow() }
+            .disabled(modelManager.status.isBusy)
     }
 
     private var fnHint: some View {

@@ -96,6 +96,16 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: modelsDirectory.appendingPathComponent(".staging").path))
     }
 
+    func testFirstRunShowsTheDownloadStartingImmediately() async throws {
+        await PublishedModelFixture(version: "1.0.0").publish(on: network)
+        let manager = makeManager()
+
+        manager.start()
+
+        XCTAssertEqual(manager.status, .downloading(version: "", fraction: 0, isUpdate: false))
+        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+    }
+
     func testFirstRunOfflineFailsWithARetry() async throws {
         await network.fail(PublishedModelFixture.manifestURL)
         let manager = makeManager()

@@ -17,6 +17,10 @@ final class IssueNotifier {
     func notify(_ issue: PrataIssue) {
         guard let body = issue.notificationBody else { return }
         guard notifiedIssues.insert(issue).inserted else { return }
+        post(body)
+    }
+
+    func post(_ body: String) {
         Task {
             await requestAuthorizationIfNeeded()
             let content = UNMutableNotificationContent()

@@ -97,6 +97,7 @@ public final class ModelManager: ObservableObject {
     public func downloadModel() {
         guard work == nil else { return }
         let isUpdate = isInstalled
+        status = .downloading(version: offered?.release.version ?? "", fraction: 0, isUpdate: isUpdate)
         work = Task {
             defer { self.work = nil }
             let latest: PublishedModel
