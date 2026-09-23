@@ -235,3 +235,9 @@ a code { color: var(--accent); }
   font-style: italic;
   color: var(--ink-2);
 }
+
+details { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); }
+details:first-of-type { margin-top: 14px; }
+summary { cursor: pointer; font-weight: 650; }
+summary:hover { color: var(--accent); }
+details p { margin: 8px 0 4px; }

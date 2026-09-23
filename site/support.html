@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hjälp – Sorla</title>
+<meta name="description" content="Hjälp med Sorla: krav, kom igång, kortkommandon, urklipp och felsökning.">
+<meta name="theme-color" content="#F7F5F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://sorla.zerolabs.se/support">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#innehall">Hoppa till innehållet</a>
+<div class="page">
+  <nav aria-label="Webbplats">
+    <a class="home" href="/"><img src="/favicon.svg" alt="" width="28" height="28"><span class="name">Sorla</span></a>
+    <span class="links">
+      <a href="/">Start</a>
+      <a href="/manifesto">Manifest</a>
+      <a href="/support" aria-current="page">Hjälp</a>
+      <a href="/privacy">Integritet</a>
+    </span>
+  </nav>
+
+  <main id="innehall" class="policy">
+    <p class="eyebrow">Hjälp</p>
+    <h1 class="page-title">Hjälp</h1>
+    <p class="lede">Krav, kom igång och svar på det som brukar dyka upp.</p>
+
+    <h2>Krav</h2>
+    <ul>
+      <li>Mac med Apple Silicon.</li>
+      <li>macOS 14 eller senare.</li>
+      <li>Ungefär 700 MB för talmodellen, och cirka 1,4 GB ledigt utrymme under själva nedladdningen.</li>
+    </ul>
+
+    <h2>Kom igång</h2>
+    <p>Första gången Sorla startar ber den om två behörigheter: <strong>Mikrofon</strong> och <strong>Hjälpmedel</strong>. Hjälpmedel ger du i Systeminställningar → Integritet och säkerhet → Hjälpmedel → slå på Sorla. Ibland behöver Sorla startas om efter det.</p>
+    <p>Sedan laddar Sorla ner den svenska talmodellen (688 MB) från Hugging Face och förbereder den för Macens Neural Engine, ungefär en minut. Förloppet syns i menyn. Därefter används inget nätverk.</p>
+
+    <h2>Använda Sorla</h2>
+    <p>Håll in <code>Right ⌘</code> (standardtangenten), prata och släpp. Texten hamnar där markören står. Trycker du på en annan tangent medan du håller in avbryts inspelningen, så vanliga kortkommandon fungerar som vanligt. Korta tryck, under 0,3 sekunder, ignoreras.</p>
+    <p>Alternativt läge: tryck en gång för att börja, en gång till för att sluta. Tangenten — höger ⌘, ⌥, ⌃, Fn eller en egen kombination — och läget väljer du i Inställningar.</p>
+
+    <h2>Klistra in senaste transkriberingen</h2>
+    <p>Om fokus var fel när du släppte tangenten: <code>⌃⌥V</code> klistrar in senaste texten där du står nu. Kortkommandot går att ändra i Inställningar.</p>
+
+    <h2>Urklipp</h2>
+    <p>Sorla lånar urklippet för att klistra in texten och lägger sedan tillbaka det du hade kopierat. Det går att stänga av i Inställningar.</p>
+
+    <h2>Felsökning</h2>
+    <details>
+      <summary>Ingen text klistras in</summary>
+      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet — tryck <code>⌘V</code>. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov.</p>
+    </details>
+    <details>
+      <summary>Tom eller konstig text</summary>
+      <p>Kontrollera vald mikrofon och nivå i Systeminställningar → Ljud → Ingång. Prata tydligt nära mikrofonen. Ett Bluetooth-headset kan ge sämre ljud.</p>
+    </details>
+    <details>
+      <summary>Tangenten gör inget</summary>
+      <p>En annan app kan använda samma kombination. Använder du Fn: ställ in "Tryck på 🌐-tangenten för att" på "Gör ingenting" i Systeminställningar → Tangentbord. Sorlas inställningsfönster pausar tangenten medan det är öppet.</p>
+    </details>
+    <details>
+      <summary>Texten hamnar inte där du tänkt</summary>
+      <p>Sorla klistrar bara in om samma app fortfarande är aktiv när texten är klar. Annars ligger texten i urklippet, eller klistra in den med <code>⌃⌥V</code>.</p>
+    </details>
+    <details>
+      <summary>Nedladdningen av modellen misslyckas</summary>
+      <p>Kontrollera internetanslutning och ledigt utrymme, och välj "Försök igen" i menyn.</p>
+    </details>
+    <details>
+      <summary>Inga notiser</summary>
+      <p>Tillåt Sorla i Systeminställningar → Notiser.</p>
+    </details>
+
+    <h2>Uppdateringar av modellen</h2>
+    <p>Sorla letar bara efter en ny modell när du ber om det i Inställningar, eller automatiskt om du slår på det. Uppdateringen laddas ner i bakgrunden och byts in mellan två dikteringar.</p>
+
+    <h2>Avinstallera</h2>
+    <p>Avsluta Sorla, flytta appen till papperskorgen och ta bort mappen <code>~/Library/Application Support/Sorla</code>.</p>
+
+    <h2>Integritet</h2>
+    <p>Sorla samlar inte in några uppgifter om dig. <a href="/privacy">Läs integritetspolicyn</a>.</p>
+
+    <h2>Kontakt</h2>
+    <p><a href="mailto:sorla@zerolabs.se"><code>sorla@zerolabs.se</code></a></p>
+  </main>
+
+  <footer>
+    <span>Sorla av Zerolabs</span>
+    <span class="spacer"></span>
+    <a href="/">Sorla</a>
+    <a href="/manifesto">Manifest</a>
+    <a href="/privacy">Integritet</a>
+    <a href="https://zerolabs.se"><code>zerolabs.se</code></a>
+  </footer>
+</div>
+</body>
+</html>
