@@ -113,3 +113,11 @@
 "Allow" = "Tillåt";
 "Open System Settings" = "Öppna Systeminställningar";
 "Dictation works once all three are done." = "Diktering fungerar när alla tre är klara.";
+"Welcome to Sorla" = "Välkommen till Sorla";
+"Microphone" = "Mikrofon";
+"So Sorla can hear you." = "Så att Sorla kan höra dig.";
+"Accessibility" = "Hjälpmedel";
+"So Sorla can paste where you type." = "Så att Sorla kan klistra in där du skriver.";
+"If the switch is on but this doesn't turn green, quit and reopen Sorla." = "Om reglaget är på men det här inte blir grönt, avsluta och öppna Sorla igen.";
+"Try it here" = "Prova här";
+"Done" = "Klar";

@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
     private var aboutWindowController: AboutWindowController?
+    private var welcomeWindowController: WelcomeWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
     private var issueNotifier = IssueNotifier()
@@ -24,7 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var triggerHintMenuItem: NSMenuItem!
     private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
-    private var modelLoadingStatus: ModelLoadingStatus = .loading
+    private var modelLoadingStatus: ModelLoadingStatus = .loading {
+        didSet { welcomeWindowController?.state.modelLoadingStatus = modelLoadingStatus }
+    }
     private var didNotifyModelNotReady = false
     private var isRefusedDictationHeld = false
 
@@ -216,11 +219,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             recordingController.prepare()
         }
 
-        Task {
-            _ = await PermissionsManager.requestMicrophoneAccess()
-            if !PermissionsManager.isAccessibilityTrusted() {
-                PermissionsManager.promptAccessibilityIfNeeded()
-            }
+        if WelcomeChecklist.shouldShow(
+            hasCompletedOnboarding: appSettings.hasCompletedOnboarding,
+            microphone: PermissionsManager.microphoneAccess(),
+            isAccessibilityTrusted: PermissionsManager.isAccessibilityTrusted()
+        ) {
+            showWelcome()
         }
     }
 
@@ -247,6 +251,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowController?.show()
     }
 
+    private func showWelcome() {
+        if welcomeWindowController == nil {
+            welcomeWindowController = WelcomeWindowController(
+                appSettings: appSettings,
+                modelManager: modelManager,
+                modelLoadingStatus: modelLoadingStatus
+            )
+        }
+        welcomeWindowController?.show()
+    }
+
     @objc private func showAbout() {
         if aboutWindowController == nil {
             aboutWindowController = AboutWindowController()
@@ -271,10 +286,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // The status menu doesn't activate Sorla, so it is only frontmost here when Settings is key.
+    // The status menu doesn't activate Sorla, so it is only frontmost here when one of its windows is key.
     @objc private func pasteLastTranscription() {
         let ownPID = NSRunningApplication.current.processIdentifier
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID else {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID,
+              welcomeWindowController?.isKey != true
+        else {
             recordingController.pasteLastTranscript()
             return
         }
