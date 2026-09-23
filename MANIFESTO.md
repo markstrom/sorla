@@ -12,7 +12,7 @@ That is the whole product. Everything in Prata exists to make that moment faster
 Prata puts your spoken words where your cursor is. It is not a note-taking app, a meeting recorder, a file transcriber, an AI assistant or a writing coach. Other apps do many things; Prata does one thing better than any of them.
 
 ### 2. Private by construction
-Your voice never leaves your Mac. No account, no cloud, no analytics, no telemetry. The only network traffic Prata ever makes is fetching the speech model and checking for a newer one — and you can switch that off. Privacy is not a setting; it is how the app is built.
+Your voice never leaves your Mac. No account, no cloud, no analytics, no telemetry. Out of the box Prata talks to the internet exactly once: to download the speech model it needs to work. After that it is silent. Checking for a newer model happens only when you press *Check Now*, or automatically if you choose to turn that on. Privacy is not a setting; it is how the app is built.
 
 ### 3. Fast enough to disappear
 The text is there before you think about waiting for it. Prata starts instantly, uses no CPU while idle, and never makes you choose between speed and quality.
@@ -73,7 +73,7 @@ Before anything is added, it must pass all six questions. One "no" means we don'
 | CPU while idle | 0 % |
 | Settings | at most 10 |
 | Items in the menu | at most 8 |
-| Network traffic | model download and update check only |
+| Network traffic | the first model download; after that only when the user asks (or opts in to automatic update checks) |
 | Steps from install to first dictation | install, two permissions, speak |
 
 If a change would break a budget, it waits until it doesn't.
