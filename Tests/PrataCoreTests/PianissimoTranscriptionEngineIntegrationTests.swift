@@ -2,11 +2,15 @@ import XCTest
 import FluidAudio
 @testable import PrataCore
 
-final class ParakeetTranscriptionEngineTests: XCTestCase {
-    func testTranscribesSynthesizedEnglishSpeech() async throws {
+final class PianissimoTranscriptionEngineIntegrationTests: XCTestCase {
+    func testTranscribesSynthesizedSwedishSpeech() async throws {
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["PRATA_ASR_INTEGRATION"] == "1",
-            "Set PRATA_ASR_INTEGRATION=1 to run (downloads the Parakeet model)."
+            "Set PRATA_ASR_INTEGRATION=1 to run (reads the Pianissimo bundle from Application Support)."
+        )
+        try XCTSkipUnless(
+            PianissimoModel.isInstalled,
+            "Pianissimo bundle not installed at \(PianissimoModel.directory.path)."
         )
 
         let audioURL = FileManager.default.temporaryDirectory
@@ -15,7 +19,7 @@ final class ParakeetTranscriptionEngineTests: XCTestCase {
 
         let say = Process()
         say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
-        say.arguments = ["-v", "Samantha", "-o", audioURL.path, "The quick brown fox jumps over the lazy dog."]
+        say.arguments = ["-v", "Alva", "-o", audioURL.path, "Den snabba bruna räven hoppar över den lata hunden."]
         try say.run()
         say.waitUntilExit()
         XCTAssertEqual(say.terminationStatus, 0)
@@ -27,10 +31,10 @@ final class ParakeetTranscriptionEngineTests: XCTestCase {
         let start = Date()
         let text = try await engine.transcribe(samples)
         let elapsed = Date().timeIntervalSince(start)
-        print("Parakeet transcribed \(Double(samples.count) / 16000)s of audio in \(elapsed)s: \(text)")
+        print("Pianissimo transcribed \(Double(samples.count) / 16000)s of audio in \(elapsed)s: \(text)")
 
         let lowered = text.lowercased()
-        XCTAssertTrue(lowered.contains("fox"), "Unexpected transcript: \(text)")
-        XCTAssertTrue(lowered.contains("lazy dog"), "Unexpected transcript: \(text)")
+        XCTAssertTrue(lowered.contains("räven"), "Unexpected transcript: \(text)")
+        XCTAssertTrue(lowered.contains("hunden"), "Unexpected transcript: \(text)")
     }
 }

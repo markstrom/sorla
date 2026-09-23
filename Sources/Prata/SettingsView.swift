@@ -6,7 +6,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var appSettings: AppSettings
-    @ObservedObject var modelLoadingStatus: ModelLoadingStatus
     @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
     @State private var customShortcutDescription = KeyboardShortcuts.getShortcut(for: .prataCustomTrigger)?.description
@@ -46,19 +45,6 @@ struct SettingsView: View {
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
-
-            Picker("Model", selection: $appSettings.model) {
-                ForEach(SpeechModel.allCases, id: \.self) { model in
-                    Text(model.isInstalled ? model.displayName : "\(model.displayName) – not installed")
-                        .tag(model)
-                        .disabled(!model.isInstalled)
-                }
-            }
-            if !modelLoadingStatus.isModelReady {
-                Text("Loading…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
 
             Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
 

@@ -15,20 +15,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var feedbackSounds: FeedbackSoundPlayer!
     private var pendingStartSound: Task<Void, Never>?
     private static let logger = Logger(subsystem: "com.prata.app", category: "AppDelegate")
-    private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
+    private var modelSeparatorMenuItem: NSMenuItem!
+    private var modelNotInstalledMenuItem: NSMenuItem!
     private var pasteLastMenuItem: NSMenuItem!
     private var triggerHintMenuItem: NSMenuItem!
     private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
-    private let modelLoadingStatus = ModelLoadingStatus()
+    private var isModelReady = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let appSettings = AppSettings()
         self.appSettings = appSettings
 
         recordingController = RecordingController(
-            engine: ParakeetTranscriptionEngine(model: appSettings.model),
-            modelName: appSettings.model.displayName
+            engine: ParakeetTranscriptionEngine(),
+            modelName: PianissimoModel.displayName
         )
         recordingController.keepClipboardContent = appSettings.keepClipboardContent
 
@@ -47,18 +48,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         pasteLastItem.isEnabled = false
         menu.addItem(pasteLastItem)
         pasteLastMenuItem = pasteLastItem
-        menu.addItem(.separator())
-        for model in SpeechModel.allCases {
-            let item = NSMenuItem(
-                title: model.displayName,
-                action: #selector(selectModel(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = model
-            modelMenuItems[model] = item
-            menu.addItem(item)
-        }
+        let modelSeparator = NSMenuItem.separator()
+        menu.addItem(modelSeparator)
+        modelSeparatorMenuItem = modelSeparator
+        let modelNotInstalledItem = NSMenuItem(title: "Swedish model not installed", action: nil, keyEquivalent: "")
+        modelNotInstalledItem.isEnabled = false
+        menu.addItem(modelNotInstalledItem)
+        modelNotInstalledMenuItem = modelNotInstalledItem
         menu.addItem(.separator())
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -66,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(NSMenuItem(title: "Quit Prata", action: #selector(quit), keyEquivalent: "q"))
         statusItem.menu = menu
 
-        updateModelMenuItems(selected: appSettings.model)
+        updateModelInstalledMenuItems()
         updateTriggerHintMenuItem()
 
         recordingIndicator = RecordingIndicatorPanel()
@@ -88,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
-            self.modelLoadingStatus.isModelReady = isReady
+            self.isModelReady = isReady
             self.updateIcon(isRecording: self.recordingController.isRecording)
         }
 
@@ -127,16 +123,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
-        appSettings.$model
-            .dropFirst()
-            .removeDuplicates()
-            .sink { [weak self] model in
-                guard let self else { return }
-                self.recordingController.setEngine(ParakeetTranscriptionEngine(model: model), name: model.displayName)
-                self.updateModelMenuItems(selected: model)
-            }
-            .store(in: &cancellables)
-
         appSettings.$keepClipboardContent
             .dropFirst()
             .removeDuplicates()
@@ -156,14 +142,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        updateModelMenuItems(selected: appSettings.model)
+        updateModelInstalledMenuItems()
         updateTriggerHintMenuItem()
         pasteLastMenuItem.isEnabled = recordingController.lastTranscript != nil
     }
 
     @objc private func showSettings() {
         if settingsWindowController == nil {
-            let controller = SettingsWindowController(appSettings: appSettings, modelLoadingStatus: modelLoadingStatus)
+            let controller = SettingsWindowController(appSettings: appSettings)
             controller.onKeyStateChange = { [weak self] isKey in
                 self?.triggerMonitor?.isSuspended = isKey
                 if isKey {
@@ -209,20 +195,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
-    @objc private func selectModel(_ sender: NSMenuItem) {
-        guard let model = sender.representedObject as? SpeechModel, model.isInstalled, model != appSettings.model else {
-            return
-        }
-        appSettings.model = model
-    }
-
-    private func updateModelMenuItems(selected: SpeechModel) {
-        for (model, item) in modelMenuItems {
-            let installed = model.isInstalled
-            item.isEnabled = installed
-            item.state = model == selected ? .on : .off
-            item.title = installed ? model.displayName : "\(model.displayName) – not installed"
-        }
+    private func updateModelInstalledMenuItems() {
+        let installed = PianissimoModel.isInstalled
+        modelSeparatorMenuItem.isHidden = installed
+        modelNotInstalledMenuItem.isHidden = installed
     }
 
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
@@ -260,7 +236,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateIcon(isRecording: Bool) {
         let symbolName: String
         let description: String
-        if !modelLoadingStatus.isModelReady {
+        if !isModelReady {
             symbolName = "hourglass"
             description = "Prata (loading model)"
         } else if isRecording {

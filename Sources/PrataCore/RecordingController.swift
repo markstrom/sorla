@@ -6,8 +6,8 @@ import os
 @MainActor
 public final class RecordingController {
     private let recorder = AudioRecorder()
-    private var engine: TranscriptionEngine
-    private var modelName: String
+    private let engine: TranscriptionEngine
+    private let modelName: String
     public let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.prata.app", category: "RecordingController")
 
@@ -63,12 +63,6 @@ public final class RecordingController {
         }
     }
 
-    public func setEngine(_ engine: TranscriptionEngine, name: String) {
-        self.engine = engine
-        self.modelName = name
-        prepare()
-    }
-
     public func prepare() {
         let engine = self.engine
         let modelName = self.modelName
@@ -79,7 +73,6 @@ public final class RecordingController {
             do {
                 try await engine.prepare()
                 self.logger.info("model ready: \(modelName, privacy: .public) in \(Self.format(Date().timeIntervalSince(start)), privacy: .public)")
-                guard modelName == self.modelName else { return }
                 self.isModelReady = true
                 self.onModelReadyChange?(true)
             } catch {

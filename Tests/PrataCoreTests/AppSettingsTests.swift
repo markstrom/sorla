@@ -22,7 +22,6 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.triggerKey, .rightCommand)
         XCTAssertEqual(settings.recordingMode, .pushToTalk)
-        XCTAssertEqual(settings.model, .parakeet)
         XCTAssertTrue(settings.keepClipboardContent)
         XCTAssertTrue(settings.playSounds)
     }
@@ -54,15 +53,6 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(AppSettings(defaults: defaults).recordingMode, .toggle)
     }
 
-    func testModelPersistsImmediatelyUnderSelectedModelKeyAndRoundTrips() {
-        let settings = AppSettings(defaults: defaults, isInstalled: { _ in true })
-
-        settings.model = .pianissimo
-
-        XCTAssertEqual(defaults.string(forKey: "selectedModel"), "pianissimo")
-        XCTAssertEqual(AppSettings(defaults: defaults, isInstalled: { _ in true }).model, .pianissimo)
-    }
-
     func testKeepClipboardContentPersistsImmediatelyAndRoundTrips() {
         let settings = AppSettings(defaults: defaults)
 
@@ -70,22 +60,6 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(defaults.object(forKey: "keepClipboardContent") as? Bool, false)
         XCTAssertFalse(AppSettings(defaults: defaults).keepClipboardContent)
-    }
-
-    func testModelFallsBackToParakeetWhenPersistedModelIsNotInstalled() {
-        defaults.set("pianissimo", forKey: "selectedModel")
-
-        let settings = AppSettings(defaults: defaults, isInstalled: { _ in false })
-
-        XCTAssertEqual(settings.model, .parakeet)
-    }
-
-    func testModelKeepsPersistedValueWhenInstalled() {
-        defaults.set("pianissimo", forKey: "selectedModel")
-
-        let settings = AppSettings(defaults: defaults, isInstalled: { $0 == .pianissimo })
-
-        XCTAssertEqual(settings.model, .pianissimo)
     }
 
     func testInvalidPersistedTriggerKeyFallsBackToDefault() {
