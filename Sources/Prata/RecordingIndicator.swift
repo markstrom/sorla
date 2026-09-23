@@ -32,32 +32,27 @@ struct RecordingIndicatorView: View {
 
     private let minBarHeight: CGFloat = 3
     private let maxBarHeight: CGFloat = 20
-    private let barWidth: CGFloat = 4
-    private let barSpacing: CGFloat = 5
+    private let barWidth: CGFloat = 3
+    private let barSpacing: CGFloat = 3
+    private let barCount = 15
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Circle()
                 .fill(Color.red)
                 .frame(width: 8, height: 8)
             Image(systemName: "mic.fill")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.white)
-            GeometryReader { geometry in
-                visualizer(availableWidth: geometry.size.width)
-            }
-            .frame(height: maxBarHeight)
+            visualizer(count: barCount)
+                .frame(height: maxBarHeight)
         }
-        .padding(.horizontal, 16)
         .frame(width: RecordingIndicatorPanel.panelSize.width, height: RecordingIndicatorPanel.panelSize.height)
         .background(Capsule().fill(Color.black))
     }
 
     @ViewBuilder
-    private func visualizer(availableWidth: CGFloat) -> some View {
-        let count = VisualizerBars.recommendedBarCount(
-            availableWidth: availableWidth, barWidth: barWidth, spacing: barSpacing
-        )
+    private func visualizer(count: Int) -> some View {
         if viewModel.reduceMotion || !viewModel.isVisible {
             bars(count: count, time: 0)
         } else {
@@ -83,13 +78,12 @@ struct RecordingIndicatorView: View {
                     .frame(width: barWidth, height: height)
             }
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
 @MainActor
 final class RecordingIndicatorPanel: NSPanel {
-    static let panelSize = NSSize(width: 220, height: 36)
+    static let panelSize = NSSize(width: 170, height: 36)
 
     private let viewModel = RecordingIndicatorViewModel()
 
