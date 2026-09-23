@@ -2,43 +2,51 @@ import XCTest
 @testable import Sorla
 
 final class ModelLoadingStatusTests: XCTestCase {
-    func testLoadingShowsTheHourglassRegardlessOfRecordingState() {
+    func testLoadingShowsTheLoadingGlyphRegardlessOfRecordingState() {
         XCTAssertEqual(
-            ModelLoadingStatus.menuBarIcon(for: .loading, isRecording: false).symbolName,
-            "hourglass"
+            ModelLoadingStatus.menuBarIcon(for: .loading, isRecording: false).glyph,
+            .loading
         )
         XCTAssertEqual(
-            ModelLoadingStatus.menuBarIcon(for: .loading, isRecording: true).symbolName,
-            "hourglass"
+            ModelLoadingStatus.menuBarIcon(for: .loading, isRecording: true).glyph,
+            .loading
         )
     }
 
-    // The bug this fixes: a failed load must not leave the hourglass showing forever.
-    func testFailedEndsTheLoadingStateAndShowsTheIdleMicIcon() {
+    // The bug this fixes: a failed load must not leave the loading glyph showing forever.
+    func testFailedEndsTheLoadingStateAndShowsTheMark() {
         let icon = ModelLoadingStatus.menuBarIcon(for: .failed, isRecording: false)
-        XCTAssertEqual(icon.symbolName, "mic")
-        XCTAssertNotEqual(icon.symbolName, "hourglass")
+        XCTAssertEqual(icon.glyph, .ready)
+        XCTAssertNotEqual(icon.glyph, .loading)
     }
 
-    func testFailedWhileRecordingStillShowsTheRecordingIcon() {
+    func testFailedWhileRecordingShowsTheMark() {
         XCTAssertEqual(
-            ModelLoadingStatus.menuBarIcon(for: .failed, isRecording: true).symbolName,
-            "mic.fill"
+            ModelLoadingStatus.menuBarIcon(for: .failed, isRecording: true).glyph,
+            .ready
         )
     }
 
-    func testReadyShowsTheIdleMicIcon() {
+    func testReadyShowsTheMark() {
         XCTAssertEqual(
-            ModelLoadingStatus.menuBarIcon(for: .ready, isRecording: false).symbolName,
-            "mic"
+            ModelLoadingStatus.menuBarIcon(for: .ready, isRecording: false).glyph,
+            .ready
         )
     }
 
-    func testReadyWhileRecordingShowsTheRecordingIcon() {
+    func testReadyWhileRecordingShowsTheMark() {
         XCTAssertEqual(
-            ModelLoadingStatus.menuBarIcon(for: .ready, isRecording: true).symbolName,
-            "mic.fill"
+            ModelLoadingStatus.menuBarIcon(for: .ready, isRecording: true).glyph,
+            .ready
         )
+    }
+
+    func testTheGlyphIsATemplateImageSoItFollowsTheMenuBarAppearance() {
+        for glyph in [MenuBarGlyph.ready, .loading] {
+            let image = glyph.image(accessibilityDescription: "Sorla")
+            XCTAssertTrue(image.isTemplate)
+            XCTAssertEqual(image.size.height, 18)
+        }
     }
 
     func testAccessibilityDescriptionsAreDistinctPerState() {

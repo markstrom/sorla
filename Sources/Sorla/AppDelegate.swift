@@ -379,7 +379,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateIcon(isRecording: Bool) {
         let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, isRecording: isRecording)
-        statusItem.button?.image = NSImage(systemSymbolName: icon.symbolName, accessibilityDescription: icon.accessibilityDescription)
+        statusItem.button?.image = icon.glyph.image(accessibilityDescription: icon.accessibilityDescription)
     }
 
     @objc private func quit() {
