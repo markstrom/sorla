@@ -132,12 +132,19 @@ public final class TriggerMonitor {
             let isDown = event.modifierFlags.rawValue & deviceMask != 0
             action = gesture.handle(isDown ? .triggerDown(at: event.timestamp) : .triggerUp(at: event.timestamp))
         case .keyDown:
+            guard !Self.isPrataSyntheticEvent(event) else { return }
             action = gesture.handle(.otherKeyDown)
         default:
             return
         }
 
         dispatch(action)
+    }
+
+    // Prata's own ⌘V paste posts a keyDown that this monitor would otherwise see as "other key" and cancel on.
+    private static func isPrataSyntheticEvent(_ event: NSEvent) -> Bool {
+        guard let marker = event.cgEvent?.getIntegerValueField(.eventSourceUserData) else { return false }
+        return PasteService.isSyntheticMarker(marker)
     }
 
     private func dispatch(_ action: PushToTalkGesture.Action?) {

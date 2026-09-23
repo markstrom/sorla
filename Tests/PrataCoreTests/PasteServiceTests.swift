@@ -90,4 +90,13 @@ final class PasteServiceTests: XCTestCase {
             keepSetting: true, pasteDelivered: true, changeCountAfterWrite: 3, currentChangeCount: 3
         ))
     }
+
+    func testIsSyntheticMarkerMatchesOwnMarker() {
+        XCTAssertTrue(PasteService.isSyntheticMarker(PasteService.syntheticEventMarker))
+    }
+
+    func testIsSyntheticMarkerRejectsOtherValues() {
+        XCTAssertFalse(PasteService.isSyntheticMarker(0))
+        XCTAssertFalse(PasteService.isSyntheticMarker(PasteService.syntheticEventMarker + 1))
+    }
 }

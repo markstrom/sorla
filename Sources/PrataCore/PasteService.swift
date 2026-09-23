@@ -53,6 +53,13 @@ public struct ClipboardOwnershipTracker {
 }
 
 public enum PasteService {
+    // Tags CGEvents Prata posts so TriggerMonitor can tell its own synthetic ⌘V apart from a real key.
+    public static let syntheticEventMarker: Int64 = 0x50726174
+
+    public static func isSyntheticMarker(_ value: Int64) -> Bool {
+        value == syntheticEventMarker
+    }
+
     @discardableResult
     public static func writeToPasteboard(_ text: String, pasteboard: NSPasteboard = .general) -> Int {
         pasteboard.clearContents()
@@ -101,8 +108,10 @@ public enum PasteService {
 
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: virtualKeyV, keyDown: true)
         keyDown?.flags = .maskCommand
+        keyDown?.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: virtualKeyV, keyDown: false)
         keyUp?.flags = .maskCommand
+        keyUp?.setIntegerValueField(.eventSourceUserData, value: syntheticEventMarker)
 
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
