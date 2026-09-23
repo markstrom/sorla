@@ -3,6 +3,7 @@ import FluidAudio
 
 public enum AudioRecorderError: Error {
     case bufferAllocationFailed
+    case noInputDevice
 }
 
 public final class AudioRecorder {
@@ -21,9 +22,12 @@ public final class AudioRecorder {
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         let format = input.inputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            throw AudioRecorderError.noInputDevice
+        }
         sampleRate = format.sampleRate
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.append(buffer)
         }
 
