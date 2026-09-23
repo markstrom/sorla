@@ -1,7 +1,7 @@
 import AppKit
 
-public struct PasteboardSnapshot {
-    public struct Item {
+public struct PasteboardSnapshot: Equatable {
+    public struct Item: Equatable {
         public var data: [NSPasteboard.PasteboardType: Data]
 
         public init(data: [NSPasteboard.PasteboardType: Data]) {
@@ -13,6 +13,42 @@ public struct PasteboardSnapshot {
 
     public init(items: [Item]) {
         self.items = items
+    }
+}
+
+public struct ClipboardOwnershipTracker {
+    public struct Begin: Equatable {
+        public let original: PasteboardSnapshot
+        public let generation: Int
+    }
+
+    public enum FinishAction: Equatable {
+        case skip
+        case evaluate(original: PasteboardSnapshot)
+    }
+
+    public private(set) var pendingOriginal: PasteboardSnapshot?
+    public private(set) var generation = 0
+
+    public init() {}
+
+    public mutating func begin(capture: () -> PasteboardSnapshot) -> Begin {
+        let original = pendingOriginal ?? capture()
+        pendingOriginal = original
+        generation += 1
+        return Begin(original: original, generation: generation)
+    }
+
+    public mutating func cancel() {
+        pendingOriginal = nil
+    }
+
+    public mutating func finish(generation: Int) -> FinishAction {
+        guard generation == self.generation, let original = pendingOriginal else {
+            return .skip
+        }
+        pendingOriginal = nil
+        return .evaluate(original: original)
     }
 }
 
