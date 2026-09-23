@@ -1,29 +1,30 @@
 import AppKit
+import PrataCore
 import SwiftUI
 
 @MainActor
 final class RecordingIndicatorViewModel: ObservableObject {
-    static let barCount = 24
-
-    @Published private(set) var levels: [Float]
-
-    init() {
-        levels = Array(repeating: 0, count: Self.barCount)
-    }
+    @Published private(set) var smoothedLevel: Float = 0
+    private var smoother = LevelSmoother()
 
     func push(_ level: Float) {
-        levels.removeFirst()
-        levels.append(level)
+        smoothedLevel = smoother.update(target: level)
     }
 
     func reset() {
-        levels = Array(repeating: 0, count: Self.barCount)
+        smoother = LevelSmoother()
+        smoothedLevel = 0
     }
 }
 
 struct RecordingIndicatorView: View {
     @ObservedObject var viewModel: RecordingIndicatorViewModel
     let reduceMotion: Bool
+
+    private let minBarHeight: CGFloat = 3
+    private let maxBarHeight: CGFloat = 20
+    private let barWidth: CGFloat = 3
+    private let barSpacing: CGFloat = 3
 
     var body: some View {
         HStack(spacing: 10) {
@@ -33,25 +34,47 @@ struct RecordingIndicatorView: View {
             Image(systemName: "mic.fill")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.white)
-            HStack(alignment: .center, spacing: 2) {
-                ForEach(Array(viewModel.levels.enumerated()), id: \.offset) { _, level in
-                    Capsule()
-                        .fill(Color.white)
-                        .frame(width: 2, height: barHeight(for: level))
-                }
+            GeometryReader { geometry in
+                visualizer(availableWidth: geometry.size.width)
             }
-            .frame(height: 18)
-            .animation(reduceMotion ? nil : .linear(duration: 0.08), value: viewModel.levels)
+            .frame(height: maxBarHeight)
         }
         .padding(.horizontal, 16)
         .frame(width: RecordingIndicatorPanel.panelSize.width, height: RecordingIndicatorPanel.panelSize.height)
         .background(Capsule().fill(Color.black))
     }
 
-    private func barHeight(for level: Float) -> CGFloat {
-        let minimumHeight: CGFloat = 2
-        let maximumHeight: CGFloat = 18
-        return minimumHeight + CGFloat(level) * (maximumHeight - minimumHeight)
+    @ViewBuilder
+    private func visualizer(availableWidth: CGFloat) -> some View {
+        let count = VisualizerBars.recommendedBarCount(
+            availableWidth: availableWidth, barWidth: barWidth, spacing: barSpacing
+        )
+        if reduceMotion {
+            bars(count: count, time: 0)
+        } else {
+            TimelineView(.animation) { context in
+                bars(count: count, time: context.date.timeIntervalSinceReferenceDate)
+            }
+        }
+    }
+
+    private func bars(count: Int, time: TimeInterval) -> some View {
+        let heights = VisualizerBars.heights(
+            level: viewModel.smoothedLevel,
+            count: count,
+            time: time,
+            minHeight: minBarHeight,
+            maxHeight: maxBarHeight,
+            reduceMotion: reduceMotion
+        )
+        return HStack(alignment: .center, spacing: barSpacing) {
+            ForEach(Array(heights.enumerated()), id: \.offset) { _, height in
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: barWidth, height: height)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
