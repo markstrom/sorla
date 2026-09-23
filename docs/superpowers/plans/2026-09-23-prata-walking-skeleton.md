@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5.10, Swift Package Manager, AppKit, AVFoundation, [FluidAudio](https://github.com/FluidInference/FluidAudio) (on-device ASR via CoreML/ANE), [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) (global hotkey).
 
-**Spec:** [docs/superpowers/specs/2026-09-23-prata-design.md](../specs/2026-09-23-prata-design.md) — this plan implements §12 ("First build / walking skeleton") specifically, using the engine choice from §3.3 (FluidAudio + stock `parakeet-tdt-0.6b-v3-coreml`) and the paste mechanism from §6 (simplified: CGEvent Cmd+V only, no AppleScript fallback yet — see Task 7 for why).
+**Spec:** [docs/superpowers/specs/2026-09-23-prata-design.md](../specs/2026-09-23-prata-design.md) — this plan implements §12 ("First build / walking skeleton") specifically, using the engine choice from §3.3 (FluidAudio + stock `parakeet-tdt-0.6b-v3-coreml`) and the paste mechanism from §6 (simplified: CGEvent Cmd+V only, no AppleScript fallback yet — see Task 6 for why).
 
 ## Global Constraints
 
@@ -18,7 +18,10 @@
 - App is unsandboxed (not for Mac App Store distribution) — this avoids sandbox entitlement complexity for mic capture, global hotkeys, and synthetic paste events, none of which are compatible with the App Sandbox in the way this app needs them.
 - Bundle identifier: `com.prata.app`. App name: `Prata` (per user instruction — matches the project directory name).
 - No personal dictionary, no HUD, no settings window in this plan — see spec §12.
-- Git commits use the repo's configured identity (`1905972+markstrom@users.noreply.github.com`, already set locally) and end with the `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer.
+- All code is written from scratch. No code copied from other projects, and no attribution, "based on", "inspired by", or "Powered by" references to other projects anywhere in source files or the repo (user requirement). Dependencies are consumed only through SwiftPM.
+- Comments: none by default; at most one short line where the *why* is non-obvious. No multi-line doc comments. No comments referring to tasks or the plan.
+- The build must produce no warnings from `Sources/` or `Tests/` (dependency warnings are out of scope).
+- Git commits use the repo's configured identity (`1905972+markstrom@users.noreply.github.com`, already set locally) and end with the `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` trailer.
 
 ---
 
@@ -30,9 +33,10 @@ Resources/
   Info.plist
 Scripts/
   build-app.sh
+.gitignore
 Sources/
   PrataCore/
-    PrataCore.swift            # placeholder doc comment, no logic
+    PrataCore.swift            # empty placeholder, Task 1 creates / Task 3 deletes
     AudioRecorder.swift        # mic capture + resampling to 16kHz mono
     TranscriptionEngine.swift  # protocol + ParakeetTranscriptionEngine
     PasteService.swift         # pasteboard write + CGEvent Cmd+V
@@ -44,8 +48,8 @@ Sources/
     AppDelegate.swift           # NSStatusItem menu bar UI, wires RecordingController
 Tests/
   PrataCoreTests/
-    PermissionsManagerTests.swift
     AudioRecorderTests.swift
+    ParakeetTranscriptionEngineTests.swift   # opt-in, PRATA_ASR_INTEGRATION=1
     PasteServiceTests.swift
 ```
 
@@ -56,8 +60,9 @@ Tests/
 ### Task 1: Project scaffold and app bundle packaging
 
 **Files:**
-- Create: `Package.swift`
-- Create: `Sources/PrataCore/PrataCore.swift` (placeholder so the target isn't empty)
+- Create: `.gitignore`
+- Create: `Package.swift` (and the generated `Package.resolved`)
+- Create: `Sources/PrataCore/PrataCore.swift` (empty placeholder so the target isn't empty)
 - Create: `Sources/Prata/main.swift`
 - Create: `Resources/Info.plist`
 - Create: `Scripts/build-app.sh`
@@ -92,25 +97,15 @@ let package = Package(
             dependencies: ["PrataCore"],
             path: "Sources/Prata"
         ),
-        .testTarget(
-            name: "PrataCoreTests",
-            dependencies: ["PrataCore"],
-            path: "Tests/PrataCoreTests"
-        ),
     ]
 )
 ```
 
-- [ ] **Step 2: Create a placeholder file so `PrataCore` isn't an empty target**
+(No test target yet — SwiftPM rejects a test target whose directory doesn't exist. Task 4 adds it together with the first test file.)
 
-`Sources/PrataCore/PrataCore.swift`:
+- [ ] **Step 2: Create an empty placeholder so `PrataCore` isn't an empty target**
 
-```swift
-// PrataCore: shared logic for the Prata dictation app.
-// Individual files (AudioRecorder, TranscriptionEngine, PasteService,
-// PermissionsManager, HotkeyController, RecordingController) are added
-// by later tasks.
-```
+Create `Sources/PrataCore/PrataCore.swift` as an **empty file** (zero bytes, no comments). Task 3 deletes it when the first real `PrataCore` file lands.
 
 - [ ] **Step 3: Create the executable entry point**
 
@@ -178,10 +173,20 @@ mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp .build/release/Prata "$APP_DIR/Contents/MacOS/Prata"
 cp Resources/Info.plist "$APP_DIR/Contents/Info.plist"
 
-codesign --force --deep --sign - "$APP_DIR"
+shopt -s nullglob
+for bundle in .build/release/*.bundle; do
+    cp -R "$bundle" "$APP_DIR/Contents/Resources/"
+done
+shopt -u nullglob
 
-echo "Built $APP_DIR"
+IDENTITY="${PRATA_SIGN_IDENTITY:-$(security find-identity -v -p codesigning | awk '/Apple Development/ {print $2; exit}')}"
+IDENTITY="${IDENTITY:--}"
+codesign --force --deep --sign "$IDENTITY" "$APP_DIR"
+
+echo "Built $APP_DIR (signed with: $IDENTITY)"
 ```
+
+Why the extra lines: dependency resource bundles (SwiftPM puts them at `.build/release/*.bundle`) must sit in `Contents/Resources` or `Bundle.module` traps at runtime. Signing with a stable Apple Development identity (selected by hash, because this machine has two identities with the same name) keeps the macOS Accessibility grant valid across rebuilds; an ad-hoc signature (`-`) changes every build and forces re-granting. `PRATA_SIGN_IDENTITY` overrides; ad-hoc is the fallback when no identity exists.
 
 - [ ] **Step 6: Make the script executable and build**
 
@@ -190,7 +195,18 @@ chmod +x Scripts/build-app.sh
 swift build
 ```
 
-Expected: builds with no errors (two targets, one empty-ish, one test target with no tests yet — that's fine).
+Expected: builds with no errors. First build resolves and compiles FluidAudio and KeyboardShortcuts, which takes a few minutes.
+
+Also create `.gitignore` at the repo root:
+
+```
+.build/
+.swiftpm/
+*.xcodeproj/
+DerivedData/
+```
+
+(`.superpowers/` already carries its own nested `.gitignore`; leave it alone.)
 
 - [ ] **Step 7: Build and launch the app bundle**
 
@@ -210,14 +226,14 @@ pkill -f "Prata.app/Contents/MacOS/Prata"
 - [ ] **Step 8: Commit**
 
 ```bash
-git add Package.swift Sources Resources Scripts
+git add .gitignore Package.swift Package.resolved Sources Resources Scripts
 git commit -m "$(cat <<'EOF'
 Scaffold Prata as a two-target Swift package with app bundling
 
 PrataCore holds testable logic, Prata is the thin AppKit executable.
 Scripts/build-app.sh assembles Prata.app from the SPM build output.
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -281,7 +297,7 @@ app.run()
 open .build/Prata.app
 ```
 
-Manual check (human): a microphone icon appears in the menu bar. Clicking it shows a "Quit Prata" item that quits the app. This can't be meaningfully asserted from the command line — confirm it visually.
+Automated check: `sleep 1; pgrep -f "Prata.app/Contents/MacOS/Prata"` prints a PID (the app launched with the delegate and didn't crash). The visual check — mic icon in the menu bar, "Quit Prata" quits — is done by the human in Task 9.
 
 ```bash
 pkill -f "Prata.app/Contents/MacOS/Prata" || true
@@ -294,7 +310,7 @@ git add Sources/Prata
 git commit -m "$(cat <<'EOF'
 Add menu bar status item with Quit action
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -305,52 +321,22 @@ EOF
 
 **Files:**
 - Create: `Sources/PrataCore/PermissionsManager.swift`
-- Test: `Tests/PrataCoreTests/PermissionsManagerTests.swift`
+- Delete: `Sources/PrataCore/PrataCore.swift` (the empty Task 1 placeholder — no longer needed once a real file exists)
 
 **Interfaces:**
-- Produces: `PermissionsManager.requestMicrophoneAccess() async -> Bool`, `PermissionsManager.isAccessibilityTrusted() -> Bool`, `PermissionsManager.promptAccessibilityIfNeeded()`, `PermissionsManager.openAccessibilitySettings()`. Task 8 (AppDelegate wiring) calls these on launch.
+- Produces: `PermissionsManager.requestMicrophoneAccess() async -> Bool`, `PermissionsManager.isAccessibilityTrusted() -> Bool`, `PermissionsManager.promptAccessibilityIfNeeded()`. Task 8 (AppDelegate wiring) calls these on launch.
 
-- [ ] **Step 1: Write the failing test**
+No unit test: these are one-line pass-throughs to OS permission APIs whose result depends on the machine's TCC state, so a test could only assert that a Bool is a Bool. They're verified by the real permission prompts in Task 9.
 
-`Tests/PrataCoreTests/PermissionsManagerTests.swift`:
-
-```swift
-import XCTest
-@testable import PrataCore
-
-final class PermissionsManagerTests: XCTestCase {
-    func testIsAccessibilityTrustedReturnsWithoutCrashing() {
-        // We can't control the actual TCC permission state in a test run,
-        // but this confirms the AXIsProcessTrusted() call links and returns
-        // a plain Bool rather than crashing or hanging.
-        let result = PermissionsManager.isAccessibilityTrusted()
-        XCTAssertTrue(result == true || result == false)
-    }
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-```bash
-swift test --filter PermissionsManagerTests
-```
-
-Expected: FAIL — `PermissionsManager` doesn't exist yet.
-
-- [ ] **Step 3: Write `PermissionsManager.swift`**
+- [ ] **Step 1: Write `PermissionsManager.swift`**
 
 ```swift
 import AVFoundation
 import ApplicationServices
-import AppKit
 
 public enum PermissionsManager {
     public static func requestMicrophoneAccess() async -> Bool {
         await AVCaptureDevice.requestAccess(for: .audio)
-    }
-
-    public static func microphoneAuthorizationStatus() -> AVAuthorizationStatus {
-        AVCaptureDevice.authorizationStatus(for: .audio)
     }
 
     public static func isAccessibilityTrusted() -> Bool {
@@ -362,32 +348,26 @@ public enum PermissionsManager {
         let options: NSDictionary = [promptKey: true]
         _ = AXIsProcessTrustedWithOptions(options)
     }
-
-    public static func openAccessibilitySettings() {
-        guard let url = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        ) else { return }
-        NSWorkspace.shared.open(url)
-    }
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 2: Delete the placeholder and build**
 
 ```bash
-swift test --filter PermissionsManagerTests
+git rm Sources/PrataCore/PrataCore.swift
+swift build
 ```
 
-Expected: PASS.
+Expected: builds with no errors and no warnings from `Sources/`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add Sources/PrataCore/PermissionsManager.swift Tests/PrataCoreTests/PermissionsManagerTests.swift
+git add Sources/PrataCore/PermissionsManager.swift
 git commit -m "$(cat <<'EOF'
 Add PermissionsManager for mic and accessibility checks
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -398,13 +378,28 @@ EOF
 
 **Files:**
 - Create: `Sources/PrataCore/AudioRecorder.swift`
+- Modify: `Package.swift` (add the test target)
 - Test: `Tests/PrataCoreTests/AudioRecorderTests.swift`
 
 **Interfaces:**
 - Consumes: `FluidAudio.AudioConverter` (`resampleBuffer(_ buffer: AVAudioPCMBuffer) throws -> [Float]`, per [FluidAudio's Audio Conversion guide](https://github.com/FluidInference/FluidAudio/blob/main/Documentation/Guides/AudioConversion.md)).
-- Produces: `AudioRecorder` with `start() throws`, `stop() throws -> [Float]` (16kHz mono samples), and the internal testable helper `AudioRecorder.resample(_:nativeFormat:) throws -> [Float]`. Task 6 (`RecordingController`) calls `start()`/`stop()`.
+- Produces: `AudioRecorder` with `start() throws`, `stop() throws -> [Float]` (16kHz mono samples), and the internal testable helper `AudioRecorder.resample(_:sampleRate:) throws -> [Float]`. Task 7 (`RecordingController`) calls `start()`/`stop()`.
 
 The engine capture itself (`start()`/`stop()`, which needs a real microphone) isn't unit-tested here — it's covered by the end-to-end manual verification in Task 9. What *is* unit-tested is the resampling math, via a synthetic buffer.
+
+Only channel 0 of the input is kept, so `resample` always wraps samples in a **mono** buffer at the captured sample rate. (Wrapping channel-0 data in the input's native multi-channel format would leave the other channels uninitialized, and the converter's stereo→mono mix would average garbage into the result.)
+
+- [ ] **Step 0: Add the test target to `Package.swift`**
+
+Append to the `targets` array, after the `Prata` executable target:
+
+```swift
+        .testTarget(
+            name: "PrataCoreTests",
+            dependencies: ["PrataCore"],
+            path: "Tests/PrataCoreTests"
+        ),
+```
 
 - [ ] **Step 1: Write the failing test**
 
@@ -416,25 +411,32 @@ import AVFoundation
 @testable import PrataCore
 
 final class AudioRecorderTests: XCTestCase {
-    func testResampleConvertsToExpected16kHzSampleCount() throws {
-        let nativeFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
-        let oneSecondOfSamples = Int(nativeFormat.sampleRate)
-
-        // One second of a 440Hz sine wave at the native rate.
-        let sourceSamples: [Float] = (0..<oneSecondOfSamples).map { i in
-            Float(sin(2.0 * Double.pi * 440.0 * Double(i) / nativeFormat.sampleRate))
+    func testResampleConvertsOneSecondAt48kHzTo16kSamples() throws {
+        let sampleRate = 48000.0
+        let sourceSamples: [Float] = (0..<Int(sampleRate)).map { i in
+            Float(sin(2.0 * Double.pi * 440.0 * Double(i) / sampleRate))
         }
 
-        let resampled = try AudioRecorder.resample(sourceSamples, nativeFormat: nativeFormat)
+        let resampled = try AudioRecorder.resample(sourceSamples, sampleRate: sampleRate)
 
-        // 48kHz -> 16kHz is a 3:1 ratio. Allow 5% tolerance for converter framing.
         let expectedCount = 16000.0
         XCTAssertEqual(Double(resampled.count), expectedCount, accuracy: expectedCount * 0.05)
     }
 
+    func testResamplePreservesSignalEnergy() throws {
+        let sampleRate = 44100.0
+        let sourceSamples: [Float] = (0..<Int(sampleRate)).map { i in
+            Float(0.5 * sin(2.0 * Double.pi * 440.0 * Double(i) / sampleRate))
+        }
+
+        let resampled = try AudioRecorder.resample(sourceSamples, sampleRate: sampleRate)
+
+        let rms = sqrt(resampled.map { $0 * $0 }.reduce(0, +) / Float(resampled.count))
+        XCTAssertEqual(rms, 0.5 / sqrt(2), accuracy: 0.05)
+    }
+
     func testResampleOfEmptyInputReturnsEmptyOutput() throws {
-        let nativeFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
-        let resampled = try AudioRecorder.resample([], nativeFormat: nativeFormat)
+        let resampled = try AudioRecorder.resample([], sampleRate: 48000)
         XCTAssertTrue(resampled.isEmpty)
     }
 }
@@ -460,7 +462,7 @@ public enum AudioRecorderError: Error {
 
 public final class AudioRecorder {
     private let engine = AVAudioEngine()
-    private var nativeFormat: AVAudioFormat?
+    private var sampleRate: Double = 0
     private var samples: [Float] = []
     private let lock = NSLock()
 
@@ -473,7 +475,7 @@ public final class AudioRecorder {
 
         let input = engine.inputNode
         let format = input.inputFormat(forBus: 0)
-        nativeFormat = format
+        sampleRate = format.sampleRate
 
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             self?.append(buffer)
@@ -491,8 +493,8 @@ public final class AudioRecorder {
         let captured = samples
         lock.unlock()
 
-        guard !captured.isEmpty, let nativeFormat else { return [] }
-        return try Self.resample(captured, nativeFormat: nativeFormat)
+        guard !captured.isEmpty else { return [] }
+        return try Self.resample(captured, sampleRate: sampleRate)
     }
 
     private func append(_ buffer: AVAudioPCMBuffer) {
@@ -505,15 +507,16 @@ public final class AudioRecorder {
         lock.unlock()
     }
 
-    /// Exposed internally (not `private`) so it's directly unit-testable
-    /// with a synthetic buffer, without needing a real microphone.
-    static func resample(_ nativeSamples: [Float], nativeFormat: AVAudioFormat) throws -> [Float] {
+    static func resample(_ nativeSamples: [Float], sampleRate: Double) throws -> [Float] {
         guard !nativeSamples.isEmpty else { return [] }
 
-        guard let buffer = AVAudioPCMBuffer(
-            pcmFormat: nativeFormat,
-            frameCapacity: AVAudioFrameCount(nativeSamples.count)
-        ) else {
+        guard
+            let monoFormat = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),
+            let buffer = AVAudioPCMBuffer(
+                pcmFormat: monoFormat,
+                frameCapacity: AVAudioFrameCount(nativeSamples.count)
+            )
+        else {
             throw AudioRecorderError.bufferAllocationFailed
         }
         buffer.frameLength = buffer.frameCapacity
@@ -544,14 +547,14 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Sources/PrataCore/AudioRecorder.swift Tests/PrataCoreTests/AudioRecorderTests.swift
+git add Package.swift Sources/PrataCore/AudioRecorder.swift Tests/PrataCoreTests/AudioRecorderTests.swift
 git commit -m "$(cat <<'EOF'
 Add AudioRecorder: mic capture and 16kHz mono resampling
 
-Capture logic is manually verified in Task 9 (needs a real mic); the
-resampling math is unit-tested against a synthetic buffer.
+Live capture needs a real mic and is verified by hand; the resampling
+path is unit-tested against synthetic sine buffers.
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -562,73 +565,134 @@ EOF
 
 **Files:**
 - Create: `Sources/PrataCore/TranscriptionEngine.swift`
+- Test: `Tests/PrataCoreTests/ParakeetTranscriptionEngineTests.swift`
 
 **Interfaces:**
 - Consumes: `FluidAudio.AsrModels.downloadAndLoad(version:) async throws -> AsrModels`, `FluidAudio.AsrManager(config:)`, `AsrManager.loadModels(_:) async throws`, `AsrManager.transcribe(_:source:) async throws -> ASRResult` (`.text: String`), per [FluidAudio's ASR Getting Started guide](https://github.com/FluidInference/FluidAudio/blob/main/Documentation/ASR/GettingStarted.md) and [API reference](https://github.com/FluidInference/FluidAudio/blob/main/Documentation/API.md).
-- Produces: `protocol TranscriptionEngine { func transcribe(_ samples: [Float]) async throws -> String }` and `final class ParakeetTranscriptionEngine: TranscriptionEngine`. Task 6 (`RecordingController`) depends on the protocol, not the concrete type.
+- Produces: `protocol TranscriptionEngine { func transcribe(_ samples: [Float]) async throws -> String }` and `final class ParakeetTranscriptionEngine: TranscriptionEngine`. Task 7 (`RecordingController`) depends on the protocol, not the concrete type.
 
-This task has no automated test: the only thing to verify is that FluidAudio's model download and transcription actually work, which requires network access (first run) and a real audio sample — that's exactly what Task 9's end-to-end manual verification does. Writing a unit test that mocks `AsrManager` would test nothing real.
+A mock-based unit test would test nothing real. Instead this task adds an **opt-in integration test** that runs the real engine on real speech: macOS's built-in `say` command synthesizes an English sentence to an audio file, FluidAudio converts it to 16kHz mono, and the engine must transcribe it. It downloads the Parakeet v3 model (hundreds of MB) on first run, so it only runs when `PRATA_ASR_INTEGRATION=1` is set and is skipped otherwise — the default `swift test` stays fast and offline.
 
 - [ ] **Step 1: Write `TranscriptionEngine.swift`**
 
 ```swift
 import FluidAudio
 
-public protocol TranscriptionEngine {
+public protocol TranscriptionEngine: Sendable {
+    func prepare() async throws
     func transcribe(_ samples: [Float]) async throws -> String
 }
 
-public enum TranscriptionEngineError: Error {
-    case notLoaded
-}
-
-public final class ParakeetTranscriptionEngine: TranscriptionEngine {
+public actor ParakeetTranscriptionEngine: TranscriptionEngine {
     private var asrManager: AsrManager?
 
     public init() {}
 
+    public func prepare() async throws {
+        _ = try await loadedManager()
+    }
+
     public func transcribe(_ samples: [Float]) async throws -> String {
-        try await loadIfNeeded()
-        guard let asrManager else { throw TranscriptionEngineError.notLoaded }
-        let result = try await asrManager.transcribe(samples, source: .microphone)
+        let manager = try await loadedManager()
+        let result = try await manager.transcribe(samples, source: .microphone)
         return result.text
     }
 
-    private func loadIfNeeded() async throws {
-        guard asrManager == nil else { return }
+    private func loadedManager() async throws -> AsrManager {
+        if let asrManager { return asrManager }
         let models = try await AsrModels.downloadAndLoad(version: .v3)
         let manager = AsrManager(config: .default)
         try await manager.loadModels(models)
         asrManager = manager
+        return manager
     }
 }
 ```
+
+`prepare()` exists so the app can download/compile the model at launch instead of on the first hotkey release — otherwise the first dictation would include a multi-hundred-MB download and CoreML compile, which would make the latency measurement in Task 9 meaningless. It's an `actor` so two overlapping calls can't both start a load.
 
 > **Note for the executor:** same API-drift caveat as Task 4. If `AsrManager(config: .default)`, `.loadModels(_:)`, or `.transcribe(_:source:)` don't compile, check:
 > ```bash
 > grep -rn "func transcribe\|func loadModels\|class AsrManager\|struct AsrModels\|func downloadAndLoad" .build/checkouts/FluidAudio/Sources/FluidAudio/ASR/
 > ```
-> and adjust the two call sites (`loadIfNeeded`, `transcribe`) to match the actual resolved API. Don't guess — read the resolved source, since FluidAudio's own docs are inconsistent about method names between the top-level README and `Documentation/ASR/GettingStarted.md` (`loadModels` vs. `configure`).
+> and adjust the call sites in `loadedManager()` and `transcribe` to match the actual resolved API. Don't guess — read the resolved source, since FluidAudio's own docs are inconsistent about method names between the top-level README and `Documentation/ASR/GettingStarted.md` (`loadModels` vs. `configure`). If `AsrManager` is not `Sendable` and that produces warnings when stored in the actor, report it as a concern rather than silencing it with `@unchecked`/`@preconcurrency`.
 
-- [ ] **Step 2: Build (no test — this compiles against a real dependency; correctness is checked in Task 9)**
+- [ ] **Step 2: Build**
 
 ```bash
 swift build
 ```
 
-Expected: builds without errors. If it doesn't, apply the note above.
+Expected: builds with no errors and no warnings from `Sources/`. If it doesn't compile, apply the note above.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Write the opt-in integration test**
+
+`Tests/PrataCoreTests/ParakeetTranscriptionEngineTests.swift`:
+
+```swift
+import XCTest
+import FluidAudio
+@testable import PrataCore
+
+final class ParakeetTranscriptionEngineTests: XCTestCase {
+    func testTranscribesSynthesizedEnglishSpeech() async throws {
+        try XCTSkipUnless(
+            ProcessInfo.processInfo.environment["PRATA_ASR_INTEGRATION"] == "1",
+            "Set PRATA_ASR_INTEGRATION=1 to run (downloads the Parakeet model)."
+        )
+
+        let audioURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("prata-asr-\(UUID().uuidString).aiff")
+        defer { try? FileManager.default.removeItem(at: audioURL) }
+
+        let say = Process()
+        say.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+        say.arguments = ["-o", audioURL.path, "The quick brown fox jumps over the lazy dog."]
+        try say.run()
+        say.waitUntilExit()
+        XCTAssertEqual(say.terminationStatus, 0)
+
+        let samples = try AudioConverter().resampleAudioFile(path: audioURL.path)
+        let engine = ParakeetTranscriptionEngine()
+        try await engine.prepare()
+
+        let start = Date()
+        let text = try await engine.transcribe(samples)
+        let elapsed = Date().timeIntervalSince(start)
+        print("Parakeet transcribed \(Double(samples.count) / 16000)s of audio in \(elapsed)s: \(text)")
+
+        let lowered = text.lowercased()
+        XCTAssertTrue(lowered.contains("fox"), "Unexpected transcript: \(text)")
+        XCTAssertTrue(lowered.contains("lazy dog"), "Unexpected transcript: \(text)")
+    }
+}
+```
+
+- [ ] **Step 4: Run it both ways**
 
 ```bash
-git add Sources/PrataCore/TranscriptionEngine.swift
+swift test --filter ParakeetTranscriptionEngineTests
+```
+
+Expected: the test is reported as **skipped** (no env var).
+
+```bash
+PRATA_ASR_INTEGRATION=1 swift test --filter ParakeetTranscriptionEngineTests
+```
+
+Expected: PASS, and the printed line shows the transcript and how long transcription took. The first run downloads the model; that's expected to take a while. Put the printed timing line in your report.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Sources/PrataCore/TranscriptionEngine.swift Tests/PrataCoreTests/ParakeetTranscriptionEngineTests.swift
 git commit -m "$(cat <<'EOF'
 Add TranscriptionEngine protocol and FluidAudio/Parakeet implementation
 
 Pluggable by design (spec section 3.2) so a Pianissimo-backed engine
 can be added later behind the same protocol.
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -656,13 +720,32 @@ import AppKit
 @testable import PrataCore
 
 final class PasteServiceTests: XCTestCase {
+    private var savedClipboard: String?
+
+    override func setUp() {
+        savedClipboard = NSPasteboard.general.string(forType: .string)
+    }
+
+    override func tearDown() {
+        NSPasteboard.general.clearContents()
+        if let savedClipboard {
+            NSPasteboard.general.setString(savedClipboard, forType: .string)
+        }
+    }
+
     func testWriteToPasteboardPutsTextOnGeneralPasteboard() {
         let expected = "Prata testtranskript \(UUID().uuidString)"
 
         PasteService.writeToPasteboard(expected)
 
-        let actual = NSPasteboard.general.string(forType: .string)
-        XCTAssertEqual(actual, expected)
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), expected)
+    }
+
+    func testWriteToPasteboardReplacesPreviousContent() {
+        PasteService.writeToPasteboard("första")
+        PasteService.writeToPasteboard("andra")
+
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "andra")
     }
 }
 ```
@@ -687,10 +770,7 @@ public enum PasteService {
         pasteboard.setString(text, forType: .string)
     }
 
-    /// Simulates Cmd+V. Requires Accessibility permission to be granted
-    /// to this app (see PermissionsManager) — if it's not granted, this
-    /// silently does nothing and the text is still on the pasteboard
-    /// from writeToPasteboard, so the user can paste manually.
+    // Without Accessibility permission the OS drops these events; the text stays on the pasteboard.
     public static func paste() {
         let virtualKeyV: CGKeyCode = 0x09
         let source = CGEventSource(stateID: .hidSystemState)
@@ -725,7 +805,7 @@ AppleScript fallback for blocked synthetic keystrokes (spec section 6)
 is deferred past the walking skeleton; the pasteboard write alone
 already gives a manual Cmd+V fallback.
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -740,9 +820,9 @@ EOF
 
 **Interfaces:**
 - Consumes: `AudioRecorder` (Task 4), `TranscriptionEngine` (Task 5), `PasteService` (Task 6), `KeyboardShortcuts.onKeyDown(for:)` / `.onKeyUp(for:)`.
-- Produces: `HotkeyController(onStart:onStop:)` and `RecordingController`, with `startRecording()`, `stopRecordingAndTranscribe()`, `isRecording: Bool`, and `onStateChange: ((Bool) -> Void)?`. Task 8 (`AppDelegate`) instantiates both and connects them to the menu bar icon.
+- Produces: `HotkeyController(onStart:onStop:)` and `RecordingController`, with `prepare()`, `startRecording()`, `stopRecordingAndTranscribe()`, `isRecording: Bool`, and `onStateChange: ((Bool) -> Void)?`. Task 8 (`AppDelegate`) instantiates both, calls `prepare()` at launch, and connects the state callback to the menu bar icon.
 
-No automated test here: this is pure orchestration wiring real system APIs (global hotkey registration, the audio engine, an async network-backed transcription call) — there's no meaningful behavior to assert without actually pressing a key and speaking, which is Task 9.
+No automated test here: this is pure orchestration wiring real system APIs (global hotkey registration, the audio engine, the transcription engine) — there's no meaningful behavior to assert without actually pressing a key and speaking, which is Task 9.
 
 - [ ] **Step 1: Write `HotkeyController.swift`**
 
@@ -750,11 +830,12 @@ No automated test here: this is pure orchestration wiring real system APIs (glob
 import KeyboardShortcuts
 
 public extension KeyboardShortcuts.Name {
-    static let pushToTalk = Self("pushToTalk", initial: .init(.f5))
+    static let pushToTalk = Self("pushToTalk", initial: .init(.space, modifiers: [.option]))
 }
 
+@MainActor
 public final class HotkeyController {
-    public init(onStart: @escaping () -> Void, onStop: @escaping () -> Void) {
+    public init(onStart: @escaping @MainActor () -> Void, onStop: @escaping @MainActor () -> Void) {
         KeyboardShortcuts.onKeyDown(for: .pushToTalk) {
             onStart()
         }
@@ -765,7 +846,9 @@ public final class HotkeyController {
 }
 ```
 
-The default hotkey is F5. This is a v1 simplification — the reference screenshots showed a bare held modifier key (e.g. Right ⌘), which needs a different mechanism (a `CGEventTap` on `flagsChanged`, not `KeyboardShortcuts`'s key+modifier model) and is deferred; F5 proves the hold-to-record flow with a standard, easily-testable hotkey.
+The default hotkey is **⌥Space** (hold Option+Space). Not F5: on current Apple keyboards F5 without `fn` is the system Dictation key, so it would trigger macOS's own dictation instead of Prata. A bare held modifier (the Right ⌘ from the reference screenshot) needs a `CGEventTap` on `flagsChanged` rather than `KeyboardShortcuts`'s key+modifier model, and is deferred.
+
+If `KeyboardShortcuts`'s handler closures are not main-actor-isolated and calling the `@MainActor` closures from them produces an isolation warning or error, fix it inside `HotkeyController` (e.g. `MainActor.assumeIsolated { onStart() }` — the library delivers these on the main thread) rather than dropping the `@MainActor` annotations. The build must be free of warnings from `Sources/`.
 
 - [ ] **Step 2: Write `RecordingController.swift`**
 
@@ -784,6 +867,18 @@ public final class RecordingController {
         self.engine = engine
     }
 
+    public func prepare() {
+        Task {
+            let start = Date()
+            do {
+                try await engine.prepare()
+                print("Prata: model ready in \(Self.format(Date().timeIntervalSince(start)))")
+            } catch {
+                print("Prata: model preparation failed: \(error)")
+            }
+        }
+    }
+
     public func startRecording() {
         guard !isRecording else { return }
         do {
@@ -800,30 +895,43 @@ public final class RecordingController {
         isRecording = false
         onStateChange?(false)
 
+        let released = Date()
+        let samples: [Float]
+        do {
+            samples = try recorder.stop()
+        } catch {
+            print("Prata: failed to stop recording: \(error)")
+            return
+        }
+        guard !samples.isEmpty else {
+            print("Prata: no audio captured")
+            return
+        }
+
         Task {
             do {
-                let samples = try recorder.stop()
-                guard !samples.isEmpty else {
-                    print("Prata: no audio captured")
-                    return
-                }
-
                 let text = try await engine.transcribe(samples)
                 guard !text.isEmpty else {
                     print("Prata: empty transcription")
                     return
                 }
-
                 PasteService.writeToPasteboard(text)
                 PasteService.paste()
-                print("Prata: pasted \"\(text)\"")
+                let audioSeconds = Double(samples.count) / 16_000
+                print("Prata: \(Self.format(audioSeconds)) audio -> pasted in \(Self.format(Date().timeIntervalSince(released))): \"\(text)\"")
             } catch {
                 print("Prata: transcription failed: \(error)")
             }
         }
     }
+
+    private static func format(_ seconds: TimeInterval) -> String {
+        String(format: "%.2fs", seconds)
+    }
 }
 ```
+
+The recorder is stopped synchronously on key release (so the mic turns off immediately); only transcription and paste run in the `Task`. The timing line is the release-to-paste latency Task 9 reports.
 
 - [ ] **Step 3: Build**
 
@@ -831,7 +939,7 @@ public final class RecordingController {
 swift build
 ```
 
-Expected: builds without errors.
+Expected: builds with no errors and no warnings from `Sources/`.
 
 - [ ] **Step 4: Commit**
 
@@ -840,11 +948,11 @@ git add Sources/PrataCore/HotkeyController.swift Sources/PrataCore/RecordingCont
 git commit -m "$(cat <<'EOF'
 Add HotkeyController and RecordingController orchestration
 
-Hold F5 to record; release to transcribe and paste. F5 is a v1
-stand-in for a bare held modifier key, which needs a CGEventTap on
-flagsChanged rather than KeyboardShortcuts's key+modifier model.
+Hold Option+Space to record; release to transcribe and paste. F5 was
+avoided because it is the system Dictation key on Apple keyboards; a
+bare held modifier needs a CGEventTap and comes later.
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -858,7 +966,7 @@ EOF
 
 **Interfaces:**
 - Consumes: `RecordingController`, `HotkeyController`, `PermissionsManager` (all from `PrataCore`).
-- Produces: a fully wired app — menu bar icon changes appearance while recording, permissions are requested on launch.
+- Produces: a fully wired app — menu bar icon changes appearance while recording, the model is prepared at launch, permissions are requested on launch.
 
 - [ ] **Step 1: Update `AppDelegate.swift`**
 
@@ -887,6 +995,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onStart: { [weak self] in self?.recordingController.startRecording() },
             onStop: { [weak self] in self?.recordingController.stopRecordingAndTranscribe() }
         )
+
+        recordingController.prepare()
 
         Task {
             _ = await PermissionsManager.requestMicrophoneAccess()
@@ -928,7 +1038,7 @@ Wire RecordingController and HotkeyController into the menu bar app
 Icon switches between mic/mic.fill while recording. Mic and
 Accessibility permissions are requested on launch.
 
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -955,11 +1065,11 @@ open .build/Prata.app
 
 On first launch: grant Microphone access when prompted. If Accessibility isn't already trusted, System Settings opens to the Accessibility pane — enable Prata there, then quit and relaunch the app (Accessibility grants often require a relaunch to take effect).
 
-- [ ] **Step 3: Hold F5, speak, release**
+- [ ] **Step 3: Hold ⌥Space, speak, release**
 
-With a text field focused somewhere (e.g. TextEdit or Notes), hold **F5**, say a short sentence in Swedish, and release. First run will also download the Parakeet model (a few hundred MB) — this happens once and will make the first transcription noticeably slower than subsequent ones.
+Check the menu bar: a mic icon is shown, and clicking it offers "Quit Prata". With a text field focused somewhere (e.g. TextEdit or Notes), hold **⌥Space** (Option+Space), say a short sentence in Swedish, and release. The model is prepared at launch; if you dictate before it's ready (first launch downloads a few hundred MB), that dictation waits for it.
 
-Expected: the menu bar icon fills in (`mic.fill`) while F5 is held, and shortly after release the spoken text appears pasted at the cursor.
+Expected: the menu bar icon fills in (`mic.fill`) while ⌥Space is held, and shortly after release the spoken text appears pasted at the cursor.
 
 - [ ] **Step 4: Check timing**
 
@@ -969,7 +1079,7 @@ Run the app from a terminal instead of via `open`, so `print()` output is visibl
 .build/Prata.app/Contents/MacOS/Prata
 ```
 
-Hold F5, speak, release, and note how long it takes between release and the `Prata: pasted "..."` log line appearing. This is the number to report back — it's the real answer to "how fast is it," on this hardware, with the stock multilingual model (not yet the Pianissimo conversion from spec §3.3, which should be noticeably more accurate on Swedish once built).
+Wait for `Prata: model ready in …`, then hold ⌥Space, speak, release. Each dictation prints `Prata: <audio length> audio -> pasted in <latency>: "<text>"`. This is the number to report back — it's the real answer to "how fast is it," on this hardware, with the stock multilingual model (not yet the Pianissimo conversion from spec §3.3, which should be noticeably more accurate on Swedish once built).
 
 - [ ] **Step 5: Report results**
 
