@@ -1,6 +1,6 @@
 # The Sorla Manifesto
 
-**Speech becomes text, right where you are. Nothing more.**
+**Speech becomes text. Nothing more.**
 
 This manifesto is the yardstick for every decision about Sorla. A feature, a setting, a screen or a line of copy that doesn't serve these principles doesn't belong in Sorla — however useful it would be somewhere else.
 
