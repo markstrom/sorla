@@ -92,7 +92,7 @@ Scripts/release.sh          # build a signed DMG in .build/release-artifacts
 
 ## License
 
-No license has been chosen yet for Sorla's own source code.
+Sorla is open source under the [Apache License 2.0](LICENSE). Copyright 2026 Anders Markström.
 
 Third-party components keep their own licenses, which are included in [`Resources/Licenses`](Resources/Licenses) and shipped with the app:
 
