@@ -1,4 +1,5 @@
 import FluidAudio
+import os
 
 public protocol TranscriptionEngine: Sendable {
     func prepare() async throws
@@ -7,11 +8,17 @@ public protocol TranscriptionEngine: Sendable {
 
 public actor ParakeetTranscriptionEngine: TranscriptionEngine {
     private var loadTask: Task<AsrManager, Error>?
+    private let logger = Logger(subsystem: "com.prata.app", category: "TranscriptionEngine")
 
     public init() {}
 
     public func prepare() async throws {
         _ = try await loadedManager()
+        do {
+            _ = try await transcribe(Array(repeating: Float(0), count: 16_000))
+        } catch {
+            logger.error("warm-up transcription failed: \(String(describing: error), privacy: .public)")
+        }
     }
 
     public func transcribe(_ samples: [Float]) async throws -> String {
