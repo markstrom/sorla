@@ -5,7 +5,7 @@ public final class SpectrumAnalyzer {
     public static let frameCount = 1024
     static let lowestFrequency: Double = 90
     static let highestFrequency: Double = 7000
-    static let floorDecibels: Float = -70
+    static let floorDecibels: Float = -60
     static let ceilingDecibels: Float = -6
     static let tiltDecibelsPerOctave: Float = 3
 

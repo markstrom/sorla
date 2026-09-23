@@ -2,11 +2,9 @@ import CoreGraphics
 import Foundation
 
 public enum VisualizerBars {
-    private static let perceptualExponent: Float = 0.85
-    private static let motionCenter = 0.97
-    private static let motionAmplitude = 0.03
-    private static let motionFrequency = 2.0
-    private static let phaseStep = 0.9
+    // Above 1 so differences between bands grow instead of every bar sitting near the same height.
+    private static let contrastExponent: Float = 1.6
+    private static let wobbleFloor: Float = 0.45
     private static let shimmerPeriod = 1.1
     private static let shimmerWidth = 2.2
 
@@ -21,17 +19,23 @@ public enum VisualizerBars {
     }
 
     public static func magnitudes(bands: SIMD8<Float>, time: TimeInterval, barCount: Int, reduceMotion: Bool) -> [Float] {
-        let half = barCount / 2
-        // Reduce the time in Double first; Float(timeIntervalSinceReferenceDate) has ~1 min resolution.
-        let phase = reduceMotion ? 0 : (time * motionFrequency).truncatingRemainder(dividingBy: 2 * .pi)
-        return (0..<barCount).map { index in
-            let distance = abs(index - half)
+        (0..<barCount).map { index in
             let range = bandRange(forBar: index, barCount: barCount)
-            let averaged = average(bands, range: range)
-            let boosted = pow(clamped(averaged), perceptualExponent)
-            let motion = reduceMotion ? 1 : Float(motionCenter + motionAmplitude * sin(phase + Double(distance) * phaseStep))
-            return clamped(boosted * motion)
+            let level = pow(clamped(average(bands, range: range)), contrastExponent)
+            let motion = reduceMotion ? 1 : wobbleFloor + (1 - wobbleFloor) * wobble(bar: index, time: time)
+            return clamped(level * motion)
         }
+    }
+
+    // Each bar sways on its own irregular rhythm so the voice's level shows as varied, lifelike heights.
+    static func wobble(bar index: Int, time: TimeInterval) -> Float {
+        let spread = Double(index) * 0.618_034
+        let slow = 5.0 + 3.0 * spread.truncatingRemainder(dividingBy: 1)
+        let fast = 8.5 + 4.0 * (spread * 1.7).truncatingRemainder(dividingBy: 1)
+        // Reduce the time in Double first; Float(timeIntervalSinceReferenceDate) has ~1 min resolution.
+        let a = sin((time * slow).truncatingRemainder(dividingBy: 2 * .pi) + spread * 5.1)
+        let b = sin((time * fast).truncatingRemainder(dividingBy: 2 * .pi) + spread * 2.3)
+        return clamped(Float(0.5 + 0.3 * a + 0.2 * b))
     }
 
     public static func height(forMagnitude magnitude: Float, minHeight: CGFloat, maxHeight: CGFloat) -> CGFloat {

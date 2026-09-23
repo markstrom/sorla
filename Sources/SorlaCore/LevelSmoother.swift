@@ -26,7 +26,7 @@ public struct BandSmoother {
     private static let attack: Float = 0.3
     private static let release: Float = 0.08
     // Pulling every band part-way toward the mean keeps the shape but stops bars twitching independently.
-    private static let coupling: Float = 0.4
+    private static let coupling: Float = 0.15
     private var smoothers = Array(repeating: LevelSmoother(attack: attack, release: release), count: 8)
 
     public init() {}

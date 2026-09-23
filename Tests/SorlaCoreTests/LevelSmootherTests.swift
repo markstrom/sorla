@@ -45,7 +45,7 @@ final class LevelSmootherTests: XCTestCase {
         target[2] = 1
         let first = smoother.update(target: target)
         XCTAssertGreaterThan(first[2], 0)
-        XCTAssertLessThan(first[2], 0.25)
+        XCTAssertLessThan(first[2], 0.3)
         XCTAssertGreaterThan(first[2], first[0])
 
         var value = first

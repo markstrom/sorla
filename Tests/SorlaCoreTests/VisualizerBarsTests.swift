@@ -161,4 +161,20 @@ final class VisualizerBarsTests: XCTestCase {
             XCTAssertEqual(atZero, Array(repeating: 0, count: barCount))
         }
     }
+
+    func testNeighbouringBarsDifferWhenTheWholeSpectrumIsEqual() {
+        let magnitudes = VisualizerBars.magnitudes(bands: SIMD8(repeating: 0.8), time: 12.3, barCount: 15, reduceMotion: false)
+        let spread = (magnitudes.max() ?? 0) - (magnitudes.min() ?? 0)
+        XCTAssertGreaterThan(spread, 0.15)
+    }
+
+    func testWobbleStaysWithinZeroToOne() {
+        for bar in 0..<15 {
+            for step in 0..<200 {
+                let value = VisualizerBars.wobble(bar: bar, time: Double(step) * 0.037)
+                XCTAssertGreaterThanOrEqual(value, 0)
+                XCTAssertLessThanOrEqual(value, 1)
+            }
+        }
+    }
 }
