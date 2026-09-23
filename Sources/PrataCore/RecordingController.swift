@@ -65,21 +65,33 @@ public final class RecordingController {
     }
 
     public func prepare() {
-        let engine = self.engine
-        let modelName = self.modelName
         isModelReady = false
         onModelReadyChange?(false)
-        Task {
-            let start = Date()
-            do {
-                try await engine.prepare()
-                self.logger.info("model ready: \(modelName, privacy: .public) in \(Self.format(Date().timeIntervalSince(start)), privacy: .public)")
-                self.isModelReady = true
-                self.onModelReadyChange?(true)
-            } catch {
-                self.logger.error("model preparation failed: \(modelName, privacy: .public): \(String(describing: error), privacy: .public)")
-                self.onIssue?(.modelNotLoaded)
-            }
+        Task { await self.loadModel() }
+    }
+
+    // Drops the loaded model and loads whatever is installed now; used after a model update.
+    @discardableResult
+    public func reloadModel() async -> Bool {
+        isModelReady = false
+        onModelReadyChange?(false)
+        await engine.unload()
+        return await loadModel()
+    }
+
+    @discardableResult
+    private func loadModel() async -> Bool {
+        let start = Date()
+        do {
+            try await engine.prepare()
+            logger.info("model ready: \(self.modelName, privacy: .public) in \(Self.format(Date().timeIntervalSince(start)), privacy: .public)")
+            isModelReady = true
+            onModelReadyChange?(true)
+            return true
+        } catch {
+            logger.error("model preparation failed: \(self.modelName, privacy: .public): \(String(describing: error), privacy: .public)")
+            onIssue?(.modelNotLoaded)
+            return false
         }
     }
 
