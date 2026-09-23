@@ -11,17 +11,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
+    private var aboutWindowController: AboutWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
+    private var issueNotifier = IssueNotifier()
     private var pendingStartSound: Task<Void, Never>?
     private static let logger = Logger(subsystem: "com.prata.app", category: "AppDelegate")
     private var modelSeparatorMenuItem: NSMenuItem!
     private var modelNotInstalledMenuItem: NSMenuItem!
+    private var microphoneIssueMenuItem: NSMenuItem!
+    private var accessibilityIssueMenuItem: NSMenuItem!
     private var pasteLastMenuItem: NSMenuItem!
     private var triggerHintMenuItem: NSMenuItem!
     private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
-    private var isModelReady = false
+    private var modelLoadingStatus: ModelLoadingStatus = .loading
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let appSettings = AppSettings()
@@ -39,6 +43,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         menu.autoenablesItems = false
+        let microphoneIssueItem = NSMenuItem(
+            title: PrataIssue.microphoneAccessNeeded.menuTitle ?? "",
+            action: #selector(openMicrophoneSettings),
+            keyEquivalent: ""
+        )
+        microphoneIssueItem.target = self
+        microphoneIssueItem.isHidden = true
+        menu.addItem(microphoneIssueItem)
+        microphoneIssueMenuItem = microphoneIssueItem
+        let accessibilityIssueItem = NSMenuItem(
+            title: PrataIssue.accessibilityAccessNeeded.menuTitle ?? "",
+            action: #selector(openAccessibilitySettings),
+            keyEquivalent: ""
+        )
+        accessibilityIssueItem.target = self
+        accessibilityIssueItem.isHidden = true
+        menu.addItem(accessibilityIssueItem)
+        accessibilityIssueMenuItem = accessibilityIssueItem
         let triggerHintItem = NSMenuItem(title: "", action: #selector(showSettings), keyEquivalent: "")
         menu.addItem(triggerHintItem)
         triggerHintMenuItem = triggerHintItem
@@ -56,6 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(modelNotInstalledItem)
         modelNotInstalledMenuItem = modelNotInstalledItem
         menu.addItem(.separator())
+        let aboutItem = NSMenuItem(title: "About Prata", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -63,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         updateModelInstalledMenuItems()
+        updateIssueMenuItems()
         updateTriggerHintMenuItem()
 
         recordingIndicator = RecordingIndicatorPanel()
@@ -83,9 +109,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.recordingIndicator.updateSpectrum(spectrum)
         }
         recordingController.onModelReadyChange = { [weak self] isReady in
-            guard let self else { return }
-            self.isModelReady = isReady
+            guard let self, isReady else { return }
+            self.modelLoadingStatus = .ready
             self.updateIcon(isRecording: self.recordingController.isRecording)
+        }
+        recordingController.onIssue = { [weak self] issue in
+            self?.handleIssue(issue)
         }
 
         let triggerMonitor = TriggerMonitor(
@@ -143,6 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         updateModelInstalledMenuItems()
+        updateIssueMenuItems()
         updateTriggerHintMenuItem()
         pasteLastMenuItem.isEnabled = recordingController.lastTranscript != nil
     }
@@ -162,6 +192,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         frontmostAppBeforeSettingsActivated = NSWorkspace.shared.frontmostApplication
         settingsWindowController?.show()
+    }
+
+    @objc private func showAbout() {
+        if aboutWindowController == nil {
+            aboutWindowController = AboutWindowController()
+        }
+        aboutWindowController?.show()
+    }
+
+    @objc private func openMicrophoneSettings() {
+        guard let url = PrataIssue.microphoneAccessNeeded.settingsURL else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func openAccessibilitySettings() {
+        guard let url = PrataIssue.accessibilityAccessNeeded.settingsURL else { return }
+        NSWorkspace.shared.open(url)
     }
 
     // The status menu doesn't activate Prata, so it is only frontmost here when Settings is key.
@@ -197,8 +244,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateModelInstalledMenuItems() {
         let installed = PianissimoModel.isInstalled
-        modelSeparatorMenuItem.isHidden = installed
-        modelNotInstalledMenuItem.isHidden = installed
+        if !installed {
+            modelNotInstalledMenuItem.title = "Swedish model not installed"
+        } else if modelLoadingStatus == .failed {
+            modelNotInstalledMenuItem.title = PrataIssue.modelNotLoaded.menuTitle ?? "Swedish model couldn't be loaded"
+        }
+        let showRow = !installed || modelLoadingStatus == .failed
+        modelSeparatorMenuItem.isHidden = !showRow
+        modelNotInstalledMenuItem.isHidden = !showRow
+    }
+
+    private func updateIssueMenuItems() {
+        microphoneIssueMenuItem.isHidden = !PermissionsManager.isMicrophoneAccessDenied()
+        accessibilityIssueMenuItem.isHidden = PermissionsManager.isAccessibilityTrusted()
+    }
+
+    private func handleIssue(_ issue: PrataIssue) {
+        if issue == .modelNotLoaded {
+            modelLoadingStatus = .failed
+            updateIcon(isRecording: recordingController.isRecording)
+            updateModelInstalledMenuItems()
+        }
+        issueNotifier.notify(issue)
     }
 
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
@@ -234,19 +301,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateIcon(isRecording: Bool) {
-        let symbolName: String
-        let description: String
-        if !isModelReady {
-            symbolName = "hourglass"
-            description = "Prata (loading model)"
-        } else if isRecording {
-            symbolName = "mic.fill"
-            description = "Prata (recording)"
-        } else {
-            symbolName = "mic"
-            description = "Prata"
-        }
-        statusItem.button?.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
+        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, isRecording: isRecording)
+        statusItem.button?.image = NSImage(systemSymbolName: icon.symbolName, accessibilityDescription: icon.accessibilityDescription)
     }
 
     @objc private func quit() {
