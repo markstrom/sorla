@@ -73,4 +73,25 @@ final class ModelUpdatePolicyTests: XCTestCase {
         XCTAssertEqual(ModelUpdatePolicy.decide(installedVersion: "1.0.0", isInstalled: true, latest: release, autoDownload: true), .none)
         XCTAssertEqual(ModelUpdatePolicy.decide(installedVersion: nil, isInstalled: false, latest: release, autoDownload: true), .none)
     }
+
+    func testAVersionThatFailedBeforeIsOnlyOfferedInsteadOfDownloadedAutomatically() {
+        XCTAssertEqual(
+            ModelUpdatePolicy.decide(installedVersion: "1.0.0", isInstalled: true, latest: latest, autoDownload: true, failedVersion: "1.1.0"),
+            .notify(version: "1.1.0")
+        )
+    }
+
+    func testAnOlderFailedVersionDoesNotHoldBackANewerOne() {
+        XCTAssertEqual(
+            ModelUpdatePolicy.decide(installedVersion: "1.0.0", isInstalled: true, latest: latest, autoDownload: true, failedVersion: "1.0.5"),
+            .download(version: "1.1.0")
+        )
+    }
+
+    func testAMissingModelIsDownloadedEvenIfThatVersionFailedBefore() {
+        XCTAssertEqual(
+            ModelUpdatePolicy.decide(installedVersion: nil, isInstalled: false, latest: latest, autoDownload: false, failedVersion: "1.1.0"),
+            .download(version: "1.1.0")
+        )
+    }
 }

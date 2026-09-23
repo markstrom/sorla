@@ -171,6 +171,23 @@ final class ModelInstallerTests: XCTestCase {
         await assertThrows(.diskWriteFailed) { _ = try await self.installer().stage(self.published.latest) { _ in } }
     }
 
+    func testURLErrorsAreSortedIntoDiskServerAndNetworkProblems() {
+        let disk: [URLError.Code] = [.cannotWriteToFile, .cannotCreateFile, .cannotMoveFile, .cannotOpenFile, .cannotCloseFile, .cannotRemoveFile]
+        for code in disk {
+            XCTAssertEqual(ModelInstaller.installError(URLError(code)) as? ModelInstallError, .diskWriteFailed, "\(code)")
+        }
+        XCTAssertEqual(ModelInstaller.installError(URLError(.badServerResponse)) as? ModelInstallError, .serverUnavailable)
+        for code in [URLError.Code.notConnectedToInternet, .timedOut, .networkConnectionLost, .cannotFindHost] {
+            XCTAssertEqual(ModelInstaller.installError(URLError(code)) as? ModelInstallError, .network, "\(code)")
+        }
+    }
+
+    func testAURLSessionDiskErrorWhileDownloadingIsADiskProblem() async throws {
+        await network.fail(published.url(for: "README.md"), with: URLError(.cannotWriteToFile))
+
+        await assertThrows(.diskWriteFailed) { _ = try await self.installer().stage(self.published.latest) { _ in } }
+    }
+
     func testEachDownloadIsCappedAtItsDeclaredSize() async throws {
         _ = try await installer().stage(published.latest) { _ in }
 

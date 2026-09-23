@@ -41,14 +41,40 @@ final class LegacyModelMigrationTests: XCTestCase {
         XCTAssertFalse(fileManager.fileExists(atPath: legacyApp.path))
     }
 
-    func testKeepsLegacyFoldersThatStillHaveOtherContent() throws {
+    func testKeepsTheLegacyAppFolderWhenItHasOtherContent() throws {
         try makeModel(at: legacyModel, marker: "legacy")
-        try fileManager.createDirectory(at: legacyApp.appendingPathComponent("Models/other"), withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: legacyApp.appendingPathComponent("other"), withIntermediateDirectories: true)
 
         XCTAssertTrue(try LegacyModelMigration.migrate(applicationSupport: base))
 
         XCTAssertEqual(marker(at: model), "legacy")
-        XCTAssertTrue(fileManager.fileExists(atPath: legacyApp.appendingPathComponent("Models/other").path))
+        XCTAssertTrue(fileManager.fileExists(atPath: legacyApp.appendingPathComponent("other").path))
+        XCTAssertFalse(fileManager.fileExists(atPath: legacyApp.appendingPathComponent("Models").path))
+    }
+
+    func testMovesSwapLeftoversAndStagingSoRecoveryCanFinishThem() throws {
+        let legacyModels = legacyApp.appendingPathComponent("Models")
+        try makeModel(at: legacyModels.appendingPathComponent("pianissimo-sv-coreml.old"), marker: "good")
+        try makeModel(at: legacyModels.appendingPathComponent("pianissimo-sv-coreml.failed"), marker: "bad, partly deleted")
+        try makeModel(at: legacyModels.appendingPathComponent(".staging/pianissimo-sv-1.1.0/download"), marker: "partial")
+
+        XCTAssertTrue(try LegacyModelMigration.migrate(applicationSupport: base))
+
+        let models = model.deletingLastPathComponent()
+        XCTAssertTrue(fileManager.fileExists(atPath: models.appendingPathComponent(".staging/pianissimo-sv-1.1.0/download").path))
+        XCTAssertFalse(fileManager.fileExists(atPath: legacyApp.path))
+        try ModelSwap(modelsDirectory: models).recoverInterruptedSwap()
+        XCTAssertEqual(marker(at: model), "good")
+        XCTAssertFalse(fileManager.fileExists(atPath: models.appendingPathComponent("pianissimo-sv-coreml.failed").path))
+    }
+
+    func testDoesNothingWhenTheNewModelsFolderExistsEvenWithoutAModel() throws {
+        try makeModel(at: legacyModel, marker: "legacy")
+        try fileManager.createDirectory(at: model.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        XCTAssertFalse(try LegacyModelMigration.migrate(applicationSupport: base))
+
+        XCTAssertEqual(marker(at: legacyModel), "legacy")
     }
 
     func testDoesNothingWhenTheNewModelAlreadyExists() throws {

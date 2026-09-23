@@ -68,15 +68,16 @@ final class MenuStatusRowTests: XCTestCase {
         )
     }
 
-    func testLoadFailureOpensSettings() {
+    func testLoadFailureRetriesLoadingTheModel() {
         XCTAssertEqual(
             row(modelLoadFailed: true),
-            MenuStatusRow(title: "Model couldn't be loaded", action: .openSettings)
+            MenuStatusRow(title: "Model couldn't be loaded — Try Again", action: .reloadModel)
         )
+        XCTAssertEqual(row(model: .upToDate(version: "1.0.0"), modelLoadFailed: true)?.action, .reloadModel)
     }
 
     func testFailuresComeBeforeAnAvailableUpdate() {
-        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), modelLoadFailed: true)?.action, .openSettings)
+        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), modelLoadFailed: true)?.action, .reloadModel)
     }
 
     func testAvailableUpdateComesLast() {

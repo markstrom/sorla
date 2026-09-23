@@ -17,12 +17,14 @@ public enum ModelUpdatePolicy {
         return autoCheck ? .check : .none
     }
 
-    public static func decide(installedVersion: String?, isInstalled: Bool, latest: ModelRelease, autoDownload: Bool) -> ModelUpdateDecision {
+    // A version that already failed here is only offered, so it is retried when the user asks rather than every day.
+    public static func decide(installedVersion: String?, isInstalled: Bool, latest: ModelRelease, autoDownload: Bool, failedVersion: String? = nil) -> ModelUpdateDecision {
         guard latest.isCompatible, let latestVersion = latest.semanticVersion else { return .none }
         guard isInstalled else { return .download(version: latest.version) }
         if let installed = installedVersion.flatMap(SemanticVersion.init), installed >= latestVersion {
             return .none
         }
-        return autoDownload ? .download(version: latest.version) : .notify(version: latest.version)
+        let failedBefore = failedVersion.flatMap(SemanticVersion.init) == latestVersion
+        return autoDownload && !failedBefore ? .download(version: latest.version) : .notify(version: latest.version)
     }
 }

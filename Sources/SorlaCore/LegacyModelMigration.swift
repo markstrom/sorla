@@ -4,21 +4,18 @@ public enum LegacyModelMigration {
     // The app's folder name before the rename to Sorla; needed once to move an already downloaded model.
     static let legacyAppFolderName = "Prata"
 
-    /// Moves the model from the legacy folder when the new location has none. Returns whether it moved.
+    /// Moves the whole legacy models folder, with any swap leftovers and staging, when Sorla has none. Returns whether it moved.
     @discardableResult
     public static func migrate(applicationSupport: URL, fileManager: FileManager = .default) throws -> Bool {
         let legacyApp = applicationSupport.appendingPathComponent(legacyAppFolderName, isDirectory: true)
         let legacyModels = PianissimoModel.modelsDirectory(in: applicationSupport, appFolderName: legacyAppFolderName)
-        let legacyModel = legacyModels.appendingPathComponent(PianissimoModel.directoryName, isDirectory: true)
         let models = PianissimoModel.modelsDirectory(in: applicationSupport)
-        let model = models.appendingPathComponent(PianissimoModel.directoryName, isDirectory: true)
 
-        guard !fileManager.fileExists(atPath: model.path), fileManager.fileExists(atPath: legacyModel.path) else {
+        guard !fileManager.fileExists(atPath: models.path), fileManager.fileExists(atPath: legacyModels.path) else {
             return false
         }
-        try fileManager.createDirectory(at: models, withIntermediateDirectories: true)
-        try fileManager.moveItem(at: legacyModel, to: model)
-        removeIfEmpty(legacyModels, fileManager: fileManager)
+        try fileManager.createDirectory(at: models.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.moveItem(at: legacyModels, to: models)
         removeIfEmpty(legacyApp, fileManager: fileManager)
         return true
     }

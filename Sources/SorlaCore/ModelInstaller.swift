@@ -187,7 +187,15 @@ public struct ModelInstaller: Sendable {
         if error is CancellationError { return error }
         logger.error("model download failed: \(ErrorSummary.of(error), privacy: .public)")
         switch error {
-        case is URLError: return ModelInstallError.network
+        case let urlError as URLError:
+            switch urlError.code {
+            case .cannotWriteToFile, .cannotCreateFile, .cannotMoveFile, .cannotOpenFile, .cannotCloseFile, .cannotRemoveFile:
+                return ModelInstallError.diskWriteFailed
+            case .badServerResponse:
+                return ModelInstallError.serverUnavailable
+            default:
+                return ModelInstallError.network
+            }
         case ModelNetworkError.httpStatus: return ModelInstallError.serverUnavailable
         case let installError as ModelInstallError: return installError
         default: return ModelInstallError.diskWriteFailed
