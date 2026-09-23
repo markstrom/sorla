@@ -126,6 +126,11 @@ matching, applied to the final batch transcript before paste. Stored as
 JSON in `Application Support`. Editable as a simple add/remove list in
 Settings — no regex, no LLM rewriting, no per-app rules for v1.
 
+**Deferred from the first build** (see §12): the very first working
+version skips this step entirely and pastes the raw transcript. The
+priority is getting hotkey → capture → transcribe → paste working and
+measuring real-world speed/quality before adding anything on top.
+
 ## 6. Text insertion
 
 Two-step, matching the researched failure modes of synthetic paste on
@@ -191,3 +196,27 @@ On first run, request:
   Face repo under the user's account is assumed, to be confirmed when
   that phase starts).
 - Whether/how to add whisper.cpp + KB-Whisper as a second engine.
+
+## 12. First build ("walking skeleton")
+
+Before building out the rest of v1 as designed above, get the smallest
+possible end-to-end slice working first, to validate the approach and
+measure real speed/quality on this hardware:
+
+1. Menu bar app skeleton (no Dock icon).
+2. Global hold-to-record hotkey (`KeyboardShortcuts`).
+3. Minimal visual feedback while recording (a menu bar icon state
+   change is enough — the full HUD with waveform/live captions from
+   §2 and §8 comes after this works).
+4. `AVAudioEngine` capture to an in-memory buffer.
+5. On release: FluidAudio + stock `parakeet-tdt-0.6b-v3-coreml`, one
+   batch `transcribe()` call.
+6. Write result to `NSPasteboard`, auto-paste via CGEvent-simulated
+   Cmd+V (AppleScript fallback can come right after if the simple path
+   doesn't work reliably).
+7. No personal dictionary, no HUD polish, no settings window beyond
+   whatever's needed to grant Mic/Accessibility permissions once.
+
+Everything else in this spec (HUD, dictionary, model manager UI,
+Pianissimo) is built incrementally on top of this once it's confirmed
+working.
