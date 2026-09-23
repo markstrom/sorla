@@ -26,6 +26,7 @@ public final class RecordingController {
     public var onModelReadyChange: ((Bool) -> Void)?
 
     public private(set) var lastTranscript: String?
+    private var isPasteLastInFlight = false
 
     public init(engine: TranscriptionEngine, modelName: String, tailDuration: TimeInterval = 0.15) {
         self.engine = engine
@@ -167,12 +168,26 @@ public final class RecordingController {
     }
 
     // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
-    public func pasteLastTranscript() {
-        guard PasteService.shouldPasteLast(hasTranscript: lastTranscript != nil, phase: phase), let text = lastTranscript else {
-            logger.info("paste-last skipped (no transcript or dictation in progress)")
+    public func pasteLastTranscript(after prepare: @escaping @MainActor () async -> Bool = { true }) {
+        guard PasteService.shouldPasteLast(
+            hasTranscript: lastTranscript != nil,
+            phase: phase,
+            isPasteLastInFlight: isPasteLastInFlight
+        ), let text = lastTranscript else {
+            logger.info("paste-last skipped (no transcript, or a dictation or paste-last in progress)")
             return
         }
+        isPasteLastInFlight = true
         Task { @MainActor in
+            defer { self.isPasteLastInFlight = false }
+            guard await prepare() else {
+                self.logger.info("paste-last skipped (target app never became frontmost)")
+                return
+            }
+            guard self.phase == .idle else {
+                self.logger.info("paste-last skipped (dictation started)")
+                return
+            }
             let outcome = self.issuePaste(text)
             self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
             await self.settleClipboard(outcome)

@@ -155,15 +155,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowController?.show()
     }
 
-    // Opening the status-item menu doesn't activate an accessory app, so the frontmost app right after the
-    // menu closes is still whatever the user was working in – unless Prata's own Settings window was key.
+    // The status menu doesn't activate Prata, so it is only frontmost here when Settings is key.
     @objc private func pasteLastTranscription() {
-        if NSWorkspace.shared.frontmostApplication?.processIdentifier == NSRunningApplication.current.processIdentifier,
-           let previousApp = frontmostAppBeforeSettingsActivated,
-           previousApp.processIdentifier != NSRunningApplication.current.processIdentifier {
-            previousApp.activate()
+        let ownPID = NSRunningApplication.current.processIdentifier
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID,
+              let previousApp = frontmostAppBeforeSettingsActivated,
+              previousApp.processIdentifier != ownPID,
+              !previousApp.isTerminated
+        else {
+            recordingController.pasteLastTranscript()
+            return
         }
-        recordingController.pasteLastTranscript()
+        recordingController.pasteLastTranscript {
+            await Self.activate(previousApp, timeout: Self.activationTimeout)
+        }
+    }
+
+    private static let activationTimeout: TimeInterval = 0.5
+
+    private static func activate(_ app: NSRunningApplication, timeout: TimeInterval) async -> Bool {
+        app.activate()
+        let deadline = Date().addingTimeInterval(timeout)
+        while NSWorkspace.shared.frontmostApplication?.processIdentifier != app.processIdentifier {
+            guard Date() < deadline else { return false }
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        return true
     }
 
     @objc private func selectModel(_ sender: NSMenuItem) {

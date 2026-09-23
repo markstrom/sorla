@@ -126,18 +126,22 @@ final class PasteServiceTests: XCTestCase {
     }
 
     func testShouldPasteLastWhenIdleWithTranscriptReturnsTrue() {
-        XCTAssertTrue(PasteService.shouldPasteLast(hasTranscript: true, phase: .idle))
+        XCTAssertTrue(PasteService.shouldPasteLast(hasTranscript: true, phase: .idle, isPasteLastInFlight: false))
     }
 
     func testShouldPasteLastWithoutTranscriptReturnsFalse() {
-        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: false, phase: .idle))
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: false, phase: .idle, isPasteLastInFlight: false))
     }
 
     func testShouldPasteLastWhileRecordingReturnsFalse() {
-        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .recording))
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .recording, isPasteLastInFlight: false))
     }
 
     func testShouldPasteLastWhileTranscribingReturnsFalse() {
-        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .transcribing))
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .transcribing, isPasteLastInFlight: false))
+    }
+
+    func testShouldPasteLastWhileAnotherPasteLastIsInFlightReturnsFalse() {
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: .idle, isPasteLastInFlight: true))
     }
 }
