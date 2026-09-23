@@ -10,10 +10,12 @@ public final class RecordingController {
     private var modelName: String
     private let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.prata.app", category: "RecordingController")
+    private let pendingLevel = OSAllocatedUnfairLock<Float?>(initialState: nil)
 
     public private(set) var isRecording = false
     private var isCapturingTail = false
     public var onStateChange: ((Bool) -> Void)?
+    public var onLevel: ((Float) -> Void)?
     public var keepClipboardContent = true
     private var clipboardOwnership = ClipboardOwnershipTracker()
 
@@ -21,6 +23,30 @@ public final class RecordingController {
         self.engine = engine
         self.modelName = modelName
         self.tailDuration = tailDuration
+        setUpLevelForwarding()
+    }
+
+    private func setUpLevelForwarding() {
+        let pendingLevel = self.pendingLevel
+        recorder.onLevel = { [pendingLevel, weak self] level in
+            let shouldSchedule = pendingLevel.withLock { state -> Bool in
+                let wasEmpty = state == nil
+                state = level
+                return wasEmpty
+            }
+            guard shouldSchedule else { return }
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let level = pendingLevel.withLock { state -> Float? in
+                    defer { state = nil }
+                    return state
+                }
+                if let level {
+                    self.onLevel?(level)
+                }
+            }
+        }
     }
 
     public func setEngine(_ engine: TranscriptionEngine, name: String) {

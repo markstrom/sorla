@@ -12,6 +12,8 @@ public final class AudioRecorder {
     private var samples: [Float] = []
     private let lock = NSLock()
 
+    public var onLevel: (@Sendable (Float) -> Void)?
+
     public init() {}
 
     public func start() throws {
@@ -60,6 +62,8 @@ public final class AudioRecorder {
         lock.lock()
         samples.append(contentsOf: channel0)
         lock.unlock()
+
+        onLevel?(AudioLevel.normalized(rms: AudioLevel.rms(channel0)))
     }
 
     static func resample(_ nativeSamples: [Float], sampleRate: Double) throws -> [Float] {

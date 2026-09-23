@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
+    private var recordingIndicator: RecordingIndicatorPanel!
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var cancellables = Set<AnyCancellable>()
 
@@ -48,8 +49,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         updateModelMenuItems(selected: appSettings.model)
 
+        recordingIndicator = RecordingIndicatorPanel()
+
         recordingController.onStateChange = { [weak self] isRecording in
             self?.updateIcon(isRecording: isRecording)
+            if isRecording {
+                self?.recordingIndicator.showNearMouse()
+            } else {
+                self?.recordingIndicator.hide()
+            }
+        }
+        recordingController.onLevel = { [weak self] level in
+            self?.recordingIndicator.updateLevel(level)
         }
 
         let triggerMonitor = TriggerMonitor(
