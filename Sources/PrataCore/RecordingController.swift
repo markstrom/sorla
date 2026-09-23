@@ -14,7 +14,6 @@ public final class RecordingController {
     public private(set) var isRecording = false
     private var isCapturingTail = false
     public var onStateChange: ((Bool) -> Void)?
-    public var onLevel: ((Float) -> Void)?
     public var onSpectrum: ((SIMD8<Float>) -> Void)?
     public var onPhaseChange: ((DictationPhase) -> Void)?
     public var phase: DictationPhase { phaseTracker.phase }
@@ -36,7 +35,6 @@ public final class RecordingController {
     }
 
     private func setUpForwarding() {
-        recorder.onLevel = Self.latestValueForwarder { [weak self] level in self?.onLevel?(level) }
         recorder.onSpectrum = Self.latestValueForwarder { [weak self] bands in self?.onSpectrum?(bands) }
     }
 

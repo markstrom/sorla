@@ -13,7 +13,6 @@ public final class AudioRecorder {
     private let lock = NSLock()
     private var analyzer: SpectrumAnalyzer?
 
-    public var onLevel: (@Sendable (Float) -> Void)?
     public var onSpectrum: (@Sendable (SIMD8<Float>) -> Void)?
 
     public init() {}
@@ -70,7 +69,6 @@ public final class AudioRecorder {
         samples.append(contentsOf: channel0)
         lock.unlock()
 
-        onLevel?(AudioLevel.normalized(rms: AudioLevel.rms(channel0)))
         if let onSpectrum, let analyzer {
             onSpectrum(analyzer.analyze(channel0))
         }
