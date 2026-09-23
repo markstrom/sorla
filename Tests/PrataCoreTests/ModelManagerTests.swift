@@ -272,19 +272,23 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(requests, [])
     }
 
-    func testStagingIsRemovedBeforeTheNewModelFinishesLoading() async throws {
+    func testTheEngineReloadsTheSwappedInModelAfterStagingIsRemoved() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.1.0")
         var stagingExistedDuringReload: Bool?
+        var versionDuringReload: String?
+        let installed = swap.installed
         let manager = makeManager(autoDownload: true, onReload: {
             stagingExistedDuringReload = FileManager.default.fileExists(atPath: staging.directory.path)
+            versionDuringReload = PianissimoModel.installedVersion(at: installed)
         })
 
         manager.checkNow()
         await waitUntil(manager.status == .upToDate(version: "1.1.0"))
 
         XCTAssertEqual(stagingExistedDuringReload, false)
+        XCTAssertEqual(versionDuringReload, "1.1.0")
         XCTAssertFalse(FileManager.default.fileExists(atPath: staging.root.path))
     }
 
