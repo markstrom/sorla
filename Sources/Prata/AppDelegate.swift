@@ -1,22 +1,25 @@
 import AppKit
+import Combine
 import PrataCore
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private static let selectedModelDefaultsKey = "selectedModel"
-
     private var statusItem: NSStatusItem!
     private var recordingController: RecordingController!
-    private var pushToTalkMonitor: RightCommandKeyMonitor?
+    private var appSettings: AppSettings!
+    private var triggerMonitor: TriggerMonitor?
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
-    private var selectedModel: SpeechModel = .parakeet
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        selectedModel = Self.loadSelectedModel()
+        let appSettings = AppSettings()
+        self.appSettings = appSettings
 
         recordingController = RecordingController(
-            engine: ParakeetTranscriptionEngine(model: selectedModel),
-            modelName: selectedModel.displayName
+            engine: ParakeetTranscriptionEngine(model: appSettings.model),
+            modelName: appSettings.model.displayName
         )
+        recordingController.keepClipboardContent = appSettings.keepClipboardContent
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateIcon(isRecording: false)
@@ -44,11 +47,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateIcon(isRecording: isRecording)
         }
 
-        pushToTalkMonitor = RightCommandKeyMonitor(
+        let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in self?.recordingController.startRecording() },
             onFinish: { [weak self] in self?.recordingController.stopRecordingAndTranscribe() },
             onCancel: { [weak self] in self?.recordingController.cancelRecording() }
         )
+        self.triggerMonitor = triggerMonitor
+        triggerMonitor.configure(trigger: appSettings.triggerKey, mode: appSettings.recordingMode)
+
+        Publishers.CombineLatest(appSettings.$triggerKey, appSettings.$recordingMode)
+            .dropFirst()
+            .sink { [weak self] trigger, mode in
+                self?.triggerMonitor?.configure(trigger: trigger, mode: mode)
+            }
+            .store(in: &cancellables)
+
+        appSettings.$model
+            .dropFirst()
+            .sink { [weak self] model in
+                guard let self else { return }
+                self.recordingController.setEngine(ParakeetTranscriptionEngine(model: model), name: model.displayName)
+                self.updateModelMenuItems()
+            }
+            .store(in: &cancellables)
+
+        appSettings.$keepClipboardContent
+            .dropFirst()
+            .sink { [weak self] keepClipboardContent in
+                self?.recordingController.keepClipboardContent = keepClipboardContent
+            }
+            .store(in: &cancellables)
 
         recordingController.prepare()
 
@@ -64,34 +92,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateModelMenuItems()
     }
 
-    @objc @MainActor private func selectModel(_ sender: NSMenuItem) {
-        guard let model = sender.representedObject as? SpeechModel, model.isInstalled, model != selectedModel else {
+    @objc private func selectModel(_ sender: NSMenuItem) {
+        guard let model = sender.representedObject as? SpeechModel, model.isInstalled, model != appSettings.model else {
             return
         }
-        selectedModel = model
-        UserDefaults.standard.set(model.rawValue, forKey: Self.selectedModelDefaultsKey)
-        recordingController.setEngine(ParakeetTranscriptionEngine(model: model), name: model.displayName)
-        updateModelMenuItems()
+        appSettings.model = model
     }
 
     private func updateModelMenuItems() {
         for (model, item) in modelMenuItems {
             let installed = model.isInstalled
             item.isEnabled = installed
-            item.state = model == selectedModel ? .on : .off
+            item.state = model == appSettings.model ? .on : .off
             item.title = installed ? model.displayName : "\(model.displayName) – not installed"
         }
-    }
-
-    private static func loadSelectedModel() -> SpeechModel {
-        guard
-            let rawValue = UserDefaults.standard.string(forKey: selectedModelDefaultsKey),
-            let saved = SpeechModel(rawValue: rawValue),
-            saved.isInstalled
-        else {
-            return .parakeet
-        }
-        return saved
     }
 
     private func updateIcon(isRecording: Bool) {
