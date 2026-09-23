@@ -22,5 +22,10 @@ let package = Package(
             dependencies: ["PrataCore"],
             path: "Sources/Prata"
         ),
+        .testTarget(
+            name: "PrataCoreTests",
+            dependencies: ["PrataCore"],
+            path: "Tests/PrataCoreTests"
+        ),
     ]
 )
