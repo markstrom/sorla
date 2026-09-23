@@ -47,4 +47,21 @@ final class IslandLayoutTests: XCTestCase {
         let layout = IslandLayout.compactLayout(menuBarHeight: 0)
         XCTAssertEqual(layout.height, 30 + IslandLayout.extraDepth)
     }
+
+    func testNotchCollapsedWidthIsExactlyTheNotchSoItHidesBlackOnBlack() {
+        let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 32)
+        XCTAssertEqual(layout.collapsedSize, NSSize(width: 200, height: 32))
+    }
+
+    func testCompactCollapsedSizeIsASmallPillAtFullHeight() {
+        let layout = IslandLayout.compactLayout(menuBarHeight: 24)
+        XCTAssertEqual(layout.collapsedSize, NSSize(width: 36, height: 24 + IslandLayout.extraDepth))
+    }
+
+    func testPanelLeavesRoomOnBothSidesForTheSpringOvershoot() {
+        let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 32)
+        XCTAssertEqual(layout.panelSize.width, layout.size.width + 2 * IslandLayout.overshootMargin)
+        XCTAssertEqual(layout.panelSize.height, layout.size.height)
+        XCTAssertGreaterThan(IslandLayout.overshootMargin, 0)
+    }
 }

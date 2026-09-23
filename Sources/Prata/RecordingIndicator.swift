@@ -8,6 +8,8 @@ struct IslandLayout: Equatable {
     var height: CGFloat
 
     static let compactWidth: CGFloat = 240
+    static let compactCollapsedWidth: CGFloat = 36
+    static let overshootMargin: CGFloat = 12
     static let extraDepth: CGFloat = 14
     static let notchBarCount = 5
     static let notchStatusSize: CGFloat = 16
@@ -21,6 +23,15 @@ struct IslandLayout: Equatable {
         notchWidth > 0
             ? NSSize(width: notchWidth + 2 * sideWidth, height: height)
             : NSSize(width: Self.compactWidth, height: height)
+    }
+
+    // Notch screens collapse into the notch itself; others into a small pill at the top centre.
+    var collapsedSize: NSSize {
+        NSSize(width: notchWidth > 0 ? notchWidth : Self.compactCollapsedWidth, height: height)
+    }
+
+    var panelSize: NSSize {
+        NSSize(width: size.width + 2 * Self.overshootMargin, height: height)
     }
 
     // The tallest bar the notch's 5-bar waveform can draw while leaving a small margin top and bottom.
@@ -66,6 +77,8 @@ final class RecordingIndicatorViewModel: ObservableObject {
     @Published private(set) var mode = IndicatorMode.recording
     @Published private(set) var isVisible = false
     @Published private(set) var isExpanded = false
+    @Published private(set) var isShapeVisible = false
+    @Published private(set) var isContentVisible = false
     @Published private(set) var layout = IslandLayout(notchWidth: 0, sideWidth: 0, height: 44)
     @Published private(set) var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     private var smoother = BandSmoother()
@@ -85,6 +98,14 @@ final class RecordingIndicatorViewModel: ObservableObject {
 
     func setExpanded(_ expanded: Bool) {
         isExpanded = expanded
+    }
+
+    func setShapeVisible(_ visible: Bool) {
+        isShapeVisible = visible
+    }
+
+    func setContentVisible(_ visible: Bool) {
+        isContentVisible = visible
     }
 
     func setLayout(_ layout: IslandLayout) {
@@ -120,29 +141,33 @@ struct RecordingIndicatorView: View {
     var body: some View {
         let layout = viewModel.layout
         let size = layout.size
-        let cornerRadius = min(size.height / 2, 20)
-        let collapsed = !viewModel.isExpanded
+        let width = viewModel.isExpanded ? size.width : layout.collapsedSize.width
+        let shape = UnevenRoundedRectangle(
+            bottomLeadingRadius: min(size.height / 2, 20),
+            bottomTrailingRadius: min(size.height / 2, 20)
+        )
 
-        Group {
-            if viewModel.isVisible && !viewModel.reduceMotion {
-                TimelineView(.animation) { context in
-                    content(layout: layout, time: context.date.timeIntervalSinceReferenceDate)
+        ZStack(alignment: .top) {
+            shape
+                .fill(Color.black)
+                .frame(width: width, height: size.height)
+                .opacity(viewModel.isShapeVisible ? 1 : 0)
+
+            Group {
+                if viewModel.isVisible && !viewModel.reduceMotion {
+                    TimelineView(.animation) { context in
+                        content(layout: layout, time: context.date.timeIntervalSinceReferenceDate)
+                    }
+                } else {
+                    content(layout: layout, time: 0)
                 }
-            } else {
-                content(layout: layout, time: 0)
+            }
+            .frame(width: size.width, height: size.height)
+            .opacity(viewModel.isContentVisible ? 1 : 0)
+            .mask(alignment: .top) {
+                shape.frame(width: width, height: size.height)
             }
         }
-        .frame(width: size.width, height: size.height)
-        .background(
-            UnevenRoundedRectangle(bottomLeadingRadius: cornerRadius, bottomTrailingRadius: cornerRadius)
-                .fill(Color.black)
-        )
-        .scaleEffect(
-            x: collapsed && !viewModel.reduceMotion ? 0.35 : 1,
-            y: collapsed && !viewModel.reduceMotion ? 0.2 : 1,
-            anchor: .top
-        )
-        .opacity(collapsed ? 0 : 1)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
@@ -150,7 +175,7 @@ struct RecordingIndicatorView: View {
     private func content(layout: IslandLayout, time: TimeInterval) -> some View {
         if layout.notchWidth > 0 {
             HStack(spacing: 0) {
-                notchStatus(time: time)
+                statusIndicator(time: time)
                     .frame(width: layout.sideWidth, alignment: .center)
                 Color.clear.frame(width: layout.notchWidth)
                 bars(time: time, barCount: IslandLayout.notchBarCount, maxHeight: layout.notchMaxBarHeight)
@@ -158,7 +183,13 @@ struct RecordingIndicatorView: View {
             }
         } else {
             HStack(spacing: 0) {
-                status(time: time)
+                HStack(spacing: 8) {
+                    statusIndicator(time: time)
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(viewModel.mode == .transcribing ? .white.opacity(0.4) : .white)
+                        .frame(width: 18, height: 18)
+                }
                 Spacer(minLength: 0)
                 bars(time: time, barCount: compactBarCount, maxHeight: maxBarHeight)
             }
@@ -166,28 +197,8 @@ struct RecordingIndicatorView: View {
         }
     }
 
-    private func status(time: TimeInterval) -> some View {
-        HStack(spacing: 10) {
-            recordDot(time: time)
-            ZStack {
-                if viewModel.mode == .transcribing {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .controlSize(.small)
-                        .tint(.white)
-                        .environment(\.colorScheme, .dark)
-                } else {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
-                }
-            }
-            .frame(width: 18, height: 18)
-        }
-    }
-
-    // Just the dot on the notch's left side; no mic glyph. Transcribing replaces it with the spinner.
-    private func notchStatus(time: TimeInterval) -> some View {
+    // Pulsing red dot while recording; transcribing swaps it for a spinner in the same spot.
+    private func statusIndicator(time: TimeInterval) -> some View {
         ZStack {
             if viewModel.mode == .transcribing {
                 ProgressView()
@@ -203,17 +214,11 @@ struct RecordingIndicatorView: View {
     }
 
     private func recordDot(time: TimeInterval) -> some View {
-        let opacity: Double
-        if viewModel.mode == .transcribing {
-            opacity = 0.45
-        } else {
-            let phase = time.truncatingRemainder(dividingBy: pulsePeriod) / pulsePeriod
-            opacity = 0.775 + 0.225 * cos(2 * .pi * phase)
-        }
+        let phase = time.truncatingRemainder(dividingBy: pulsePeriod) / pulsePeriod
         return Circle()
             .fill(Color.red)
             .frame(width: 10, height: 10)
-            .opacity(opacity)
+            .opacity(0.775 + 0.225 * cos(2 * .pi * phase))
     }
 
     private func bars(time: TimeInterval, barCount: Int, maxHeight: CGFloat) -> some View {
@@ -249,6 +254,16 @@ final class RecordingIndicatorPanel: NSPanel {
     private let viewModel = RecordingIndicatorViewModel()
     private var presentationID = 0
     private var isPresented = false
+
+    private static let expandAnimation = Animation.spring(response: 0.35, dampingFraction: 0.75)
+    private static let contentFadeIn = Animation.easeOut(duration: 0.18).delay(0.15)
+    private static let contentFadeOut = Animation.easeIn(duration: 0.1)
+    private static let collapseAnimation = Animation.spring(response: 0.3, dampingFraction: 1).delay(0.06)
+    private static let pillFadeIn = Animation.easeOut(duration: 0.08)
+    private static let pillFadeOut = Animation.easeIn(duration: 0.1).delay(0.26)
+    private static let reduceMotionFade = Animation.easeInOut(duration: 0.15)
+    private static let collapseDuration: TimeInterval = 0.42
+    private static let reduceMotionFadeDuration: TimeInterval = 0.17
 
     init() {
         super.init(
@@ -299,16 +314,32 @@ final class RecordingIndicatorPanel: NSPanel {
         isPresented = true
         let id = presentationID
         viewModel.refreshReduceMotion()
+        let reduceMotion = viewModel.reduceMotion
+        let hasNotch = positionOnScreenContainingMouse()
         viewModel.setMode(.recording)
-        viewModel.setExpanded(false)
+        viewModel.setExpanded(reduceMotion)
+        viewModel.setShapeVisible(hasNotch && !reduceMotion)
+        viewModel.setContentVisible(false)
         viewModel.setVisible(true)
-        positionOnScreenContainingMouse()
         orderFrontRegardless()
 
         DispatchQueue.main.async { [weak self] in
             guard let self, self.presentationID == id else { return }
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.72)) {
+            if reduceMotion {
+                withAnimation(Self.reduceMotionFade) {
+                    self.viewModel.setShapeVisible(true)
+                    self.viewModel.setContentVisible(true)
+                }
+                return
+            }
+            withAnimation(Self.pillFadeIn) {
+                self.viewModel.setShapeVisible(true)
+            }
+            withAnimation(Self.expandAnimation) {
                 self.viewModel.setExpanded(true)
+            }
+            withAnimation(Self.contentFadeIn) {
+                self.viewModel.setContentVisible(true)
             }
         }
     }
@@ -317,27 +348,48 @@ final class RecordingIndicatorPanel: NSPanel {
         presentationID += 1
         isPresented = false
         let id = presentationID
-        withAnimation(.easeIn(duration: 0.18)) {
-            viewModel.setExpanded(false)
+        let delay: TimeInterval
+        if viewModel.reduceMotion {
+            withAnimation(Self.reduceMotionFade) {
+                viewModel.setShapeVisible(false)
+                viewModel.setContentVisible(false)
+            }
+            delay = Self.reduceMotionFadeDuration
+        } else {
+            withAnimation(Self.contentFadeOut) {
+                viewModel.setContentVisible(false)
+            }
+            withAnimation(Self.collapseAnimation) {
+                viewModel.setExpanded(false)
+            }
+            if viewModel.layout.notchWidth == 0 {
+                withAnimation(Self.pillFadeOut) {
+                    viewModel.setShapeVisible(false)
+                }
+            }
+            delay = Self.collapseDuration
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.presentationID == id else { return }
             self.orderOut(nil)
             self.viewModel.setVisible(false)
+            self.viewModel.setShapeVisible(false)
             self.viewModel.setMode(.recording)
             self.viewModel.reset()
         }
     }
 
-    private func positionOnScreenContainingMouse() {
+    // Returns whether the island sits in a notch, where the collapsed shape hides black-on-black.
+    private func positionOnScreenContainingMouse() -> Bool {
         let mouseLocation = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? NSScreen.main
-        guard let screen else { return }
+        guard let screen else { return false }
 
         let layout = IslandLayout.forScreen(screen)
         viewModel.setLayout(layout)
-        let size = layout.size
+        let size = layout.panelSize
         let origin = NSPoint(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height)
         setFrame(NSRect(origin: origin, size: size), display: true)
+        return layout.notchWidth > 0
     }
 }
