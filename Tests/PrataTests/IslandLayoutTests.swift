@@ -31,7 +31,7 @@ final class IslandLayoutTests: XCTestCase {
     }
 
     func testNotchMaxBarHeightNeverDropsBelowMinBarHeight() {
-        let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 10)
+        let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 4)
         XCTAssertEqual(layout.maxBarHeight, 3)
     }
 
