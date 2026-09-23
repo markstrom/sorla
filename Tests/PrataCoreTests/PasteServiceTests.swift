@@ -3,16 +3,32 @@ import AppKit
 @testable import PrataCore
 
 final class PasteServiceTests: XCTestCase {
-    private var savedClipboard: String?
+    private var savedPasteboardItems: [[NSPasteboard.PasteboardType: Data]]?
 
     override func setUp() {
-        savedClipboard = NSPasteboard.general.string(forType: .string)
+        let items = NSPasteboard.general.pasteboardItems ?? []
+        savedPasteboardItems = items.map { item in
+            var itemData: [NSPasteboard.PasteboardType: Data] = [:]
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    itemData[type] = data
+                }
+            }
+            return itemData
+        }
     }
 
     override func tearDown() {
         NSPasteboard.general.clearContents()
-        if let savedClipboard {
-            NSPasteboard.general.setString(savedClipboard, forType: .string)
+        if let savedPasteboardItems, !savedPasteboardItems.isEmpty {
+            let items = savedPasteboardItems.map { itemData -> NSPasteboardItem in
+                let item = NSPasteboardItem()
+                for (type, data) in itemData {
+                    item.setData(data, forType: type)
+                }
+                return item
+            }
+            NSPasteboard.general.writeObjects(items)
         }
     }
 
