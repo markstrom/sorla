@@ -7,17 +7,16 @@ struct IslandLayout: Equatable {
     var sideWidth: CGFloat
     var height: CGFloat
 
-    static let compactWidth: CGFloat = 240
+    static let compactWidth: CGFloat = 190
     static let compactCollapsedWidth: CGFloat = 36
     static let overshootMargin: CGFloat = 12
-    static let extraDepth: CGFloat = 14
     static let notchBarCount = 5
     static let notchStatusSize: CGFloat = 16
     static let minBarHeight: CGFloat = 3
     static let barWidth: CGFloat = 3
     static let barSpacing: CGFloat = 3
     private static let notchContentPadding: CGFloat = 10
-    private static let notchBarHeightMargin: CGFloat = 12
+    private static let barHeightMargin: CGFloat = 12
 
     var size: NSSize {
         notchWidth > 0
@@ -34,9 +33,9 @@ struct IslandLayout: Equatable {
         NSSize(width: size.width + 2 * Self.overshootMargin, height: height)
     }
 
-    // The tallest bar the notch's 5-bar waveform can draw while leaving a small margin top and bottom.
-    var notchMaxBarHeight: CGFloat {
-        max(Self.minBarHeight, height - Self.notchBarHeightMargin)
+    // Bars stay inside the tab with a small margin top and bottom.
+    var maxBarHeight: CGFloat {
+        max(Self.minBarHeight, height - Self.barHeightMargin)
     }
 
     static func forScreen(_ screen: NSScreen) -> IslandLayout {
@@ -61,7 +60,7 @@ struct IslandLayout: Equatable {
     }
 
     static func compactLayout(menuBarHeight: CGFloat) -> IslandLayout {
-        let height = (menuBarHeight > 0 ? menuBarHeight : 30) + extraDepth
+        let height = menuBarHeight > 0 ? menuBarHeight : 30
         return IslandLayout(notchWidth: 0, sideWidth: 0, height: height)
     }
 }
@@ -127,10 +126,9 @@ struct RecordingIndicatorView: View {
 
     private let compactBarCount = 15
     private let minBarHeight = IslandLayout.minBarHeight
-    private let maxBarHeight: CGFloat = 26
     private let barWidth = IslandLayout.barWidth
     private let barSpacing = IslandLayout.barSpacing
-    private let edgePadding: CGFloat = 18
+    private let edgePadding: CGFloat = 14
     private let pulsePeriod = 1.2
     private let barGradient = LinearGradient(
         colors: [.white, Color(red: 0.84, green: 0.92, blue: 1)],
@@ -178,7 +176,7 @@ struct RecordingIndicatorView: View {
                 statusIndicator(time: time)
                     .frame(width: layout.sideWidth, alignment: .center)
                 Color.clear.frame(width: layout.notchWidth)
-                bars(time: time, barCount: IslandLayout.notchBarCount, maxHeight: layout.notchMaxBarHeight)
+                bars(time: time, barCount: IslandLayout.notchBarCount, maxHeight: layout.maxBarHeight)
                     .frame(width: layout.sideWidth, alignment: .center)
             }
         } else {
@@ -186,12 +184,12 @@ struct RecordingIndicatorView: View {
                 HStack(spacing: 8) {
                     statusIndicator(time: time)
                     Image(systemName: "mic.fill")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(viewModel.mode == .transcribing ? .white.opacity(0.4) : .white)
-                        .frame(width: 18, height: 18)
+                        .frame(width: 14, height: 14)
                 }
                 Spacer(minLength: 0)
-                bars(time: time, barCount: compactBarCount, maxHeight: maxBarHeight)
+                bars(time: time, barCount: compactBarCount, maxHeight: layout.maxBarHeight)
             }
             .padding(.horizontal, edgePadding)
         }
@@ -217,7 +215,7 @@ struct RecordingIndicatorView: View {
         let phase = time.truncatingRemainder(dividingBy: pulsePeriod) / pulsePeriod
         return Circle()
             .fill(Color.red)
-            .frame(width: 10, height: 10)
+            .frame(width: 8, height: 8)
             .opacity(0.775 + 0.225 * cos(2 * .pi * phase))
     }
 
@@ -267,7 +265,7 @@ final class RecordingIndicatorPanel: NSPanel {
 
     init() {
         super.init(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: IslandLayout.compactWidth, height: 44)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: IslandLayout.compactWidth, height: 30)),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false

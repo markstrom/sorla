@@ -27,25 +27,25 @@ final class IslandLayoutTests: XCTestCase {
 
     func testNotchMaxBarHeightIsScaledToNotchHeight() {
         let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 32)
-        XCTAssertEqual(layout.notchMaxBarHeight, 20)
+        XCTAssertEqual(layout.maxBarHeight, 20)
     }
 
     func testNotchMaxBarHeightNeverDropsBelowMinBarHeight() {
         let layout = IslandLayout.notchLayout(notchWidth: 200, notchHeight: 10)
-        XCTAssertEqual(layout.notchMaxBarHeight, 3)
+        XCTAssertEqual(layout.maxBarHeight, 3)
     }
 
     func testCompactLayoutIsUnchangedForScreensWithoutANotch() {
         let layout = IslandLayout.compactLayout(menuBarHeight: 24)
         XCTAssertEqual(layout.notchWidth, 0)
         XCTAssertEqual(layout.sideWidth, 0)
-        XCTAssertEqual(layout.height, 24 + IslandLayout.extraDepth)
-        XCTAssertEqual(layout.size, NSSize(width: IslandLayout.compactWidth, height: 24 + IslandLayout.extraDepth))
+        XCTAssertEqual(layout.height, 24)
+        XCTAssertEqual(layout.size, NSSize(width: IslandLayout.compactWidth, height: 24))
     }
 
     func testCompactLayoutFallsBackToThirtyWhenMenuBarHeightIsZero() {
         let layout = IslandLayout.compactLayout(menuBarHeight: 0)
-        XCTAssertEqual(layout.height, 30 + IslandLayout.extraDepth)
+        XCTAssertEqual(layout.height, 30)
     }
 
     func testNotchCollapsedWidthIsExactlyTheNotchSoItHidesBlackOnBlack() {
@@ -55,7 +55,7 @@ final class IslandLayoutTests: XCTestCase {
 
     func testCompactCollapsedSizeIsASmallPillAtFullHeight() {
         let layout = IslandLayout.compactLayout(menuBarHeight: 24)
-        XCTAssertEqual(layout.collapsedSize, NSSize(width: 36, height: 24 + IslandLayout.extraDepth))
+        XCTAssertEqual(layout.collapsedSize, NSSize(width: 36, height: 24))
     }
 
     func testPanelLeavesRoomOnBothSidesForTheSpringOvershoot() {
