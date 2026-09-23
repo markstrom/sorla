@@ -8,7 +8,7 @@ public final class RecordingController {
     private let recorder = AudioRecorder()
     private var engine: TranscriptionEngine
     private var modelName: String
-    private let tailDuration: TimeInterval
+    public let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.prata.app", category: "RecordingController")
 
     public private(set) var isRecording = false

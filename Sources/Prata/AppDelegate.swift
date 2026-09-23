@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import KeyboardShortcuts
 import PrataCore
+import os
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -13,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
     private var pendingStartSound: Task<Void, Never>?
+    private static let logger = Logger(subsystem: "com.prata.app", category: "AppDelegate")
     private var modelMenuItems: [SpeechModel: NSMenuItem] = [:]
     private var pasteLastMenuItem: NSMenuItem!
     private var triggerHintMenuItem: NSMenuItem!
@@ -101,9 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self else { return }
                 self.pendingStartSound?.cancel()
                 guard self.recordingController.stopRecordingAndTranscribe() else { return }
-                if self.appSettings.playSounds {
-                    self.feedbackSounds.playStop()
-                }
+                self.playStopSoundAfterTail()
             },
             onCancel: { [weak self] in
                 self?.pendingStartSound?.cancel()
@@ -182,12 +182,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // The status menu doesn't activate Prata, so it is only frontmost here when Settings is key.
     @objc private func pasteLastTranscription() {
         let ownPID = NSRunningApplication.current.processIdentifier
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID,
-              let previousApp = frontmostAppBeforeSettingsActivated,
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID else {
+            recordingController.pasteLastTranscript()
+            return
+        }
+        guard let previousApp = frontmostAppBeforeSettingsActivated,
               previousApp.processIdentifier != ownPID,
               !previousApp.isTerminated
         else {
-            recordingController.pasteLastTranscript()
+            Self.logger.info("paste last skipped (no app to paste into)")
             return
         }
         recordingController.pasteLastTranscript {
@@ -254,6 +257,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private static func width(of string: String, font: NSFont) -> CGFloat {
         ceil((string as NSString).size(withAttributes: [.font: font]).width)
+    }
+
+    // The mic keeps recording for the tail after release, so the chirp waits until it's closed.
+    private func playStopSoundAfterTail() {
+        guard appSettings.playSounds else { return }
+        let delay = recordingController.tailDuration
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            self?.feedbackSounds.playStop()
+        }
     }
 
     // In push-to-talk a press only becomes a dictation after the minimum hold, so ⌘-shortcuts stay silent.
