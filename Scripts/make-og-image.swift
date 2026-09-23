@@ -31,7 +31,7 @@ let accent = NSColor(srgbRed: 1, green: 0.48, blue: 0.35, alpha: 1)
 text("Sorla", size: 44, weight: .semibold, color: muted, at: NSPoint(x: 460, y: 410))
 text("Prata. Släpp.", size: 84, weight: .bold, color: ink, at: NSPoint(x: 456, y: 300), kern: -2.5)
 text("Klart.", size: 84, weight: .bold, color: accent, at: NSPoint(x: 456, y: 205), kern: -2.5)
-text("Svensk diktering för Mac, helt på enheten", size: 30, weight: .regular, color: muted, at: NSPoint(x: 460, y: 150))
+text("Svensk diktering för Mac. Allt stannar på datorn", size: 30, weight: .regular, color: muted, at: NSPoint(x: 460, y: 150))
 text("Gratis · Öppen källkod · sorla.zerolabs.se", size: 26, weight: .medium, color: muted, at: NSPoint(x: 460, y: 100))
 
 NSGraphicsContext.restoreGraphicsState()
