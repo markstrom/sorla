@@ -29,4 +29,19 @@ public enum PianissimoModel {
             FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
         }
     }
+
+    public static var installedVersion: String? {
+        installedVersion(at: directory)
+    }
+
+    public static func installedVersion(at directory: URL) -> String? {
+        struct Manifest: Decodable {
+            struct Model: Decodable { let version: String }
+            let models: [Model]
+        }
+        guard let data = try? Data(contentsOf: directory.appendingPathComponent("manifest.json")),
+              let manifest = try? JSONDecoder().decode(Manifest.self, from: data)
+        else { return nil }
+        return manifest.models.first?.version
+    }
 }

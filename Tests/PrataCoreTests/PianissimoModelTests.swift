@@ -49,4 +49,22 @@ final class PianissimoModelTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
     }
+
+    func testInstalledVersionIsReadFromTheManifest() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let manifest = #"{"schema":1,"models":[{"id":"pianissimo-sv","version":"1.2.3"}]}"#
+        try manifest.write(to: directory.appendingPathComponent("manifest.json"), atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(PianissimoModel.installedVersion(at: directory), "1.2.3")
+    }
+
+    func testInstalledVersionIsNilWithoutAManifest() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        XCTAssertNil(PianissimoModel.installedVersion(at: directory))
+    }
 }

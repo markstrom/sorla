@@ -12,6 +12,14 @@ struct SettingsView: View {
 
     private static let logger = Logger(subsystem: "com.prata.app", category: "SettingsView")
 
+    private var modelStatus: String {
+        guard PianissimoModel.isInstalled else { return "Not installed" }
+        if let version = PianissimoModel.installedVersion {
+            return "Version \(version) · Installed"
+        }
+        return "Installed"
+    }
+
     var body: some View {
         Form {
             Picker("Trigger", selection: $appSettings.triggerKey) {
@@ -45,6 +53,13 @@ struct SettingsView: View {
             ))
             .font(.caption)
             .foregroundStyle(.secondary)
+
+            Picker("Model", selection: .constant(PianissimoModel.displayName)) {
+                Text(PianissimoModel.displayName).tag(PianissimoModel.displayName)
+            }
+            Text(modelStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
 
