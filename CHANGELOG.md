@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Opening Sorla again while it runs shows Settings, which now has a Quit button. The menu bar icon can be hidden behind the notch.
+- English tagline: "Talk. Release. Done."
+
 ## 1.0.0 — 2026-09-24
 
 The first public release.
