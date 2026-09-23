@@ -64,10 +64,7 @@ public final class ModelManager: ObservableObject {
         let version = installedVersion
         Self.logger.info("model manager started: installed=\(installed, privacy: .public) version=\(version ?? "unknown", privacy: .public) automaticChecks=\(self.automaticChecks, privacy: .public) automaticDownloads=\(self.automaticDownloads, privacy: .public)")
         if installed {
-            let removed = ModelStaging.removeStale(in: installer.modelsDirectory, installedVersion: version)
-            if !removed.isEmpty {
-                Self.logger.info("removed stale staging: \(removed.joined(separator: ", "), privacy: .public)")
-            }
+            removeUnneededStaging(installedVersion: version)
         }
         status = installed ? .installed(version: version) : .notInstalled
         switch ModelUpdatePolicy.launchAction(isInstalled: installed, autoCheck: automaticChecks) {
@@ -224,6 +221,17 @@ public final class ModelManager: ObservableObject {
             Self.logger.info("removed staging for \(version, privacy: .public)")
         } catch {
             Self.logger.error("couldn't remove staging for \(version, privacy: .public): \(ErrorSummary.of(error), privacy: .public)")
+        }
+    }
+
+    // Without automatic downloads nothing would resume a leftover update, so it would only take up space.
+    private func removeUnneededStaging(installedVersion: String?) {
+        let modelsDirectory = installer.modelsDirectory
+        let removed = automaticDownloads
+            ? ModelStaging.removeStale(in: modelsDirectory, installedVersion: installedVersion)
+            : ModelStaging.removeEverything(in: modelsDirectory)
+        if !removed.isEmpty {
+            Self.logger.info("removed unneeded staging: \(removed.joined(separator: ", "), privacy: .public)")
         }
     }
 

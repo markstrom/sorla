@@ -117,6 +117,20 @@ final class ModelStagingTests: XCTestCase {
         XCTAssertEqual(DiskSpace.required(forDownloadOf: .max), .max)
     }
 
+    func testRemovingEverythingClearsAllVersionsAndTheRoot() throws {
+        for version in ["1.0.0", "2.0.0"] {
+            try FileManager.default.createDirectory(
+                at: ModelStaging(modelsDirectory: modelsDirectory, version: version).downloadsDirectory,
+                withIntermediateDirectories: true
+            )
+        }
+
+        let removed = ModelStaging.removeEverything(in: modelsDirectory)
+
+        XCTAssertEqual(removed.sorted(), ["pianissimo-sv-1.0.0", "pianissimo-sv-2.0.0"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: modelsDirectory.appendingPathComponent(ModelStaging.rootName).path))
+    }
+
     func testDiskSpaceNeedsTwiceTheDownload() {
         XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_257_471), 1_376_514_942)
         XCTAssertTrue(DiskSpace.hasRoom(available: 1_376_514_942, forDownloadOf: 688_257_471))

@@ -375,6 +375,28 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: staging.root.path))
     }
 
+    func testStartRemovesAllStagingWhenAutomaticDownloadsAreOff() async throws {
+        try installModel(version: "1.0.0")
+        let newer = ModelStaging(modelsDirectory: modelsDirectory, version: "2.0.0")
+        try FileManager.default.createDirectory(at: newer.downloadsDirectory, withIntermediateDirectories: true)
+        let manager = makeManager(autoDownload: false)
+
+        manager.start()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: newer.root.path))
+    }
+
+    func testStartKeepsNewerStagingToResumeWhenAutomaticDownloadsAreOn() async throws {
+        try installModel(version: "1.0.0")
+        let newer = ModelStaging(modelsDirectory: modelsDirectory, version: "2.0.0")
+        try FileManager.default.createDirectory(at: newer.downloadsDirectory, withIntermediateDirectories: true)
+        let manager = makeManager(autoDownload: true)
+
+        manager.start()
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: newer.directory.path))
+    }
+
     func testStartRestoresTheOldModelAfterAnInterruptedRollback() async throws {
         try installModel(version: "1.0.0")
         try FileManager.default.moveItem(at: swap.installed, to: swap.previous)

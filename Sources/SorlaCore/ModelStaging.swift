@@ -62,6 +62,15 @@ public struct ModelStaging: Sendable {
         return removed
     }
 
+    @discardableResult
+    public static func removeEverything(in modelsDirectory: URL) -> [String] {
+        let root = modelsDirectory.appendingPathComponent(rootName, isDirectory: true)
+        let entries = (try? FileManager.default.contentsOfDirectory(atPath: root.path)) ?? []
+        let removed = entries.filter { (try? FileManager.default.removeItem(at: root.appendingPathComponent($0))) != nil }
+        removeRootIfEmpty(root)
+        return removed
+    }
+
     private static func removeRootIfEmpty(_ root: URL) {
         if let remaining = try? FileManager.default.contentsOfDirectory(atPath: root.path), remaining.isEmpty {
             try? FileManager.default.removeItem(at: root)
