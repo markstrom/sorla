@@ -3,7 +3,9 @@ import PrataCore
 import SwiftUI
 
 @MainActor
-final class SettingsWindowController: NSWindowController {
+final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    var onKeyStateChange: ((Bool) -> Void)?
+
     convenience init(appSettings: AppSettings) {
         let window = NSWindow(
             contentRect: .zero,
@@ -17,10 +19,23 @@ final class SettingsWindowController: NSWindowController {
         window.center()
 
         self.init(window: window)
+        window.delegate = self
     }
 
     func show() {
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        onKeyStateChange?(true)
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        onKeyStateChange?(false)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onKeyStateChange?(false)
     }
 }

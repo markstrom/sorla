@@ -13,6 +13,17 @@ public final class TriggerMonitor {
     private var isCustomShortcutActive = false
     private var isRecordingActive = false
 
+    public var isSuspended = false {
+        didSet {
+            guard isSuspended, isSuspended != oldValue else { return }
+            if isRecordingActive {
+                isRecordingActive = false
+                onCancel()
+            }
+            gesture.reset()
+        }
+    }
+
     private let onStart: () -> Bool
     private let onFinish: () -> Void
     private let onCancel: () -> Void
@@ -98,20 +109,21 @@ public final class TriggerMonitor {
 
         KeyboardShortcuts.onKeyDown(for: .prataCustomTrigger) { [weak self] in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self, !self.isSuspended else { return }
                 self.dispatch(self.gesture.handle(.triggerDown(at: ProcessInfo.processInfo.systemUptime)))
             }
         }
 
         KeyboardShortcuts.onKeyUp(for: .prataCustomTrigger) { [weak self] in
             MainActor.assumeIsolated {
-                guard let self else { return }
+                guard let self, !self.isSuspended else { return }
                 self.dispatch(self.gesture.handle(.triggerUp(at: ProcessInfo.processInfo.systemUptime)))
             }
         }
     }
 
     private func handleModifierEvent(_ event: NSEvent, keyCode: UInt16, deviceMask: UInt) {
+        guard !isSuspended else { return }
         let action: PushToTalkGesture.Action?
 
         switch event.type {

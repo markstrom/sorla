@@ -102,7 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func showSettings() {
         if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController(appSettings: appSettings)
+            let controller = SettingsWindowController(appSettings: appSettings)
+            controller.onKeyStateChange = { [weak self] isKey in
+                self?.triggerMonitor?.isSuspended = isKey
+            }
+            settingsWindowController = controller
         }
         settingsWindowController?.show()
     }
