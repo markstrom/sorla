@@ -32,6 +32,8 @@ struct SettingsView: View {
 
     private static let updatesSectionID = "updates"
 
+    private static let keepLastTranscriptionDescription = String(localized: "Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once.")
+
     var body: some View {
         ScrollViewReader { proxy in
             form
@@ -124,10 +126,15 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
         }
 
+        Toggle("Keep last transcription", isOn: $appSettings.keepLastTranscription)
+            .help(Text(Self.keepLastTranscriptionDescription))
+            .accessibilityHint(Text(Self.keepLastTranscriptionDescription))
+
         LabeledContent("Paste last transcription") {
             ShortcutField(name: .pasteLastTranscription, accessibilityLabel: String(localized: "Paste last transcription"))
                 .frame(width: Self.recorderWidth)
         }
+        .disabled(!appSettings.keepLastTranscription)
 
         Toggle("Launch at login", isOn: launchAtLoginBinding)
 

@@ -383,4 +383,82 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(announced.map(\.text), ["Pasting text"])
         XCTAssertEqual(announced.map(\.microphoneRunning), [false])
     }
+
+    // MARK: - Keep last transcription (#40)
+
+    func testWithTheSettingOffADictationIsPastedButNotKept() async {
+        controller.keepsLastTranscript = false
+
+        await deliverOneDictation("A")
+
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertNil(controller.lastTranscript())
+    }
+
+    func testTurningTheSettingOffForgetsTheKeptText() async {
+        await deliverOneDictation("A")
+        XCTAssertEqual(controller.lastTranscript(), "A")
+
+        controller.keepsLastTranscript = false
+
+        XCTAssertNil(controller.lastTranscript())
+    }
+
+    func testADictationInFlightWhenTheSettingIsTurnedOffIsNotKept() async {
+        let job = await dictate(call: 0)
+
+        controller.keepsLastTranscript = false
+        await engine.finish(0, with: "A")
+        await job.value
+        await clock.waitForSleeps(2)
+
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertNil(controller.lastTranscript())
+    }
+
+    func testTurningTheSettingOffCancelsAPasteLastWaitingForTheKeys() async {
+        await deliverOneDictation("A")
+        let writesBefore = paste.writes
+        await pasteLastWithTheShortcut()
+
+        controller.keepsLastTranscript = false
+        modifiersHeld = false
+        await clock.advance(by: ModifierRelease.pollInterval)
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.writes, writesBefore)
+    }
+
+    func testTurningTheSettingOffAndOnDoesNotBringBackAQueuedPasteLast() async {
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await clock.waitForSleeps(2)
+        controller.pasteLastTranscript()
+        for _ in 0..<5 { await Task.yield() }
+
+        controller.keepsLastTranscript = false
+        controller.keepsLastTranscript = true
+        await clock.advance(by: settle)
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.writes, ["A"])
+        XCTAssertNil(controller.lastTranscript())
+    }
+
+    func testTurningTheSettingBackOnKeepsOnlyNewDictations() async {
+        await deliverOneDictation("A")
+        controller.keepsLastTranscript = false
+        controller.keepsLastTranscript = true
+        XCTAssertNil(controller.lastTranscript())
+
+        let job = await dictate(call: 1)
+        await engine.finish(1, with: "B")
+        await job.value
+        await clock.waitForSleeps(4)
+
+        XCTAssertEqual(controller.lastTranscript(), "B")
+        controller.forgetLastTranscript()
+        XCTAssertNil(controller.lastTranscript())
+    }
 }

@@ -23,7 +23,17 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.triggerKey, .rightCommand)
         XCTAssertEqual(settings.recordingMode, .pushToTalk)
         XCTAssertTrue(settings.keepClipboardContent)
+        XCTAssertTrue(settings.keepLastTranscription)
         XCTAssertTrue(settings.playSounds)
+    }
+
+    func testKeepLastTranscriptionPersistsImmediatelyAndRoundTrips() {
+        let settings = AppSettings(defaults: defaults)
+
+        settings.keepLastTranscription = false
+
+        XCTAssertEqual(defaults.object(forKey: "keepLastTranscription") as? Bool, false)
+        XCTAssertFalse(AppSettings(defaults: defaults).keepLastTranscription)
     }
 
     func testPlaySoundsPersistsImmediatelyAndRoundTrips() {

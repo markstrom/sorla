@@ -30,7 +30,7 @@ Sorla also builds on:
 - **Push to talk or toggle.** Hold the key while you speak, or press once to start and once more to stop.
 - **Your key.** Right ⌘ by default. Pick Right ⌥, Right ⌃ or a custom shortcut instead.
 - **A small indicator** at the top of the screen, with a live waveform while you speak.
-- **Paste Last.** ⌃⌥V pastes the most recent text again, wherever you are now. The text is kept for five minutes, and forgotten at once when the screen locks or the Mac sleeps.
+- **Paste Last.** ⌃⌥V pastes the most recent text again, wherever you are now. The text is kept for five minutes, and forgotten at once when the screen locks or the Mac sleeps. Turn off **Keep last transcription** in Settings and no text is kept at all once it has been pasted.
 - **Your clipboard is kept.** Whatever you had copied is still there after Sorla pastes.
 - Soft start and stop sounds, and optional launch at login.
 - English and Swedish user interface.
@@ -73,7 +73,7 @@ If macOS says Sorla can't be opened, either:
 
 ## Privacy
 
-Your voice and your text never leave your Mac. Audio is processed in memory and never saved. The last text stays in memory for Paste Last for at most five minutes.
+Your voice and your text never leave your Mac. Audio is processed in memory and never saved. The last text stays in memory for Paste Last for at most five minutes, or not at all with Keep last transcription turned off.
 
 Sorla uses the network only to:
 

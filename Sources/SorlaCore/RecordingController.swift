@@ -39,6 +39,19 @@ public final class RecordingController {
     private var transcriptExpiry: Task<Void, Never>?
     private var isPasteLastInFlight = false
     private var pasteLastRequest: Task<Void, Never>?
+    // Bumped when a waiting Paste Last is called off, since it may already be queued behind a delivery.
+    private var pasteLastToken = 0
+
+    // Off, Paste Last has nothing to recover: no text is kept, and turning it off forgets what was.
+    public var keepsLastTranscript = true {
+        didSet {
+            guard !keepsLastTranscript else { return }
+            transcriptExpiry?.cancel()
+            transcriptExpiry = nil
+            cancelPasteLast()
+            recentTranscript.clear()
+        }
+    }
 
     private let pasteEnvironment: PasteEnvironment
     private var deliveryOrder = DeliveryOrder<FinishedDictation>()
@@ -170,7 +183,7 @@ public final class RecordingController {
         do {
             try recorder.start()
             // The new dictation owns the cursor now.
-            pasteLastRequest?.cancel()
+            cancelPasteLast()
             isRecording = true
             recordingID = phaseTracker.beginRecording()
             deviceSeemedMuted = false
@@ -364,6 +377,7 @@ public final class RecordingController {
 
     // One one-shot expiry per transcript, replaced by the next one, so nothing runs while idle.
     private func keepLastTranscript(_ text: String) {
+        guard keepsLastTranscript else { return }
         recentTranscript.store(text, at: Date())
         transcriptExpiry?.cancel()
         transcriptExpiry = Task { @MainActor [weak self] in
@@ -377,7 +391,7 @@ public final class RecordingController {
     public func forgetLastTranscript() {
         transcriptExpiry?.cancel()
         transcriptExpiry = nil
-        pasteLastRequest?.cancel()
+        cancelPasteLast()
         recentTranscript.forget()
         for dropped in deliveryOrder.dropAll() {
             updatePhase { $0.finish(dropped.id) }
@@ -397,6 +411,7 @@ public final class RecordingController {
         }
         isPasteLastInFlight = true
         let generation = recentTranscript.generation
+        let token = pasteLastToken
         pasteLastRequest = Task { @MainActor in
             defer { self.isPasteLastInFlight = false }
             let preparation = await prepare()
@@ -405,7 +420,7 @@ public final class RecordingController {
                 return
             }
             await self.enqueueDelivery {
-                guard self.recentTranscript.accepts(from: generation) else {
+                guard self.recentTranscript.accepts(from: generation), token == self.pasteLastToken else {
                     self.logger.info("paste-last skipped (the text was forgotten)")
                     return
                 }
@@ -424,6 +439,11 @@ public final class RecordingController {
                 await self.settleClipboard(outcome)
             }.value
         }
+    }
+
+    private func cancelPasteLast() {
+        pasteLastRequest?.cancel()
+        pasteLastToken += 1
     }
 
     private struct PasteOutcome {

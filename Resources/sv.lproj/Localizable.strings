@@ -168,3 +168,5 @@
 "No microphone found" = "Ingen mikrofon hittades";
 "Couldn't transcribe the recording" = "Inspelningen kunde inte transkriberas";
 "Pasting text" = "Klistrar in texten";
+"Keep last transcription" = "Spara senaste transkriberingen";
+"Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once." = "Håller din senaste text i minnet i upp till fem minuter så att Klistra in senaste transkriberingen kan infoga den igen. Stänger du av det glöms texten direkt.";

@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusMenuItem: NSMenuItem!
     private var statusMenuAction: MenuStatusAction?
     private var pasteLastMenuItem: NSMenuItem!
+    private var isSettingsKey = false
     private var triggerHintMenuItem: NSMenuItem!
     private var appBeforeSorlaActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
@@ -59,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelName: PianissimoModel.displayName
         )
         recordingController.keepClipboardContent = appSettings.keepClipboardContent
+        recordingController.keepsLastTranscript = appSettings.keepLastTranscription
 
         modelManager = ModelManager(
             installer: ModelInstaller(
@@ -234,6 +236,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
+        appSettings.$keepLastTranscription
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] keep in
+                self?.keepLastTranscriptionDidChange(keep)
+            }
+            .store(in: &cancellables)
+        updatePasteLastShortcut(keepLastTranscription: appSettings.keepLastTranscription)
+
         // Someone else at the Mac shouldn't be able to paste what was last dictated, or keep the microphone open.
         Publishers.MergeMany(
             NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification),
@@ -324,12 +335,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 announce: { [weak self] text in self?.announce(text) }
             )
             controller.onKeyStateChange = { [weak self] isKey in
-                self?.triggerMonitor?.isSuspended = isKey
-                if isKey {
-                    KeyboardShortcuts.disable(.pasteLastTranscription)
-                } else {
-                    KeyboardShortcuts.enable(.pasteLastTranscription)
-                }
+                guard let self else { return }
+                self.triggerMonitor?.isSuspended = isKey
+                self.isSettingsKey = isKey
+                self.updatePasteLastShortcut()
             }
             settingsWindowController = controller
         }
@@ -423,8 +432,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             showSettings()
         case .openSoundSettings:
             if let url = SorlaIssue.microphoneMuted.settingsURL { NSWorkspace.shared.open(url) }
-        case .pasteLastTranscription:
+        case .pasteLastTranscription where appSettings.keepLastTranscription:
             pasteLastTranscription()
+        case .pasteLastTranscription:
+            transientStatus = nil
+            updateStatusMenuItem()
         case .dismiss:
             transientStatus = nil
             updateStatusMenuItem()
@@ -444,6 +456,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if transientStatus?.row.action == .pasteLastTranscription {
             transientStatus = nil
             updateStatusMenuItem()
+        }
+    }
+
+    private func keepLastTranscriptionDidChange(_ keep: Bool) {
+        recordingController.keepsLastTranscript = keep
+        updatePasteLastShortcut(keepLastTranscription: keep)
+        guard !keep else { return }
+        pasteLastMenuItem.isEnabled = false
+        if transientStatus?.row.action == .pasteLastTranscription {
+            transientStatus = nil
+            updateStatusMenuItem()
+        }
+    }
+
+    // Off while Settings is key, where it could be recording a new shortcut, and while nothing is kept to paste.
+    // @Published calls its sinks before the value changes, so the setting's sink passes the new value in.
+    private func updatePasteLastShortcut(keepLastTranscription: Bool? = nil) {
+        if keepLastTranscription ?? appSettings.keepLastTranscription, !isSettingsKey {
+            KeyboardShortcuts.enable(.pasteLastTranscription)
+        } else {
+            KeyboardShortcuts.disable(.pasteLastTranscription)
         }
     }
 
@@ -572,8 +605,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateStatusMenuItem()
     }
 
+    // Without a kept transcription the text on the clipboard is only reachable with ⌘V.
     private var currentPasteShortcut: String? {
-        KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
+        guard appSettings.keepLastTranscription else { return nil }
+        return KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
     }
 
     private func presentCue(_ cue: DictationCue) {

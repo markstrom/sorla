@@ -168,3 +168,5 @@
 "No microphone found" = "No microphone found";
 "Couldn't transcribe the recording" = "Couldn't transcribe the recording";
 "Pasting text" = "Pasting text";
+"Keep last transcription" = "Keep last transcription";
+"Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once." = "Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once.";
