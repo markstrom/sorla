@@ -6,6 +6,12 @@ final class SorlaWindow: NSWindow {
     private static let logger = Logger(subsystem: "com.sorla.app", category: "SorlaWindow")
     private var activationObserver: NSObjectProtocol?
 
+    override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+        super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+        // Opens on the Space in use, over a full-screen app too, instead of switching to the Space it was last on.
+        collectionBehavior.formUnion([.moveToActiveSpace, .fullScreenAuxiliary])
+    }
+
     override func cancelOperation(_ sender: Any?) {
         performClose(sender)
     }
@@ -19,8 +25,6 @@ final class SorlaWindow: NSWindow {
     }
 
     private func bringForward(then didPresent: @escaping @MainActor (SorlaWindow) -> Void) {
-        // Opens on the Space in use, over a full-screen app too, instead of switching to the Space it was last on.
-        collectionBehavior.formUnion([.moveToActiveSpace, .fullScreenAuxiliary])
         if isMiniaturized {
             deminiaturize(nil)
         }
