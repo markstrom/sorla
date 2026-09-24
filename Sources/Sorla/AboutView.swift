@@ -1,13 +1,26 @@
+import SorlaCore
 import SwiftUI
 
 struct AboutView: View {
+    private enum UpdateState: Equatable {
+        case idle
+        case checking
+        case upToDate
+        case available(version: String)
+        case failed
+    }
+
+    @Environment(\.openURL) private var openURL
     @State private var showsLicenses = false
+    @State private var updateState = UpdateState.idle
+
+    private var shortVersion: String? {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+    }
 
     private var versionString: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? "—"
-        return String(localized: "Version \(short) (\(build))")
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        return String(localized: "Version \(shortVersion ?? "—") (\(build))")
     }
 
     var body: some View {
@@ -20,6 +33,8 @@ struct AboutView: View {
                 Text("Sorla").font(.title2.bold())
                 Text(versionString).font(.caption).foregroundStyle(.secondary)
             }
+
+            updateSection
 
             Text("Talk. Release. Done.").font(.headline)
 
@@ -71,6 +86,72 @@ struct AboutView: View {
         .padding(24)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var updateSection: some View {
+        VStack(spacing: 6) {
+            Button(String(localized: "Check for Updates")) {
+                checkForUpdates()
+            }
+            .controlSize(.small)
+            .disabled(updateState == .checking)
+
+            switch updateState {
+            case .idle:
+                EmptyView()
+            case .checking:
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel(String(localized: "Checking…"))
+                    Text(String(localized: "Checking…")).accessibilityHidden(true)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            case .upToDate:
+                updateMessage(String(localized: "You have the latest version."))
+            case .available(let version):
+                HStack(spacing: 8) {
+                    updateMessage(String(localized: "Sorla \(version) is available."))
+                    Button(String(localized: "Download")) {
+                        openURL(AppUpdateCheck.downloadPageURL)
+                    }
+                    .controlSize(.small)
+                }
+            case .failed:
+                updateMessage(String(localized: "Couldn't check for updates. Check your internet connection."))
+            }
+        }
+    }
+
+    private func updateMessage(_ text: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .accessibilityLabel(text)
+    }
+
+    private func checkForUpdates() {
+        updateState = .checking
+        let current = shortVersion
+        let source = URLSessionAppReleaseSource(appVersion: current ?? "dev")
+        Task {
+            let result = await AppUpdateCheck.check(currentVersion: current, source: source)
+            let message: String
+            switch result {
+            case .upToDate:
+                updateState = .upToDate
+                message = String(localized: "You have the latest version.")
+            case .available(let version):
+                updateState = .available(version: version)
+                message = String(localized: "Sorla \(version) is available.")
+            case .invalid:
+                updateState = .failed
+                message = String(localized: "Couldn't check for updates. Check your internet connection.")
+            }
+            AccessibilityNotification.Announcement(message).post()
+        }
     }
 
     @ViewBuilder

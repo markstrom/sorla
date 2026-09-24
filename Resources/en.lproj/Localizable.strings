@@ -108,6 +108,11 @@
 "License texts are included with the app." = "License texts are included with the app.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "The model is loading (~1 min). Dictation will work once it's ready.";
 "Talk. Release. Done." = "Talk. Release. Done.";
+"Check for Updates" = "Check for Updates";
+"Checking…" = "Checking…";
+"You have the latest version." = "You have the latest version.";
+"Sorla %@ is available." = "Sorla %@ is available.";
+"Couldn't check for updates. Check your internet connection." = "Couldn't check for updates. Check your internet connection.";
 
 /* Welcome */
 "Allow" = "Allow";

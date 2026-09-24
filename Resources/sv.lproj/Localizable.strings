@@ -108,6 +108,11 @@
 "License texts are included with the app." = "Licenstexterna följer med appen.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "Modellen läses in (~1 min). Diktering fungerar när den är klar.";
 "Talk. Release. Done." = "Prata. Släpp. Klart.";
+"Check for Updates" = "Sök efter uppdateringar";
+"Checking…" = "Söker…";
+"You have the latest version." = "Du har den senaste versionen.";
+"Sorla %@ is available." = "Sorla %@ finns.";
+"Couldn't check for updates. Check your internet connection." = "Kunde inte söka efter uppdateringar. Kontrollera internetanslutningen.";
 
 /* Welcome */
 "Allow" = "Tillåt";
