@@ -14,6 +14,9 @@ public final class RecordingController {
 
     public private(set) var isRecording = false
     private var isCapturingTail = false
+    // The microphone stays open for the tail after release, so this outlasts isRecording.
+    public var isMicrophoneOpen: Bool { isRecording || isCapturingTail }
+    public var onMicrophoneClosed: (() -> Void)?
     public var onStateChange: ((Bool) -> Void)?
     public var onSpectrum: ((SIMD8<Float>) -> Void)?
     public var onPhaseChange: ((DictationPhase) -> Void)?
@@ -237,19 +240,17 @@ public final class RecordingController {
     // The audio lives only in here, so it is let go as soon as the transcription is done.
     private func transcribe(generation: Int, deviceSeemedMuted: Bool, minimumSilence: TimeInterval) async -> DictationResult {
         await sleep(.seconds(tailDuration))
-        isCapturingTail = false
         // Locked during the tail: the audio would only be transcribed to be thrown away.
-        guard recentTranscript.accepts(from: generation) else {
-            recorder.cancel()
-            logger.info("recording dropped (the Mac locked, slept or switched user)")
-            return .dropped
-        }
-
+        let isForgotten = !recentTranscript.accepts(from: generation)
         let samples: [Float]
         do {
-            samples = try recorder.stop()
+            samples = try endTail(keepingAudio: !isForgotten)
         } catch {
             logger.error("failed to stop recording: \(String(describing: error), privacy: .public)")
+            return .dropped
+        }
+        guard !isForgotten else {
+            logger.info("recording dropped (the Mac locked, slept or switched user)")
             return .dropped
         }
 
@@ -285,6 +286,18 @@ public final class RecordingController {
             logger.error("\(self.modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
             return .failed
         }
+    }
+
+    private func endTail(keepingAudio: Bool) throws -> [Float] {
+        defer {
+            isCapturingTail = false
+            onMicrophoneClosed?()
+        }
+        guard keepingAudio else {
+            recorder.cancel()
+            return []
+        }
+        return try recorder.stop()
     }
 
     // A lock empties the delivery order, so a dictation from before it has nothing left to wait for.
@@ -478,6 +491,7 @@ public final class RecordingController {
         isRecording = false
         muteDetector = nil
         onStateChange?(false)
+        onMicrophoneClosed?()
         let dictationID = recordingID
         updatePhase { $0.cancel(dictationID) }
         logger.info("recording cancelled")

@@ -349,4 +349,38 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(controller.phase, .recording)
         controller.cancelRecording()
     }
+
+    // MARK: - VoiceOver waits for the microphone (#17)
+
+    func testAResultArrivingDuringTheNextRecordingsTailIsAnnouncedOnlyOnceTheMicrophoneHasClosed() async {
+        var gate = AnnouncementGate()
+        var announced: [(text: String, microphoneRunning: Bool)] = []
+        controller.onPaste = { [unowned self] in
+            if let text = gate.request("Pasting text", isMicrophoneOpen: self.controller.isMicrophoneOpen) {
+                announced.append((text, self.input.isRunning))
+            }
+        }
+        controller.onMicrophoneClosed = { [unowned self] in
+            if let text = gate.microphoneClosed() {
+                announced.append((text, self.input.isRunning))
+            }
+        }
+        let first = await dictate(call: 0)
+        record()
+        controller.stopRecordingAndTranscribe()
+        await clock.waitForSleeps(2)
+        XCTAssertFalse(controller.isRecording)
+        XCTAssertTrue(controller.isMicrophoneOpen)
+
+        await engine.finish(0, with: "A")
+        await first.value
+        await clock.waitForSleeps(3)
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertTrue(announced.isEmpty)
+
+        await clock.advance(by: tail)
+        XCTAssertFalse(controller.isMicrophoneOpen)
+        XCTAssertEqual(announced.map(\.text), ["Pasting text"])
+        XCTAssertEqual(announced.map(\.microphoneRunning), [false])
+    }
 }

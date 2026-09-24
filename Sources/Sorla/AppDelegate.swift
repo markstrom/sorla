@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isRefusedDictationHeld = false
     private var isStartingRecording = false
     private var startFailure: DictationCue?
-    private var pendingAnnouncement: String?
+    private var announcements = AnnouncementGate()
     private let recordingLimit = RecordingLimitWatch()
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
@@ -137,7 +137,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .transcribing: indicator.showTranscribing()
             case .idle:
                 indicator.hide()
-                self.postPendingAnnouncement()
             }
             self.updateIcon()
             self.updateStatusMenuItem()
@@ -152,9 +151,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.presentCue(cue)
         }
         recordingController.onPaste = { [weak self] in
-            // Sighted users see the text arrive; only VoiceOver needs to be told.
+            // Only VoiceOver needs telling, and only that ⌘V was sent: that doesn't prove the text landed.
             guard NSWorkspace.shared.isVoiceOverEnabled else { return }
-            self?.announce(String(localized: "Pasted"))
+            self?.announce(String(localized: "Pasting text"))
+        }
+        recordingController.onMicrophoneClosed = { [weak self] in
+            self?.postPendingAnnouncement()
         }
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
@@ -591,18 +593,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         announce(text)
     }
 
-    // Speech during a recording would be picked up by the microphone, so it waits until the recording ends.
     private func announce(_ text: String) {
-        guard !recordingController.isRecording else {
-            pendingAnnouncement = text
-            return
-        }
+        guard let text = announcements.request(text, isMicrophoneOpen: recordingController.isMicrophoneOpen) else { return }
         AccessibilityNotification.Announcement(text).post()
     }
 
     private func postPendingAnnouncement() {
-        guard let text = pendingAnnouncement else { return }
-        pendingAnnouncement = nil
+        guard let text = announcements.microphoneClosed() else { return }
         AccessibilityNotification.Announcement(text).post()
     }
 

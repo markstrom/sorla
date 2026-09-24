@@ -169,6 +169,13 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(swedishStrings["Install updates automatically"], "Installera uppdateringar automatiskt")
     }
 
+    // Sorla only knows it sent ⌘V, so VoiceOver hears the attempt, not a confirmed paste.
+    func testTheSuccessAnnouncementDescribesTheAttempt() throws {
+        XCTAssertEqual(try strings("en")["Pasting text"], "Pasting text")
+        XCTAssertEqual(try strings("sv")["Pasting text"], "Klistrar in texten")
+        XCTAssertNil(try strings("en")["Pasted"])
+    }
+
     func testSwedishDiskSpaceUsesADecimalComma() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(
