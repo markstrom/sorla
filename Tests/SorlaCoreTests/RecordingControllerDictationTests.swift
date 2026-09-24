@@ -32,6 +32,17 @@ final class RecordingControllerDictationTests: XCTestCase {
         controller.onPaste = { [unowned self] in events.append("pasted \(paste.contents ?? "")") }
     }
 
+    // Returns once the request made by `action` has reached the delivery queue.
+    private func untilEnqueued(_ action: () -> Void) async {
+        await withCheckedContinuation { continuation in
+            controller.didEnqueueDelivery = { [unowned self] in
+                controller.didEnqueueDelivery = nil
+                continuation.resume()
+            }
+            action()
+        }
+    }
+
     // One second of audio, well over the model's minimum.
     private func record() {
         XCTAssertTrue(controller.startRecording())
@@ -529,11 +540,11 @@ final class RecordingControllerDictationTests: XCTestCase {
         await engine.finish(0, with: "A")
         await job.value
         await clock.waitForSleeps(2)
-        controller.pasteLastTranscript()
-        for _ in 0..<5 { await Task.yield() }
+        await untilEnqueued { controller.pasteLastTranscript() }
 
         controller.keepsLastTranscript = false
         controller.keepsLastTranscript = true
+        await clock.waitForSleeps(3)
         await clock.advance(by: settle)
         await controller.deliveries?.value
 

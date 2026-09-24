@@ -61,6 +61,8 @@ public final class RecordingController {
     private(set) var deliveries: Task<Void, Never>?
     private var lastPasteAt: ContinuousClock.Instant?
     private(set) var clipboardRestore: Task<Void, Never>?
+    // Lets tests wait until a request has taken its place in line.
+    var didEnqueueDelivery: (() -> Void)?
 
     public init(
         engine: TranscriptionEngine,
@@ -385,6 +387,7 @@ public final class RecordingController {
     // Results and Paste Last are handled one after another, in order; only a pasteboard write waits for the last ⌘V.
     @discardableResult
     private func enqueueDelivery(_ work: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
+        didEnqueueDelivery?()
         let previous = deliveries
         let delivery = Task { @MainActor in
             await previous?.value
