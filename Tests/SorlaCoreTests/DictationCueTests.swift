@@ -59,12 +59,25 @@ final class RecordingCheckTests: XCTestCase {
     func testAQuietButRealRoomIsTranscribed() {
         XCTAssertEqual(RecordingCheck.assess(sampleCount: 2 * second, peak: 0.0005), .transcribable)
     }
+
+    func testASilentTakeShorterThanTheRoutesGraceIsNotBlamedOnTheMicrophone() {
+        XCTAssertEqual(RecordingCheck.assess(sampleCount: second, peak: 0, minimumSilence: 1.5), .transcribable)
+        XCTAssertEqual(RecordingCheck.assess(sampleCount: 2 * second, peak: 0, minimumSilence: 1.5), .digitalSilence)
+    }
 }
 
 final class MicrophoneMuteDetectorTests: XCTestCase {
-    func testHalfASecondOfSilenceMeansMuted() {
-        var detector = MicrophoneMuteDetector(startedAt: 10)
-        XCTAssertFalse(detector.observe(peak: 0, at: 10.1))
+    private let wired = InputDeviceState(isMuted: false, volume: 1, isBluetooth: false)
+
+    private func wiredDetector() -> MicrophoneMuteDetector {
+        var detector = MicrophoneMuteDetector()
+        detector.applyDeviceState(wired)
+        return detector
+    }
+
+    func testHalfASecondOfSilenceFromTheFirstBufferMeansMutedOnAWiredInput() {
+        var detector = wiredDetector()
+        XCTAssertFalse(detector.observe(peak: 0, at: 10))
         XCTAssertFalse(detector.observe(peak: 0, at: 10.45))
         XCTAssertFalse(detector.isMuted)
 
@@ -73,8 +86,24 @@ final class MicrophoneMuteDetectorTests: XCTestCase {
         XCTAssertFalse(detector.observe(peak: 0, at: 10.7))
     }
 
+    // A Bluetooth route that is still starting delivers zeros; so may any route until its type is known.
+    func testBluetoothOrAnUnknownRouteGetsAStartupGrace() {
+        for state in [InputDeviceState(isBluetooth: true), nil] {
+            var detector = MicrophoneMuteDetector()
+            if let state { detector.applyDeviceState(state) }
+            detector.observe(peak: 0, at: 0)
+            detector.observe(peak: 0, at: 1.2)
+            XCTAssertFalse(detector.isMuted)
+            detector.observe(peak: 0, at: 1.5)
+            XCTAssertTrue(detector.isMuted)
+        }
+        XCTAssertEqual(MicrophoneMuteDetector().requiredSilence, 1.5)
+        XCTAssertEqual(wiredDetector().requiredSilence, 0.5)
+    }
+
     func testRealAudioUnmutes() {
-        var detector = MicrophoneMuteDetector(startedAt: 0)
+        var detector = wiredDetector()
+        detector.observe(peak: 0, at: 0)
         detector.observe(peak: 0, at: 0.6)
         XCTAssertTrue(detector.isMuted)
 
@@ -84,7 +113,7 @@ final class MicrophoneMuteDetectorTests: XCTestCase {
 
     // Krisp, Zoom and Teams virtual mics and gated USB mics send exact zeros between words.
     func testANoiseGateBetweenWordsNeverMutesATakeThatHadAudio() {
-        var detector = MicrophoneMuteDetector(startedAt: 0)
+        var detector = MicrophoneMuteDetector()
         detector.observe(peak: 0.2, at: 0.1)
         for step in 1...30 {
             XCTAssertFalse(detector.observe(peak: 0, at: 0.1 + Double(step) * 0.1))
@@ -102,28 +131,28 @@ final class MicrophoneMuteDetectorTests: XCTestCase {
     }
 
     func testAnUnknownDeviceStateChangesNothing() {
-        var detector = MicrophoneMuteDetector(startedAt: 0)
+        var detector = MicrophoneMuteDetector()
         XCTAssertFalse(detector.applyDeviceState(InputDeviceState()))
         XCTAssertFalse(detector.isMuted)
     }
 
     // The device state is read off the main actor and can arrive after the first words.
     func testADeviceStateArrivingAfterAudioDoesNotMute() {
-        var detector = MicrophoneMuteDetector(startedAt: 0)
+        var detector = MicrophoneMuteDetector()
         detector.observe(peak: 0.2, at: 0.05)
         XCTAssertFalse(detector.applyDeviceState(InputDeviceState(volume: 0)))
         XCTAssertFalse(detector.isMuted)
     }
 
     func testQuietAudioIsNotSilence() {
-        var detector = MicrophoneMuteDetector(startedAt: 0)
+        var detector = MicrophoneMuteDetector()
         detector.observe(peak: 0.00002, at: 1)
         detector.observe(peak: 0.00002, at: 2)
         XCTAssertFalse(detector.isMuted)
     }
 
     func testADeviceThatReportsMutedIsMutedFromTheStart() {
-        var detector = MicrophoneMuteDetector(startedAt: 0)
+        var detector = MicrophoneMuteDetector()
         XCTAssertTrue(detector.applyDeviceState(InputDeviceState(isMuted: true)))
         XCTAssertTrue(detector.isMuted)
 

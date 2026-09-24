@@ -52,11 +52,16 @@ public enum RecordingCheck: Equatable, Sendable {
     static let minimumSampleCount = ASRConstants.minimumRequiredSamples(forSampleRate: sampleRate)
 
     // The first buffers of a starting input can be zeros, so a short silent take isn't blamed on a muted microphone.
-    public static func assess(sampleCount: Int, peak: Float, deviceSeemsMuted: Bool = false) -> RecordingCheck {
+    public static func assess(
+        sampleCount: Int,
+        peak: Float,
+        deviceSeemsMuted: Bool = false,
+        minimumSilence: TimeInterval = MicrophoneMuteDetector.silenceDuration
+    ) -> RecordingCheck {
         guard sampleCount > 0 else { return .empty }
         let seconds = Double(sampleCount) / Double(sampleRate)
         if MicrophoneMuteDetector.isDigitalSilence(peak: peak),
-           deviceSeemsMuted || seconds >= MicrophoneMuteDetector.silenceDuration {
+           deviceSeemsMuted || seconds >= minimumSilence {
             return .digitalSilence
         }
         return sampleCount < minimumSampleCount ? .tooShort : .transcribable
@@ -67,18 +72,25 @@ public enum RecordingCheck: Equatable, Sendable {
 public struct MicrophoneMuteDetector: Equatable, Sendable {
     public static let silencePeak: Float = 1e-6
     public static let silenceDuration: TimeInterval = 0.5
+    // A Bluetooth (HFP) route can deliver zeros for a while after it starts.
+    public static let routeStartupGrace: TimeInterval = 1.0
 
     public private(set) var isMuted = false
-    private var silentSince: TimeInterval?
+    private var firstBufferAt: TimeInterval?
     private var hasHeardAudio = false
+    private var isKnownWiredRoute = false
 
-    public init(startedAt: TimeInterval) {
-        silentSince = startedAt
+    public init() {}
+
+    // Until the device is known not to be Bluetooth, the silence has to outlast its startup.
+    public var requiredSilence: TimeInterval {
+        isKnownWiredRoute ? Self.silenceDuration : Self.silenceDuration + Self.routeStartupGrace
     }
 
     // The device's own mute or zero volume counts at once, unless the take has already had audio.
     @discardableResult
     public mutating func applyDeviceState(_ state: InputDeviceState) -> Bool {
+        isKnownWiredRoute = state.isBluetooth == false
         guard state.seemsMuted, !hasHeardAudio, !isMuted else { return false }
         isMuted = true
         return true
@@ -88,20 +100,20 @@ public struct MicrophoneMuteDetector: Equatable, Sendable {
         peak < silencePeak
     }
 
-    // Returns whether the muted state changed. Noise gates send exact zeros between words, so once a take has had audio it stays unmuted.
+    // Returns whether the muted state changed. The clock starts at the first buffer, not at the key press.
+    // Noise gates send exact zeros between words, so once a take has had audio it stays unmuted.
     @discardableResult
     public mutating func observe(peak: Float, at time: TimeInterval) -> Bool {
         let wasMuted = isMuted
+        let firstBufferAt = self.firstBufferAt ?? time
+        self.firstBufferAt = firstBufferAt
         if Self.isDigitalSilence(peak: peak) {
             guard !hasHeardAudio else { return false }
-            let since = silentSince ?? time
-            silentSince = since
-            if time - since >= Self.silenceDuration {
+            if time - firstBufferAt >= requiredSilence {
                 isMuted = true
             }
         } else {
             hasHeardAudio = true
-            silentSince = nil
             isMuted = false
         }
         return isMuted != wasMuted

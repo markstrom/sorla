@@ -153,7 +153,7 @@ public final class RecordingController {
             isRecording = true
             recordingID = phaseTracker.beginRecording()
             deviceSeemedMuted = false
-            muteDetector = MicrophoneMuteDetector(startedAt: ProcessInfo.processInfo.systemUptime)
+            muteDetector = MicrophoneMuteDetector()
             readInputDeviceState(for: recordingID)
             onStateChange?(true)
             onPhaseChange?(.recording)
@@ -172,6 +172,7 @@ public final class RecordingController {
         isRecording = false
         isCapturingTail = true
         onStateChange?(false)
+        let minimumSilence = muteDetector?.requiredSilence ?? MicrophoneMuteDetector.silenceDuration
         muteDetector = nil
         let deviceSeemedMuted = self.deviceSeemedMuted
         let dictationID = recordingID
@@ -198,7 +199,12 @@ public final class RecordingController {
 
             let audioSeconds = Double(samples.count) / 16_000
             let peakAmplitude = samples.reduce(into: Float(0)) { peak, sample in peak = max(peak, abs(sample)) }
-            switch RecordingCheck.assess(sampleCount: samples.count, peak: peakAmplitude, deviceSeemsMuted: deviceSeemedMuted) {
+            switch RecordingCheck.assess(
+                sampleCount: samples.count,
+                peak: peakAmplitude,
+                deviceSeemsMuted: deviceSeemedMuted,
+                minimumSilence: minimumSilence
+            ) {
             case .empty:
                 self.logger.info("no audio captured")
                 self.onCue?(.nothingHeard)

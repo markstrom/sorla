@@ -4,10 +4,12 @@ import Foundation
 public struct InputDeviceState: Equatable, Sendable {
     public var isMuted: Bool?
     public var volume: Float?
+    public var isBluetooth: Bool?
 
-    public init(isMuted: Bool? = nil, volume: Float? = nil) {
+    public init(isMuted: Bool? = nil, volume: Float? = nil, isBluetooth: Bool? = nil) {
         self.isMuted = isMuted
         self.volume = volume
+        self.isBluetooth = isBluetooth
     }
 
     // A property the device doesn't report is unknown, never muted.
@@ -38,14 +40,16 @@ public struct CoreAudioInputDeviceState: InputDeviceStateReading {
         guard let device = Self.defaultInputDevice() else { return InputDeviceState() }
         let channels = (0..<Self.inputChannelCount(of: device)).map { AudioObjectPropertyElement($0 + 1) }
         let mute: (AudioObjectPropertyElement) -> Bool? = { element in
-            Self.read(UInt32.self, kAudioDevicePropertyMute, of: device, element: element).map { $0 != 0 }
+            Self.read(UInt32.self, kAudioDevicePropertyMute, of: device, scope: kAudioDevicePropertyScopeInput, element: element).map { $0 != 0 }
         }
         let volume: (AudioObjectPropertyElement) -> Float? = { element in
-            Self.read(Float32.self, kAudioDevicePropertyVolumeScalar, of: device, element: element)
+            Self.read(Float32.self, kAudioDevicePropertyVolumeScalar, of: device, scope: kAudioDevicePropertyScopeInput, element: element)
         }
         return InputDeviceState(
             isMuted: InputDeviceState.combinedMute(main: mute(kAudioObjectPropertyElementMain), channels: channels.map(mute)),
-            volume: InputDeviceState.combinedVolume(main: volume(kAudioObjectPropertyElementMain), channels: channels.map(volume))
+            volume: InputDeviceState.combinedVolume(main: volume(kAudioObjectPropertyElementMain), channels: channels.map(volume)),
+            isBluetooth: Self.read(UInt32.self, kAudioDevicePropertyTransportType, of: device, scope: kAudioObjectPropertyScopeGlobal, element: kAudioObjectPropertyElementMain)
+                .map { $0 == kAudioDeviceTransportTypeBluetooth || $0 == kAudioDeviceTransportTypeBluetoothLE }
         )
     }
 
@@ -81,9 +85,10 @@ public struct CoreAudioInputDeviceState: InputDeviceStateReading {
         _ type: Value.Type,
         _ selector: AudioObjectPropertySelector,
         of device: AudioObjectID,
+        scope: AudioObjectPropertyScope,
         element: AudioObjectPropertyElement
     ) -> Value? {
-        var address = AudioObjectPropertyAddress(mSelector: selector, mScope: kAudioDevicePropertyScopeInput, mElement: element)
+        var address = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
         guard AudioObjectHasProperty(device, &address) else { return nil }
         var size = UInt32(MemoryLayout<Value>.size)
         let storage = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<Value>.alignment)
