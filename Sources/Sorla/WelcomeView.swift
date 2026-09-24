@@ -85,8 +85,9 @@ struct WelcomeView: View {
 
             HStack {
                 Spacer()
+                // Return while typing in Try it here stays in the field instead of closing the window.
                 Button("Done", action: onDone)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(isTryItFocused ? nil : .defaultAction)
             }
         }
         .padding(24)
