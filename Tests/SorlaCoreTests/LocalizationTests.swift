@@ -154,6 +154,10 @@ final class LocalizationTests: XCTestCase {
                 "Sorla har uppdaterats – Starta om"
             )
             XCTAssertEqual(
+                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true, canRestart: false)?.title,
+                "Sorla har uppdaterats – Avsluta och öppna den från Program"
+            )
+            XCTAssertEqual(
                 WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
                 "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa."
             )

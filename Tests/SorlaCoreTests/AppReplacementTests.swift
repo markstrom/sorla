@@ -122,8 +122,13 @@ final class AppRelaunchTests: XCTestCase {
         XCTAssertEqual(result.output, "")
     }
 
+    func testATranslocatedCopyCannotBeReopened() {
+        XCTAssertTrue(AppRelaunch.canReopen(URL(fileURLWithPath: "/Applications/Sorla.app")))
+        XCTAssertFalse(AppRelaunch.canReopen(URL(fileURLWithPath: "/private/var/folders/xy/T/AppTranslocation/1A2B/d/Sorla.app")))
+    }
+
     func testTheWaitIsBounded() {
         let arguments = AppRelaunch.arguments(waitingFor: 42, thenOpen: URL(fileURLWithPath: "/Applications/Sorla.app"))
-        XCTAssertEqual(Array(arguments.suffix(4)), ["42", "/Applications/Sorla.app", "100", "/usr/bin/open"])
+        XCTAssertEqual(Array(arguments.suffix(4)), ["42", "/Applications/Sorla.app", "300", "/usr/bin/open"])
     }
 }

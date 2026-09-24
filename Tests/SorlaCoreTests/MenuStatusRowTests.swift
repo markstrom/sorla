@@ -9,6 +9,7 @@ final class MenuStatusRowTests: XCTestCase {
         modelLoadFailed: Bool = false,
         modelLoading: Bool = false,
         appReplaced: Bool = false,
+        canRestart: Bool = true,
         transient: TransientMenuStatus? = nil,
         appUpdate: String? = nil,
         now: Date = MenuStatusRowTests.shownAt
@@ -20,6 +21,7 @@ final class MenuStatusRowTests: XCTestCase {
             modelLoadFailed: modelLoadFailed,
             modelLoading: modelLoading,
             appReplaced: appReplaced,
+            canRestart: canRestart,
             transient: transient,
             appUpdate: appUpdate,
             now: now
@@ -184,6 +186,15 @@ final class MenuStatusRowTests: XCTestCase {
 
     func testAReplacedAppOffersARestart() {
         XCTAssertEqual(row(appReplaced: true), MenuStatusRow(title: "Sorla has been updated — Restart", action: .restart))
+    }
+
+    // A translocated copy's path is gone once it quits, so the user is sent to Applications instead.
+    func testATranslocatedReplacedAppAsksToBeOpenedFromApplications() {
+        XCTAssertEqual(
+            row(appReplaced: true, canRestart: false),
+            MenuStatusRow(title: "Sorla has been updated — Quit and open it from Applications", action: .quit)
+        )
+        XCTAssertNil(row(canRestart: false), "nothing to say until it is replaced")
     }
 
     // Its pastes are dropped until it restarts, and a restart retries the model too; permissions still need the user.

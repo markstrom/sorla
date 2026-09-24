@@ -453,6 +453,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateStatusMenuItem()
         case .restart:
             restart()
+        case .quit:
+            quit()
         case .dismiss:
             transientStatus = nil
             updateStatusMenuItem()
@@ -472,6 +474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // The helper waits for this process to exit before opening the new copy.
     private func restart() {
+        Self.logger.info("restart requested for \(Bundle.main.bundleURL.path, privacy: .public)")
         let helper = Process()
         helper.executableURL = AppRelaunch.shell
         helper.arguments = AppRelaunch.arguments(
@@ -588,6 +591,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
             modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
             appReplaced: appReplacement.isReplaced,
+            canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL),
             transient: transientStatus,
             appUpdate: (appStatus ?? updateChecker.appStatus).availableVersion,
             now: now

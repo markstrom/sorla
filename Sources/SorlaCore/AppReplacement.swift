@@ -61,7 +61,13 @@ public struct AppReplacementCheck {
 }
 
 public enum AppRelaunch {
-    public static let exitTimeout: TimeInterval = 10
+    // Quitting can take a while mid-transcription, and giving up leaves no Sorla running at all.
+    public static let exitTimeout: TimeInterval = 30
+
+    // A translocated copy runs from a temporary mount that is gone once Sorla quits, so there is nothing to reopen.
+    public static func canReopen(_ bundleURL: URL) -> Bool {
+        !bundleURL.path.contains("/AppTranslocation/")
+    }
 
     // Waits for this process to be gone before opening the new copy, so two Sorlas never run at once.
     static let script = """
