@@ -31,6 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var didNotifyModelNotReady = false
     private var isRefusedDictationHeld = false
 
+    private static func waitForModifierRelease(timeout: Duration = .seconds(1)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while !NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return true
+    }
+
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings()
@@ -165,7 +173,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         KeyboardShortcuts.onKeyDown(for: .pasteLastTranscription) { [weak self] in
             MainActor.assumeIsolated {
-                self?.recordingController.pasteLastTranscript()
+                Self.logger.info("paste-last shortcut pressed")
+                // The shortcut's own modifiers are still held; a ⌘V posted now would reach the app as ⌃⌥⌘V.
+                self?.recordingController.pasteLastTranscript(after: { await Self.waitForModifierRelease() })
             }
         }
 
