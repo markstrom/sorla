@@ -47,13 +47,15 @@ public enum AppInstallError: Error, Equatable, Sendable {
     case disk
     case replace
     case relaunch
+    // Another Sorla was put in place while this one runs; that copy is kept and the restart it needs takes over.
+    case replacedOnDisk
 
     public var failure: AppInstallFailure {
         switch self {
         case .offline: return .offline
         case .download, .incomplete: return .download
         case .tooLarge, .mount, .missingApp, .signature, .notarization, .version: return .verification
-        case .notReplaceable, .disk, .replace: return .replace
+        case .notReplaceable, .disk, .replace, .replacedOnDisk: return .replace
         case .relaunch: return .relaunch
         }
     }
@@ -148,6 +150,7 @@ public struct AppInstaller: Sendable {
         var cleanup = AppInstallCleanup()
         cleanup.did(.temporaryDirectory(prepared.directory))
         do {
+            try checkBundleIsRunningApp()
             if files.exists(staged) { try disk { try files.remove(staged) } }
             cleanup.did(.staged(staged))
             try disk { try files.copy(prepared.app, to: staged) }
@@ -169,6 +172,7 @@ public struct AppInstaller: Sendable {
         cleanup.did(.staged(staged.staged))
         do {
             guard backup != bundleURL else { throw AppInstallError.notReplaceable }
+            try checkBundleIsRunningApp()
             if files.exists(backup) { try disk { try files.remove(backup) } }
             cleanup.undid(.staged(staged.staged))
             cleanup.did(.swapped(bundle: bundleURL, backup: backup))
@@ -223,6 +227,15 @@ public struct AppInstaller: Sendable {
             actions += [.detach(directory.appendingPathComponent("mount")), .remove(directory)]
         }
         await perform(actions)
+    }
+
+    // Checked again right before the swap, since the wait for quiet has no limit.
+    private func checkBundleIsRunningApp() throws {
+        let found = files.shortVersion(of: bundleURL).flatMap(SemanticVersion.init)
+        guard let found, found == runningVersion.flatMap(SemanticVersion.init) else {
+            Self.logger.info("Sorla.app on disk is \(found?.description ?? "unreadable", privacy: .public), not the running version; it is kept")
+            throw AppInstallError.replacedOnDisk
+        }
     }
 
     private func verify(_ app: URL, version: String) throws {

@@ -14,6 +14,7 @@ final class AppUpdaterTests: XCTestCase {
     private var activity = DictationActivity.quiet
     // Answers the next looks at activity in turn, then falls back to `activity`.
     private var activityScript: [DictationActivity] = []
+    private var appReplaced = false
     private var quits = 0
     private var quitGoesAhead = true
     private var updatedTo: [String] = []
@@ -61,6 +62,7 @@ final class AppUpdaterTests: XCTestCase {
                 self.quits += 1
                 return self.quitGoesAhead
             },
+            isAppReplaced: { [unowned self] in self.appReplaced },
             processID: 4242,
             sleep: { [clock] in await clock.sleep(for: $0) },
             now: { [unowned self] in
@@ -170,6 +172,37 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertTrue(downloader.requests.isEmpty)
     }
 
+    // A newer Sorla put in place during the wait is kept; the restart it needs takes over, without an error.
+    func testASorlaReplacedWhileTheInstallWaitsIsKept() async {
+        activity = DictationActivity(isRecording: true)
+        let updater = makeUpdater()
+        updater.install(pin)
+        await clock.waitForSleeps(1)
+        disk.set(bundle.path, .app(FakeApp(version: "1.2.0")))
+        activity = .quiet
+        await clock.advance(by: .milliseconds(500))
+        await settle(updater)
+
+        XCTAssertEqual(updater.state, .idle)
+        XCTAssertEqual(disk.paths, [bundle.path])
+        XCTAssertEqual(disk.item(bundle.path), .app(FakeApp(version: "1.2.0")))
+        XCTAssertTrue(relauncher.starts.isEmpty)
+        XCTAssertEqual(quits, 0)
+        XCTAssertNil(journal.record)
+    }
+
+    // A rebuild with the same version is only told apart by the running app's replacement check.
+    func testASorlaReplacedByTheSameVersionIsKept() async {
+        appReplaced = true
+        let updater = makeUpdater()
+        updater.install(pin)
+        await settle(updater)
+
+        XCTAssertEqual(updater.state, .idle)
+        XCTAssertEqual(disk.paths, [bundle.path])
+        XCTAssertTrue(relauncher.starts.isEmpty)
+    }
+
     func testANewCheckClearsAnEarlierFailure() async {
         downloader.fail(with: URLError(.notConnectedToInternet))
         let updater = makeUpdater()
@@ -231,6 +264,21 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(clock.sleeps.last, .seconds(600))
         XCTAssertTrue(relauncher.starts.isEmpty)
         XCTAssertEqual(updater.state, .ready(version: "1.1.0"))
+    }
+
+    func testAnAutomaticInstallKeepsASorlaReplacedMeanwhile() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        await clock.waitForSleeps(1)
+        disk.set(bundle.path, .app(FakeApp(version: "1.2.0")))
+        await clock.advance(by: .seconds(600))
+        await settle(updater)
+
+        XCTAssertEqual(updater.state, .idle)
+        XCTAssertEqual(disk.paths, [bundle.path])
+        XCTAssertEqual(disk.item(bundle.path), .app(FakeApp(version: "1.2.0")))
+        XCTAssertTrue(relauncher.starts.isEmpty)
     }
 
     func testTurningAutomaticInstallsOffStopsTheWait() async {

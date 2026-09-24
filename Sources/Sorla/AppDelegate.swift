@@ -111,7 +111,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             terminate: {
                 NSApp.terminate(nil)
                 return false
-            }
+            },
+            isAppReplaced: { [weak self] in self?.checkForReplacement() ?? false }
         )
 
         NSApp.mainMenu = MainMenu.make(target: self, about: #selector(showAbout), settings: #selector(showSettings))

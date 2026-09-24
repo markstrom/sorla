@@ -161,6 +161,19 @@ final class AppInstallerTests: XCTestCase {
         assertNothingLeftBehind()
     }
 
+    // Another Sorla put in place while this one runs is someone's newer copy, never ours to overwrite.
+    func testASorlaReplacedOnDiskIsNeverOverwritten() async throws {
+        let staged = try await stagedUpdate()
+        disk.set(bundle.path, .app(FakeApp(version: "1.2.0")))
+        XCTAssertThrowsError(try installer.swap(staged)) { XCTAssertEqual($0 as? AppInstallError, .replacedOnDisk) }
+        XCTAssertEqual(disk.paths, [bundle.path])
+        XCTAssertEqual(disk.item(bundle.path), .app(FakeApp(version: "1.2.0")))
+
+        let prepared = try await installer.prepare(pin)
+        XCTAssertThrowsError(try installer.stage(prepared)) { XCTAssertEqual($0 as? AppInstallError, .replacedOnDisk) }
+        XCTAssertEqual(disk.paths, [bundle.path])
+    }
+
     func testAnOldBackupFromAnEarlierInstallMakesWay() async throws {
         disk.set(backup.path, .app(FakeApp(version: "1.0.0")))
         let record = try installer.swap(try await stagedUpdate())

@@ -63,6 +63,7 @@ public final class AppUpdater: ObservableObject {
     private let activity: @MainActor () -> DictationActivity
     // Returns whether quitting went ahead; NSApp.terminate only comes back when it was called off.
     private let terminate: @MainActor () -> Bool
+    private let isAppReplaced: @MainActor () -> Bool
     private let processID: Int32
     private let pollInterval: Duration
     private let sleep: @MainActor (Duration) async -> Void
@@ -84,6 +85,7 @@ public final class AppUpdater: ObservableObject {
         automaticInstalls: Bool,
         activity: @escaping @MainActor () -> DictationActivity,
         terminate: @escaping @MainActor () -> Bool,
+        isAppReplaced: @escaping @MainActor () -> Bool = { false },
         processID: Int32 = ProcessInfo.processInfo.processIdentifier,
         pollInterval: Duration = .milliseconds(500),
         sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
@@ -97,6 +99,7 @@ public final class AppUpdater: ObservableObject {
         self.automaticInstalls = automaticInstalls
         self.activity = activity
         self.terminate = terminate
+        self.isAppReplaced = isAppReplaced
         self.processID = processID
         self.pollInterval = pollInterval
         self.sleep = sleep
@@ -262,12 +265,18 @@ public final class AppUpdater: ObservableObject {
     }
 
     private func stage(_ prepared: PreparedAppUpdate) async throws -> StagedAppUpdate {
+        guard !isAppReplaced() else { throw AppInstallError.replacedOnDisk }
         let installer = self.installer
         return try await Task.detached(priority: .userInitiated) { try installer.stage(prepared) }.value
     }
 
     // Runs without a suspension point from the quiet check to the quit, so no dictation can start in between.
     private func swapAndRelaunch(_ staged: StagedAppUpdate) throws {
+        // A rebuild with the same version is only told apart by the running app's own check.
+        if isAppReplaced() {
+            installer.discard(staged)
+            throw AppInstallError.replacedOnDisk
+        }
         prepared = nil
         let record = try installer.swap(staged)
         journal.record = record
@@ -306,6 +315,12 @@ public final class AppUpdater: ObservableObject {
         if let prepared, installError.failure != .relaunch {
             installer.discard(prepared)
             self.prepared = nil
+        }
+        // Not a failure to show: the menu already offers the restart into the Sorla that is on disk now.
+        if installError == .replacedOnDisk {
+            Self.logger.info("app update \(version, privacy: .public) not installed: Sorla.app was replaced meanwhile")
+            state = .idle
+            return
         }
         journal.pendingRelease = nil
         Self.logger.error("app update \(version, privacy: .public) not installed: \(String(describing: installError), privacy: .public)")
