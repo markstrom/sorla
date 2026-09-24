@@ -280,6 +280,7 @@ final class RecordingControllerDictationTests: XCTestCase {
         await controller.deliveries?.value
         XCTAssertEqual(paste.pastes, ["A", "A"])
 
+        await clock.waitForSleeps(sleepsBefore + 2)
         await clock.advance(by: settle)
         await controller.clipboardRestore?.value
         XCTAssertEqual(paste.events, ["write A", "paste A", "restore", "write A", "paste A", "restore"])
