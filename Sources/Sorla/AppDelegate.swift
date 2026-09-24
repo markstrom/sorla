@@ -366,7 +366,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func modelNotReadyMessage() -> String? {
-        DictationGate.blockedMessage(isModelInstalled: modelManager.isInstalled, isModelLoading: modelLoadingStatus == .loading, model: modelManager.status)
+        DictationGate.blockedMessage(
+            isModelInstalled: modelManager.isInstalled,
+            isModelLoading: modelLoadingStatus == .loading,
+            didModelFailToLoad: modelLoadingStatus == .failed,
+            model: modelManager.status
+        )
     }
 
     // The status row already shows the progress; the notification is only for the first refused attempt.
@@ -380,6 +385,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func handleIssue(_ issue: SorlaIssue) {
         if issue == .modelNotLoaded || (issue == .modelDownloadFailed && !modelManager.isInstalled) {
             modelLoadingStatus = .failed
+            // A refusal seen while loading must not silence the one that says how to recover.
+            didNotifyModelNotReady = false
             updateIcon(isRecording: recordingController.isRecording)
         }
         updateStatusMenuItem()

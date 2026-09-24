@@ -107,6 +107,7 @@
 "Pianissimo model credit" = "Pianissimo model credit";
 "License texts are included with the app." = "License texts are included with the app.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "The model is loading (~1 min). Dictation will work once it's ready.";
+"The model couldn't be loaded. Choose Try Again in the Sorla menu." = "The model couldn't be loaded. Choose Try Again in the Sorla menu.";
 "Talk. Release. Done." = "Talk. Release. Done.";
 "Check for Updates…" = "Check for Updates…";
 "Checking…" = "Checking…";

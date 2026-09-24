@@ -107,6 +107,7 @@
 "Pianissimo model credit" = "Pianissimo-modellen";
 "License texts are included with the app." = "Licenstexterna följer med appen.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "Modellen läses in (~1 min). Diktering fungerar när den är klar.";
+"The model couldn't be loaded. Choose Try Again in the Sorla menu." = "Modellen kunde inte läsas in. Välj Försök igen i Sorla-menyn.";
 "Talk. Release. Done." = "Prata. Släpp. Klart.";
 "Check for Updates…" = "Sök efter uppdateringar…";
 "Checking…" = "Söker…";

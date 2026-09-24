@@ -34,6 +34,29 @@ final class DictationGateTests: XCTestCase {
         )
     }
 
+    func testAnInstalledModelThatFailedToLoadIsRefusedWithTheRecoveryStep() {
+        XCTAssertEqual(
+            DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0")),
+            "The model couldn't be loaded. Choose Try Again in the Sorla menu."
+        )
+    }
+
+    func testAReadyModelKeepsDictatingWhileAnUpdateDownloads() {
+        XCTAssertNil(DictationGate.blockedMessage(
+            isModelInstalled: true,
+            isModelLoading: false,
+            didModelFailToLoad: false,
+            model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true)
+        ))
+    }
+
+    func testASuccessfulRetryLetsDictationThroughAgain() {
+        let model = ModelStatus.installed(version: "1.0.0")
+        XCTAssertNotNil(DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: model))
+        XCTAssertNotNil(DictationGate.blockedMessage(isModelInstalled: true, isModelLoading: true, model: model))
+        XCTAssertNil(DictationGate.blockedMessage(isModelInstalled: true, model: model))
+    }
+
     func testPushToTalkWaitsForTheReleaseSoShortcutsStaySilent() {
         XCTAssertTrue(DictationGate.waitsForRelease(mode: .pushToTalk))
         XCTAssertFalse(DictationGate.waitsForRelease(mode: .toggle))

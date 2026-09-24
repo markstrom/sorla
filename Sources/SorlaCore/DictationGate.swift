@@ -2,11 +2,20 @@ import Foundation
 
 // Without a loaded model a recording can't be transcribed in time, so dictation is refused with a reason instead.
 public enum DictationGate {
-    public static func blockedMessage(isModelInstalled: Bool, isModelLoading: Bool = false, model: ModelStatus) -> String? {
+    public static func blockedMessage(
+        isModelInstalled: Bool,
+        isModelLoading: Bool = false,
+        didModelFailToLoad: Bool = false,
+        model: ModelStatus
+    ) -> String? {
         if isModelInstalled {
-            return isModelLoading
-                ? String(localized: "The model is loading (~1 min). Dictation will work once it's ready.", bundle: Localization.bundle)
-                : nil
+            if isModelLoading {
+                return String(localized: "The model is loading (~1 min). Dictation will work once it's ready.", bundle: Localization.bundle)
+            }
+            if didModelFailToLoad {
+                return String(localized: "The model couldn't be loaded. Choose Try Again in the Sorla menu.", bundle: Localization.bundle)
+            }
+            return nil
         }
         switch model {
         case .downloading(_, let fraction, _):
