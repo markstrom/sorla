@@ -125,6 +125,17 @@ final class AppInstallPolicyTests: XCTestCase {
         XCTAssertEqual(AppInstallLocation.decide(bundlePath: "/Applications/Caskroomy/Sorla.app", symlinkTarget: nil, isFolderWritable: true, isBundleWritable: true), .replaceable)
     }
 
+    // A cask moves the app to Applications and leaves a link to it in the Caskroom, pointing the other way.
+    func testACaskroomLinkToThisAppMeansHomebrew() {
+        func decide(_ links: [String]) -> AppInstallLocation {
+            AppInstallLocation.decide(bundlePath: "/Applications/Sorla.app", symlinkTarget: nil, caskroomLinks: links, isFolderWritable: true, isBundleWritable: true)
+        }
+        XCTAssertEqual(decide(["/Applications/Sorla.app"]), .homebrew)
+        XCTAssertEqual(decide(["/Users/test/Applications/Sorla.app", "/Applications/Sorla.app"]), .homebrew)
+        XCTAssertEqual(decide(["/Users/test/Applications/Sorla.app"]), .replaceable, "a cask installed elsewhere doesn't own this copy")
+        XCTAssertEqual(decide([]), .replaceable)
+    }
+
     func testTheCurrentLocationIsReadFromTheDisk() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("SorlaLocation-\(UUID().uuidString)")
         defer {
@@ -144,9 +155,28 @@ final class AppInstallPolicyTests: XCTestCase {
 
         let app = apps.appendingPathComponent("Sorla.app")
         try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
-        XCTAssertEqual(AppInstallLocation.current(bundleURL: app), .replaceable)
-        XCTAssertEqual(AppInstallLocation.current(bundleURL: linked), .homebrew)
-        XCTAssertEqual(AppInstallLocation.current(bundleURL: locked), .notWritable)
+        XCTAssertEqual(AppInstallLocation.current(bundleURL: app, homebrewPrefixes: [root]), .replaceable)
+        XCTAssertEqual(AppInstallLocation.current(bundleURL: linked, homebrewPrefixes: [root]), .homebrew)
+        XCTAssertEqual(AppInstallLocation.current(bundleURL: locked, homebrewPrefixes: [root]), .notWritable)
+    }
+
+    func testACaskInstallIsFoundThroughTheCaskroomLink() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("SorlaCaskroom-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let prefixes = [root.appendingPathComponent("opt/homebrew"), root.appendingPathComponent("usr/local")]
+        let app = root.appendingPathComponent("Applications/Sorla.app")
+        let other = root.appendingPathComponent("Other/Sorla.app")
+        for folder in [app, other, prefixes[0].appendingPathComponent("Caskroom/sorla/1.0.1/Sorla.app")] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        XCTAssertEqual(AppInstallLocation.current(bundleURL: app, homebrewPrefixes: prefixes), .replaceable, "a leftover folder is not a link")
+
+        let version = prefixes[1].appendingPathComponent("Caskroom/sorla/1.0.2")
+        try FileManager.default.createDirectory(at: version, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: version.appendingPathComponent("Sorla.app").path, withDestinationPath: app.path)
+
+        XCTAssertEqual(AppInstallLocation.current(bundleURL: app, homebrewPrefixes: prefixes), .homebrew)
+        XCTAssertEqual(AppInstallLocation.current(bundleURL: other, homebrewPrefixes: prefixes), .replaceable)
     }
 
     // MARK: - Cleanup and rollback

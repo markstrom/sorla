@@ -49,9 +49,14 @@ public enum AppInstallLocation: Equatable, Sendable {
     case notWritable
     case homebrew
 
+    // Homebrew's default prefixes on Apple silicon and Intel; an app opened from Finder doesn't get HOMEBREW_PREFIX.
+    public static let homebrewPrefixes = [URL(fileURLWithPath: "/opt/homebrew"), URL(fileURLWithPath: "/usr/local")]
+
     // Homebrew keeps track of what it installed, so it must do the upgrade; a symlink elsewhere isn't ours to replace.
-    public static func decide(bundlePath: String, symlinkTarget: String?, isFolderWritable: Bool, isBundleWritable: Bool) -> AppInstallLocation {
-        if isInCaskroom(bundlePath) || symlinkTarget.map(isInCaskroom) == true {
+    // A cask moves the app out and leaves a link to it in the Caskroom, so only a link to this copy counts.
+    public static func decide(bundlePath: String, symlinkTarget: String?, caskroomLinks: [String] = [], isFolderWritable: Bool, isBundleWritable: Bool) -> AppInstallLocation {
+        if isInCaskroom(bundlePath) || symlinkTarget.map(isInCaskroom) == true
+            || caskroomLinks.contains(URL(fileURLWithPath: bundlePath).standardizedFileURL.path) {
             return .homebrew
         }
         if !AppRelaunch.canReopen(URL(fileURLWithPath: bundlePath)) {
@@ -65,17 +70,32 @@ public enum AppInstallLocation: Equatable, Sendable {
         path.split(separator: "/").contains("Caskroom")
     }
 
-    public static func current(bundleURL: URL, fileManager: FileManager = .default) -> AppInstallLocation {
+    public static func current(bundleURL: URL, fileManager: FileManager = .default, homebrewPrefixes: [URL] = homebrewPrefixes) -> AppInstallLocation {
         let path = bundleURL.path
-        let target = (try? fileManager.destinationOfSymbolicLink(atPath: path)).map {
-            URL(fileURLWithPath: $0, relativeTo: bundleURL.deletingLastPathComponent()).standardizedFileURL.path
-        }
         return decide(
             bundlePath: path,
-            symlinkTarget: target,
+            symlinkTarget: linkTarget(bundleURL, fileManager: fileManager),
+            caskroomLinks: caskroomLinks(prefixes: homebrewPrefixes, fileManager: fileManager),
             isFolderWritable: fileManager.isWritableFile(atPath: bundleURL.deletingLastPathComponent().path),
             isBundleWritable: fileManager.isWritableFile(atPath: path)
         )
+    }
+
+    // Where each <prefix>/Caskroom/sorla/<version>/Sorla.app points.
+    static func caskroomLinks(prefixes: [URL], fileManager: FileManager) -> [String] {
+        prefixes.flatMap { prefix -> [String] in
+            let cask = prefix.appendingPathComponent("Caskroom/sorla")
+            let versions = (try? fileManager.contentsOfDirectory(atPath: cask.path)) ?? []
+            return versions.compactMap { version in
+                linkTarget(cask.appendingPathComponent(version).appendingPathComponent(AppInstallPolicy.appName), fileManager: fileManager)
+            }
+        }
+    }
+
+    private static func linkTarget(_ url: URL, fileManager: FileManager) -> String? {
+        (try? fileManager.destinationOfSymbolicLink(atPath: url.path)).map {
+            URL(fileURLWithPath: $0, relativeTo: url.deletingLastPathComponent()).standardizedFileURL.path
+        }
     }
 
     public var canInstall: Bool { self == .replaceable }
