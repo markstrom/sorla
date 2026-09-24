@@ -20,6 +20,8 @@ public protocol AppFileOperations: Sendable {
     func leftoverDirectories() -> [URL]
     func size(of url: URL) -> Int64?
     func exists(_ url: URL) -> Bool
+    // A real folder, never a symlink to one.
+    func isDirectory(_ url: URL) -> Bool
     func copy(_ source: URL, to destination: URL) throws
     func move(_ source: URL, to destination: URL) throws
     func remove(_ url: URL) throws
@@ -231,6 +233,7 @@ public struct AppInstaller: Sendable {
 
     // Checked again right before the swap, since the wait for quiet has no limit.
     private func checkBundleIsRunningApp() throws {
+        guard files.isDirectory(bundleURL) else { throw AppInstallError.notReplaceable }
         let found = files.shortVersion(of: bundleURL).flatMap(SemanticVersion.init)
         guard let found, found == runningVersion.flatMap(SemanticVersion.init) else {
             Self.logger.info("Sorla.app on disk is \(found?.description ?? "unreadable", privacy: .public), not the running version; it is kept")
@@ -239,7 +242,8 @@ public struct AppInstaller: Sendable {
     }
 
     private func verify(_ app: URL, version: String) throws {
-        guard files.exists(app) else { throw AppInstallError.missingApp }
+        // The signature check and Gatekeeper follow a symlink, and copying would install the link itself.
+        guard files.isDirectory(app) else { throw AppInstallError.missingApp }
         do {
             try signatures.checkSignature(of: app, requirement: AppInstallPolicy.codeRequirement)
         } catch {

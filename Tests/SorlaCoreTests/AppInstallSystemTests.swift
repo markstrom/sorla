@@ -56,6 +56,16 @@ final class AppInstallSystemTests: XCTestCase {
         XCTAssertNil(files.shortVersion(of: root.appendingPathComponent("None.app")))
     }
 
+    func testOnlyARealFolderCountsAsADirectory() throws {
+        let app = try makeApp("Sorla.app", version: "1.1.0")
+        let link = root.appendingPathComponent("Link.app")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: app)
+        XCTAssertTrue(files.isDirectory(app))
+        XCTAssertFalse(files.isDirectory(link))
+        XCTAssertFalse(files.isDirectory(app.appendingPathComponent("Contents/Info.plist")))
+        XCTAssertFalse(files.isDirectory(root.appendingPathComponent("None.app")))
+    }
+
     func testAnUnsignedAppFailsTheSignatureCheck() throws {
         let app = try makeApp("Sorla.app", version: "1.1.0")
         XCTAssertThrowsError(try SecurityAppSignatureChecker().checkSignature(of: app, requirement: AppInstallPolicy.codeRequirement))

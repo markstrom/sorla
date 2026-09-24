@@ -7,6 +7,8 @@ struct FakeApp: Equatable, Sendable {
     var version: String
     var isSignedBySorla = true
     var isNotarized = true
+    // A symlink to a genuine app: the checks follow it, as the real ones do, and a copy stays a link.
+    var isLink = false
 }
 
 // A disk in memory: paths hold an app, a disk image with an app inside, or a folder; nothing touches the real disk.
@@ -70,6 +72,14 @@ final class FakeAppDisk: AppFileOperations, Sendable {
 
     func exists(_ url: URL) -> Bool {
         state.withLock { state in state.items.keys.contains { Self.isInside($0, url.path) } }
+    }
+
+    func isDirectory(_ url: URL) -> Bool {
+        switch item(url.path) {
+        case .folder: return true
+        case .app(let app): return !app.isLink
+        default: return false
+        }
     }
 
     func copy(_ source: URL, to destination: URL) throws {

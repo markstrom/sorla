@@ -129,6 +129,11 @@ public struct SystemAppFileOperations: AppFileOperations {
         (try? FileManager.default.attributesOfItem(atPath: url.path)) != nil
     }
 
+    // attributesOfItem doesn't follow a symlink, so a link reads as a link.
+    public func isDirectory(_ url: URL) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: url.path))?[.type] as? FileAttributeType == .typeDirectory
+    }
+
     public func copy(_ source: URL, to destination: URL) throws {
         try FileManager.default.copyItem(at: source, to: destination)
     }

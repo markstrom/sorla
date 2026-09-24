@@ -107,6 +107,12 @@ final class AppInstallerTests: XCTestCase {
         assertNothingLeftBehind()
     }
 
+    // The signature check and Gatekeeper follow a link, so a link to a genuine Sorla would pass them.
+    func testASymlinkedAppInTheImageIsRefused() async {
+        downloader.serve(.image(size: pin.assetSize, app: FakeApp(version: "1.1.0", isLink: true)))
+        await prepareFails(with: .missingApp)
+    }
+
     func testACopyThatFailsIsCleanedUp() async {
         disk.fail("copy")
         await prepareFails(with: .disk)
@@ -135,6 +141,22 @@ final class AppInstallerTests: XCTestCase {
         disk.state.withLock { $0.copiesBecome = FakeApp(version: "1.1.0", isSignedBySorla: false) }
         XCTAssertThrowsError(try installer.stage(prepared)) { XCTAssertEqual($0 as? AppInstallError, .signature) }
         assertNothingLeftBehind()
+    }
+
+    func testACopyThatComesOutAsASymlinkIsRefused() async throws {
+        let prepared = try await installer.prepare(pin)
+        disk.state.withLock { $0.copiesBecome = FakeApp(version: "1.1.0", isLink: true) }
+        XCTAssertThrowsError(try installer.stage(prepared)) { XCTAssertEqual($0 as? AppInstallError, .missingApp) }
+        assertNothingLeftBehind()
+    }
+
+    func testASymlinkedSorlaIsNeverSwapped() async throws {
+        let staged = try await stagedUpdate()
+        let link = FakeApp(version: "1.0.0", isLink: true)
+        disk.set(bundle.path, .app(link))
+        XCTAssertThrowsError(try installer.swap(staged)) { XCTAssertEqual($0 as? AppInstallError, .notReplaceable) }
+        XCTAssertEqual(disk.paths, [bundle.path])
+        XCTAssertEqual(disk.item(bundle.path), .app(link))
     }
 
     func testASwapThatFailsKeepsTheApp() async throws {
