@@ -13,7 +13,8 @@ public enum DictationGate {
                 return String(localized: "The model is loading (~1 min). Dictation will work once it's ready.", bundle: Localization.bundle)
             }
             if didModelFailToLoad {
-                return String(localized: "The model couldn't be loaded. Choose Try Again in the Sorla menu.", bundle: Localization.bundle)
+                let row = MenuStatusRow.modelLoadFailed.title
+                return String(localized: "The model couldn't be loaded. Open the Sorla menu and choose “\(row)”.", bundle: Localization.bundle)
             }
             return nil
         }

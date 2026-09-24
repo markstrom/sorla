@@ -17,6 +17,11 @@ public struct MenuStatusRow: Equatable, Sendable {
         self.action = action
     }
 
+    public static var modelLoadFailed: MenuStatusRow {
+        MenuStatusRow(title: String(localized: "\(SorlaIssue.modelNotLoaded.menuTitle ?? "") — Try Again", bundle: Localization.bundle), action: .reloadModel)
+    }
+
+    // A failed load blocks dictation, so its retry comes before any download or update progress.
     public static func current(
         microphoneDenied: Bool,
         accessibilityMissing: Bool,
@@ -29,6 +34,9 @@ public struct MenuStatusRow: Equatable, Sendable {
         }
         if accessibilityMissing {
             return MenuStatusRow(title: SorlaIssue.accessibilityAccessNeeded.menuTitle ?? "", action: .showWelcome)
+        }
+        if modelLoadFailed {
+            return .modelLoadFailed
         }
         switch model {
         case .downloading(_, let fraction, _):
@@ -45,9 +53,6 @@ public struct MenuStatusRow: Equatable, Sendable {
         }
         if modelLoading {
             return MenuStatusRow(title: String(localized: "Preparing model… ~1 min", bundle: Localization.bundle), action: .openSettings)
-        }
-        if modelLoadFailed {
-            return MenuStatusRow(title: String(localized: "\(SorlaIssue.modelNotLoaded.menuTitle ?? "") — Try Again", bundle: Localization.bundle), action: .reloadModel)
         }
         if case .updateAvailable(let version) = model {
             return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)

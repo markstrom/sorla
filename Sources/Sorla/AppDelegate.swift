@@ -359,7 +359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             microphoneDenied: PermissionsManager.isMicrophoneAccessDenied(),
             accessibilityMissing: !PermissionsManager.isAccessibilityTrusted(),
             model: model ?? modelManager.status,
-            modelLoadFailed: modelLoadingStatus == .failed,
+            modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
             modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading
         )
         statusMenuAction = row?.action

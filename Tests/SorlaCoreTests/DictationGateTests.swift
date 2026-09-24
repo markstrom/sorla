@@ -37,7 +37,7 @@ final class DictationGateTests: XCTestCase {
     func testAnInstalledModelThatFailedToLoadIsRefusedWithTheRecoveryStep() {
         XCTAssertEqual(
             DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0")),
-            "The model couldn't be loaded. Choose Try Again in the Sorla menu."
+            "The model couldn't be loaded. Open the Sorla menu and choose “Model couldn't be loaded — Try Again”."
         )
     }
 

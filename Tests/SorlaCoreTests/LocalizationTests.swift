@@ -124,6 +124,15 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testSwedishFailedLoadRefusalNamesTheMenuRow() throws {
+        try Localization.$bundle.withValue(swedish) {
+            XCTAssertEqual(
+                DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1")),
+                "Modellen kunde inte läsas in. Öppna Sorla-menyn och välj ”Modellen kunde inte läsas in – Försök igen”."
+            )
+        }
+    }
+
     func testSwedishDictationCues() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteShortcut: nil), "Inget hördes")

@@ -41,9 +41,9 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(row, MenuStatusRow(title: "Accessibility access needed to paste", action: .showWelcome))
     }
 
-    func testDownloadProgressComesBeforeFailures() {
+    func testDownloadProgressIsShown() {
         XCTAssertEqual(
-            row(model: .downloading(version: "1.0.0", fraction: 0.34, isUpdate: false), modelLoadFailed: true),
+            row(model: .downloading(version: "1.0.0", fraction: 0.34, isUpdate: false)),
             MenuStatusRow(title: "Downloading model… 34%", action: .openSettings)
         )
         XCTAssertEqual(
@@ -80,6 +80,14 @@ final class MenuStatusRowTests: XCTestCase {
             MenuStatusRow(title: "Model couldn't be loaded — Try Again", action: .reloadModel)
         )
         XCTAssertEqual(row(model: .upToDate(version: "1.0.0"), modelLoadFailed: true)?.action, .reloadModel)
+    }
+
+    // The dictation refusal points to this row, so it must be the one the menu shows.
+    func testALoadFailureComesBeforeUpdateProgressButAfterPermissions() {
+        XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), modelLoadFailed: true), .modelLoadFailed)
+        XCTAssertEqual(row(model: .preparing(version: "1.1.0", isUpdate: true), modelLoadFailed: true), .modelLoadFailed)
+        XCTAssertEqual(row(model: .failed(.network, isUpdate: true), modelLoadFailed: true), .modelLoadFailed)
+        XCTAssertEqual(row(accessibilityMissing: true, modelLoadFailed: true)?.action, .showWelcome)
     }
 
     func testFailuresComeBeforeAnAvailableUpdate() {
