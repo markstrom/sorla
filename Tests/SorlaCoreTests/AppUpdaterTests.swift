@@ -12,6 +12,8 @@ final class AppUpdaterTests: XCTestCase {
     private var defaults: UserDefaults!
     private var journal: AppInstallJournal!
     private var activity = DictationActivity.quiet
+    // Answers the next looks at activity in turn, then falls back to `activity`.
+    private var activityScript: [DictationActivity] = []
     private var quits = 0
     private var quitGoesAhead = true
     private var updatedTo: [String] = []
@@ -54,7 +56,7 @@ final class AppUpdaterTests: XCTestCase {
             journal: journal,
             automaticChecks: automaticChecks,
             automaticInstalls: automaticInstalls,
-            activity: { [unowned self] in self.activity },
+            activity: { [unowned self] in self.activityScript.isEmpty ? self.activity : self.activityScript.removeFirst() },
             terminate: { [unowned self] in
                 self.quits += 1
                 return self.quitGoesAhead
@@ -246,6 +248,41 @@ final class AppUpdaterTests: XCTestCase {
         updater.install(pin)
         await settle(updater)
         assertRelaunchedInto("1.1.0")
+    }
+
+    // Quiet when the wait ends, then recording from the moment the copy next to Sorla is done.
+    func testADictationDuringTheStagingCopyKeepsTheDownloadForTheNextTry() async {
+        let recording = DictationActivity(isRecording: true)
+        activityScript = [.quiet, .quiet, recording, recording]
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        await clock.waitForSleeps(1)
+        await clock.advance(by: .seconds(600))
+        await settle(updater)
+        XCTAssertEqual(updater.state, .ready(version: "1.1.0"))
+        XCTAssertFalse(disk.exists(AppInstallFixtures.staged))
+        XCTAssertTrue(relauncher.starts.isEmpty)
+
+        await clock.waitForSleeps(2)
+        await clock.advance(by: .seconds(600))
+        await settle(updater)
+        assertRelaunchedInto("1.1.0")
+        XCTAssertEqual(downloader.requests.count, 1, "the download is reused")
+    }
+
+    // macOS clears old temporary files, so an update that waited days in Ready may be gone.
+    func testADownloadThatVanishedIsFetchedAgain() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        updater.automaticInstalls = false
+        try? disk.remove(URL(fileURLWithPath: "/private/tmp/Sorla-update-1"))
+
+        updater.install(pin)
+        await settle(updater)
+        assertRelaunchedInto("1.1.0")
+        XCTAssertEqual(downloader.requests.count, 2)
     }
 
     func testClickingInstallDuringTheBackgroundDownloadReusesIt() async {

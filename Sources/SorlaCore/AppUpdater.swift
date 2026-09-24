@@ -252,7 +252,7 @@ public final class AppUpdater: ObservableObject {
     }
 
     private func prepared(for pin: PinnedRelease) async throws -> PreparedAppUpdate {
-        if let prepared, prepared.version == pin.version { return prepared }
+        if let prepared, prepared.version == pin.version, installer.isAvailable(prepared) { return prepared }
         if let prepared { installer.discard(prepared) }
         prepared = nil
         let installer = self.installer

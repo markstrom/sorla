@@ -202,10 +202,16 @@ final class AppInstallerTests: XCTestCase {
         let prepared = try await installer.prepare(pin)
         installer.discard(prepared)
         assertNothingLeftBehind()
+        XCTAssertFalse(installer.isAvailable(prepared))
+    }
 
-        let staged = try await stagedUpdate()
-        installer.discard(staged)
-        assertNothingLeftBehind()
+    // A dictation during the copy only undoes the copy; the download waits for the next quiet stretch.
+    func testDiscardingAStagedCopyKeepsTheDownload() async throws {
+        let prepared = try await installer.prepare(pin)
+        installer.discard(try installer.stage(prepared))
+        XCTAssertFalse(disk.exists(AppInstallFixtures.staged))
+        XCTAssertTrue(installer.isAvailable(prepared))
+        XCTAssertEqual(try installer.stage(prepared).staged, AppInstallFixtures.staged)
     }
 
     func testLeftoversFromAnInterruptedInstallAreDetachedAndRemoved() async {

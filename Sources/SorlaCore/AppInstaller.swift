@@ -199,8 +199,14 @@ public struct AppInstaller: Sendable {
         performNow([.remove(prepared.directory)])
     }
 
+    // Only the copy next to Sorla; the download stays for the next try.
     public func discard(_ staged: StagedAppUpdate) {
-        performNow([.remove(staged.staged), .remove(staged.directory)])
+        performNow([.remove(staged.staged)])
+    }
+
+    // macOS clears old temporary files, so a download that waited long enough may be gone.
+    public func isAvailable(_ prepared: PreparedAppUpdate) -> Bool {
+        files.exists(prepared.app)
     }
 
     public func removeBackup(of record: AppInstallRecord) {
