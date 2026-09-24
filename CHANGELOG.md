@@ -25,6 +25,7 @@
 - Start Dictation chosen while Settings or About is in front pastes into the app you were using before, like Paste Last.
 - Closing the last Sorla window returns you to the app you were using, so a following ⌘Q doesn't quit Sorla by accident.
 - With VoiceOver on, Settings notes under Play sounds that the sounds tell you when recording starts and stops.
+- The two update toggles take their values from 1.0.1's model-only settings (autoCheckModelUpdates, autoDownloadModelUpdates), which are then removed; going back to 1.0.1 afterwards shows its automatic model checks and downloads as off.
 
 ## 1.0.1 — 2026-09-24
 
