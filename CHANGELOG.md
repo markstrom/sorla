@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.2 — 2026-09-24
 
 - Updates for Sorla and the speech model live in one place, Settings › Updates: a row for each with its version and result, one Check Now that asks GitHub and Hugging Face together, and two toggles (check automatically, install automatically) that replace the model-only ones and keep their values. Check for Updates… in the menu opens that section and runs the check, a newer Sorla shows in the menu's status row, and the About window is back to just the version.
 - Sorla no longer uses notifications, so macOS never asks for a third permission. Problems show in the indicator (an hourglass while the model gets ready, a warning when something failed), VoiceOver announces them, and the menu's status row explains the last dictation (muted microphone, text on the clipboard, no microphone, failed transcription) until the next one starts or for five minutes.
