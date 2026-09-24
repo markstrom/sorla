@@ -5,6 +5,7 @@
 - Install and update with Homebrew: `brew install --cask markstrom/tap/sorla`.
 - Sorla lets go of the recorded audio as soon as the recording stops, instead of holding it until the next one. A cancelled recording, or one cut short by locking the Mac, is dropped without being converted or transcribed.
 - When you start a new dictation while the previous one is still being transcribed, the texts arrive in the order you spoke them, and Paste Last holds the newer one. A dictation that fails or gives no text doesn't hold up the next, and each text is only written to the clipboard once the previous paste has had time to land.
+- Paste Last from its shortcut (⌃⌥V) no longer pastes while the shortcut's keys are still held after its one-second wait, which reached the app as ⌃⌥⌘V. The text is put on the clipboard instead and Sorla says so ("Your text is on the clipboard — press ⌃⌥V"). Locking the Mac or starting a dictation while it waits cancels it.
 
 ## 1.0.2 — 2026-09-24
 

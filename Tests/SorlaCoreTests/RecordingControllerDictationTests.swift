@@ -264,4 +264,89 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         XCTAssertEqual(paste.events, ["write A", "paste A", "write B", "paste B"])
     }
+
+    // MARK: - Paste Last waits for the shortcut's keys (#11)
+
+    private var modifiersHeld = true
+
+    private func deliverOneDictation(_ text: String) async {
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: text)
+        await job.value
+        await clock.waitForSleeps(2)
+        await clock.advance(by: settle)
+        await controller.deliveries?.value
+        events = []
+    }
+
+    // Sleeps 1 and 2 were the dictation's tail and settle; the first poll for the keys is sleep 3.
+    private func pasteLastWithTheShortcut() async {
+        let clock = self.clock
+        controller.pasteLastTranscript(after: {
+            await ModifierRelease.wait(
+                isHeld: { [unowned self] in self.modifiersHeld },
+                now: { clock.now },
+                sleep: { await clock.sleep(for: $0) }
+            )
+        })
+        await clock.waitForSleeps(3)
+    }
+
+    func testPasteLastPastesOnceTheShortcutsKeysAreLetGo() async {
+        await deliverOneDictation("A")
+        await pasteLastWithTheShortcut()
+
+        modifiersHeld = false
+        await clock.advance(by: ModifierRelease.pollInterval)
+        await clock.waitForSleeps(4)
+        XCTAssertEqual(paste.pastes, ["A", "A"])
+
+        await clock.advance(by: settle)
+        await controller.deliveries?.value
+    }
+
+    func testPasteLastHeldPastTheDeadlineLeavesTheTextOnTheClipboard() async {
+        await deliverOneDictation("A")
+        await pasteLastWithTheShortcut()
+
+        for poll in 0..<50 {
+            await clock.waitForSleeps(3 + poll)
+            await clock.advance(by: ModifierRelease.pollInterval)
+        }
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertEqual(paste.contents, "A")
+        XCTAssertEqual(events, ["cue \(DictationCue.textOnClipboard.symbolName)"])
+        XCTAssertEqual(controller.lastTranscript(), "A")
+    }
+
+    func testALockWhileWaitingForTheKeysAbandonsPasteLast() async {
+        await deliverOneDictation("A")
+        let writesBefore = paste.writes
+        await pasteLastWithTheShortcut()
+
+        controller.forgetLastTranscript()
+        modifiersHeld = false
+        await clock.advance(by: ModifierRelease.pollInterval)
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.writes, writesBefore)
+        XCTAssertEqual(events, [])
+    }
+
+    func testANewDictationWhileWaitingForTheKeysAbandonsPasteLast() async {
+        await deliverOneDictation("A")
+        let writesBefore = paste.writes
+        await pasteLastWithTheShortcut()
+
+        record()
+        modifiersHeld = false
+        await clock.advance(by: ModifierRelease.pollInterval)
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.writes, writesBefore)
+        XCTAssertEqual(controller.phase, .recording)
+        controller.cancelRecording()
+    }
 }

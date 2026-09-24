@@ -35,6 +35,7 @@ public final class RecordingController {
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
     private var isPasteLastInFlight = false
+    private var pasteLastRequest: Task<Void, Never>?
 
     private let pasteEnvironment: PasteEnvironment
     private var deliveryOrder = DeliveryOrder<FinishedDictation>()
@@ -165,6 +166,8 @@ public final class RecordingController {
         }
         do {
             try recorder.start()
+            // The new dictation owns the cursor now.
+            pasteLastRequest?.cancel()
             isRecording = true
             recordingID = phaseTracker.beginRecording()
             deviceSeemedMuted = false
@@ -361,6 +364,7 @@ public final class RecordingController {
     public func forgetLastTranscript() {
         transcriptExpiry?.cancel()
         transcriptExpiry = nil
+        pasteLastRequest?.cancel()
         recentTranscript.forget()
         for dropped in deliveryOrder.dropAll() {
             updatePhase { $0.finish(dropped.id) }
@@ -368,7 +372,7 @@ public final class RecordingController {
     }
 
     // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
-    public func pasteLastTranscript(after prepare: @escaping @MainActor () async -> Bool = { true }) {
+    public func pasteLastTranscript(after prepare: @escaping @MainActor () async -> PasteLastPreparation = { .ready }) {
         let lastTranscript = lastTranscript()
         guard PasteService.shouldPasteLast(
             hasTranscript: lastTranscript != nil,
@@ -380,10 +384,11 @@ public final class RecordingController {
         }
         isPasteLastInFlight = true
         let generation = recentTranscript.generation
-        Task { @MainActor in
+        pasteLastRequest = Task { @MainActor in
             defer { self.isPasteLastInFlight = false }
-            guard await prepare() else {
-                self.logger.info("paste-last skipped (target app never became frontmost)")
+            let preparation = await prepare()
+            guard preparation != .abandoned, !Task.isCancelled else {
+                self.logger.info("paste-last skipped (abandoned before pasting)")
                 return
             }
             await self.enqueueDelivery {
@@ -393,6 +398,12 @@ public final class RecordingController {
                 }
                 guard self.phase == .idle else {
                     self.logger.info("paste-last skipped (dictation started)")
+                    return
+                }
+                guard preparation == .ready else {
+                    self.pasteEnvironment.write(text, transient: false)
+                    self.logger.info("paste-last left on the clipboard (shortcut keys still held)")
+                    self.onCue?(.textOnClipboard)
                     return
                 }
                 let outcome = self.issuePaste(text)
