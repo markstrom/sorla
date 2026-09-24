@@ -68,13 +68,20 @@ public struct MicrophoneMuteDetector: Equatable, Sendable {
     public static let silencePeak: Float = 1e-6
     public static let silenceDuration: TimeInterval = 0.5
 
-    public private(set) var isMuted: Bool
+    public private(set) var isMuted = false
     private var silentSince: TimeInterval?
     private var hasHeardAudio = false
 
-    public init(startedAt: TimeInterval, deviceSeemsMuted: Bool = false) {
-        isMuted = deviceSeemsMuted
+    public init(startedAt: TimeInterval) {
         silentSince = startedAt
+    }
+
+    // The device's own mute or zero volume counts at once, unless the take has already had audio.
+    @discardableResult
+    public mutating func applyDeviceState(_ state: InputDeviceState) -> Bool {
+        guard state.seemsMuted, !hasHeardAudio, !isMuted else { return false }
+        isMuted = true
+        return true
     }
 
     public static func isDigitalSilence(peak: Float) -> Bool {

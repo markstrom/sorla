@@ -101,6 +101,20 @@ final class MicrophoneMuteDetectorTests: XCTestCase {
         )
     }
 
+    func testAnUnknownDeviceStateChangesNothing() {
+        var detector = MicrophoneMuteDetector(startedAt: 0)
+        XCTAssertFalse(detector.applyDeviceState(InputDeviceState()))
+        XCTAssertFalse(detector.isMuted)
+    }
+
+    // The device state is read off the main actor and can arrive after the first words.
+    func testADeviceStateArrivingAfterAudioDoesNotMute() {
+        var detector = MicrophoneMuteDetector(startedAt: 0)
+        detector.observe(peak: 0.2, at: 0.05)
+        XCTAssertFalse(detector.applyDeviceState(InputDeviceState(volume: 0)))
+        XCTAssertFalse(detector.isMuted)
+    }
+
     func testQuietAudioIsNotSilence() {
         var detector = MicrophoneMuteDetector(startedAt: 0)
         detector.observe(peak: 0.00002, at: 1)
@@ -109,7 +123,8 @@ final class MicrophoneMuteDetectorTests: XCTestCase {
     }
 
     func testADeviceThatReportsMutedIsMutedFromTheStart() {
-        var detector = MicrophoneMuteDetector(startedAt: 0, deviceSeemsMuted: true)
+        var detector = MicrophoneMuteDetector(startedAt: 0)
+        XCTAssertTrue(detector.applyDeviceState(InputDeviceState(isMuted: true)))
         XCTAssertTrue(detector.isMuted)
 
         XCTAssertTrue(detector.observe(peak: 0.05, at: 0.1))

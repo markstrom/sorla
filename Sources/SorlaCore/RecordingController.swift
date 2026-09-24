@@ -54,6 +54,26 @@ public final class RecordingController {
         }
     }
 
+    // CoreAudio reads can block on a Bluetooth device, so they run off the main actor and apply when they arrive.
+    private func readInputDeviceState(for id: Int) {
+        let reader = inputDeviceState
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let state = reader.currentState()
+            await self?.applyInputDeviceState(state, for: id)
+        }
+    }
+
+    private func applyInputDeviceState(_ state: InputDeviceState, for id: Int) {
+        guard id == recordingID else { return }
+        deviceSeemedMuted = state.seemsMuted
+        guard isRecording, var detector = muteDetector else { return }
+        let changed = detector.applyDeviceState(state)
+        muteDetector = detector
+        if changed {
+            onMicrophoneMutedChange?(detector.isMuted)
+        }
+    }
+
     // Tail buffers after release belong to no live recording, so only buffers while recording are judged.
     private func observeLevel(peak: Float, at time: TimeInterval) {
         guard isRecording, var detector = muteDetector else { return }
@@ -132,12 +152,12 @@ public final class RecordingController {
             try recorder.start()
             isRecording = true
             recordingID = phaseTracker.beginRecording()
-            deviceSeemedMuted = inputDeviceState.currentState().seemsMuted
-            let detector = MicrophoneMuteDetector(startedAt: ProcessInfo.processInfo.systemUptime, deviceSeemsMuted: deviceSeemedMuted)
-            muteDetector = detector
+            deviceSeemedMuted = false
+            muteDetector = MicrophoneMuteDetector(startedAt: ProcessInfo.processInfo.systemUptime)
+            readInputDeviceState(for: recordingID)
             onStateChange?(true)
             onPhaseChange?(.recording)
-            onMicrophoneMutedChange?(detector.isMuted)
+            onMicrophoneMutedChange?(false)
             return true
         } catch {
             logger.error("failed to start recording: \(String(describing: error), privacy: .public)")
