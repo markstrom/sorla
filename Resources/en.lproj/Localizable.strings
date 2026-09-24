@@ -184,3 +184,8 @@
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla borrows the clipboard to paste, then puts back what was there.";
 "Sorla has been updated — restarting" = "Sorla has been updated — restarting";
 "Sorla (needs a restart)" = "Sorla (needs a restart)";
+"Couldn't download the update. Check your internet connection. Sorla wasn't changed." = "Couldn't download the update. Check your internet connection. Sorla wasn't changed.";
+"Couldn't download the update. Sorla wasn't changed. Try again later." = "Couldn't download the update. Sorla wasn't changed. Try again later.";
+"The update couldn't be verified, so Sorla wasn't changed. Download it from GitHub instead." = "The update couldn't be verified, so Sorla wasn't changed. Download it from GitHub instead.";
+"Sorla couldn't replace itself, so this version is kept. Download the update instead." = "Sorla couldn't replace itself, so this version is kept. Download the update instead.";
+"Sorla couldn't restart, so this version is kept. Try again later." = "Sorla couldn't restart, so this version is kept. Try again later.";

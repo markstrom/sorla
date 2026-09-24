@@ -39,7 +39,10 @@ public enum AppUpdateSchedule {
 @MainActor
 public final class UpdateChecker: ObservableObject {
     @Published public private(set) var appStatus: AppUpdateStatus = .notChecked
+    // Set with a newer version when its release carries the DMG an install needs.
+    public private(set) var pinnedRelease: PinnedRelease?
     public var automaticChecks: Bool
+    public var onAppCheckFinished: ((_ automatic: Bool) -> Void)?
 
     private let currentVersion: String?
     private let source: AppReleaseSource
@@ -71,7 +74,7 @@ public final class UpdateChecker: ObservableObject {
     }
 
     public func checkNow() {
-        checkApp()
+        checkApp(automatic: false)
         checkModel()
     }
 
@@ -83,19 +86,21 @@ public final class UpdateChecker: ObservableObject {
     // Called at launch and on the model's daily check, so the app check adds no timer of its own.
     public func checkAppIfDue() {
         guard isAutomaticCheckDue else { return }
-        checkApp()
+        checkApp(automatic: true)
     }
 
-    private func checkApp() {
+    private func checkApp(automatic: Bool) {
         guard appStatus != .checking else { return }
         defaults.set(now(), forKey: Self.lastCheckKey)
         appStatus = .checking
         let currentVersion = self.currentVersion
         let source = self.source
         appCheck = Task {
-            let result = await AppUpdateCheck.check(currentVersion: currentVersion, source: source)
+            let (result, pin) = await AppUpdateCheck.checkPinning(currentVersion: currentVersion, source: source)
+            self.pinnedRelease = pin
             self.appStatus = AppUpdateStatus(result)
             self.appCheck = nil
+            self.onAppCheckFinished?(automatic)
         }
     }
 }

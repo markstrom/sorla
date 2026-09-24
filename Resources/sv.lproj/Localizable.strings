@@ -184,3 +184,8 @@
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla lånar urklippet för att klistra in och lägger sedan tillbaka det som låg där.";
 "Sorla has been updated — restarting" = "Sorla har uppdaterats – startar om";
 "Sorla (needs a restart)" = "Sorla (behöver startas om)";
+"Couldn't download the update. Check your internet connection. Sorla wasn't changed." = "Kunde inte ladda ner uppdateringen. Kontrollera internetanslutningen. Sorla har inte ändrats.";
+"Couldn't download the update. Sorla wasn't changed. Try again later." = "Kunde inte ladda ner uppdateringen. Sorla har inte ändrats. Försök igen senare.";
+"The update couldn't be verified, so Sorla wasn't changed. Download it from GitHub instead." = "Uppdateringen kunde inte kontrolleras, så Sorla har inte ändrats. Ladda ner den från GitHub i stället.";
+"Sorla couldn't replace itself, so this version is kept. Download the update instead." = "Sorla kunde inte ersätta sig själv, så den här versionen finns kvar. Ladda ner uppdateringen i stället.";
+"Sorla couldn't restart, so this version is kept. Try again later." = "Sorla kunde inte starta om, så den här versionen finns kvar. Försök igen senare.";

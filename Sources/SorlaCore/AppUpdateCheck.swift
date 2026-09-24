@@ -1,21 +1,42 @@
 import Foundation
 import os
 
+public struct AppReleaseAsset: Decodable, Equatable, Sendable {
+    public let name: String
+    public let size: Int64
+    public let downloadURL: URL
+
+    public init(name: String, size: Int64, downloadURL: URL) {
+        self.name = name
+        self.size = size
+        self.downloadURL = downloadURL
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case size
+        case downloadURL = "browser_download_url"
+    }
+}
+
 public struct AppRelease: Decodable, Equatable, Sendable {
     public let tagName: String
     public let prerelease: Bool
     public let draft: Bool
+    public let assets: [AppReleaseAsset]
 
-    public init(tagName: String, prerelease: Bool = false, draft: Bool = false) {
+    public init(tagName: String, prerelease: Bool = false, draft: Bool = false, assets: [AppReleaseAsset] = []) {
         self.tagName = tagName
         self.prerelease = prerelease
         self.draft = draft
+        self.assets = assets
     }
 
     private enum CodingKeys: String, CodingKey {
         case tagName = "tag_name"
         case prerelease
         case draft
+        case assets
     }
 
     public init(from decoder: Decoder) throws {
@@ -23,6 +44,23 @@ public struct AppRelease: Decodable, Equatable, Sendable {
         tagName = try container.decode(String.self, forKey: .tagName)
         prerelease = try container.decodeIfPresent(Bool.self, forKey: .prerelease) ?? false
         draft = try container.decodeIfPresent(Bool.self, forKey: .draft) ?? false
+        // An asset list that can't be read only costs the in-app install; the check itself still works.
+        assets = (try? container.decodeIfPresent([AppReleaseAsset].self, forKey: .assets)) ?? []
+    }
+}
+
+// The exact release a check found, so an install fetches that asset and never whatever "latest" is by then.
+public struct PinnedRelease: Codable, Equatable, Sendable {
+    public let tag: String
+    public let version: String
+    public let assetURL: URL
+    public let assetSize: Int64
+
+    public init(tag: String, version: String, assetURL: URL, assetSize: Int64) {
+        self.tag = tag
+        self.version = version
+        self.assetURL = assetURL
+        self.assetSize = assetSize
     }
 }
 
@@ -75,16 +113,26 @@ public enum AppUpdateCheck {
     }
 
     public static func check(currentVersion: String?, source: AppReleaseSource) async -> AppUpdateResult {
+        await checkPinning(currentVersion: currentVersion, source: source).result
+    }
+
+    // A newer release also comes back pinned, when it carries the versioned DMG an install needs.
+    public static func checkPinning(currentVersion: String?, source: AppReleaseSource) async -> (result: AppUpdateResult, pin: PinnedRelease?) {
         do {
             let release = try await source.latestRelease()
             let result = decide(currentVersion: currentVersion, latest: release)
             if result == .failed(.badResponse) {
                 logger.error("unusable release: tag=\(release.tagName, privacy: .public) prerelease=\(release.prerelease, privacy: .public) draft=\(release.draft, privacy: .public) current=\(currentVersion ?? "none", privacy: .public)")
             }
-            return result
+            guard case .available = result else { return (result, nil) }
+            let pin = AppInstallPolicy.pin(release)
+            if pin == nil {
+                logger.info("release \(release.tagName, privacy: .public) has no installable DMG; offering the download page")
+            }
+            return (result, pin)
         } catch {
             logger.error("update check failed: \(String(describing: error), privacy: .public)")
-            return .failed(failure(for: error))
+            return (.failed(failure(for: error)), nil)
         }
     }
 
