@@ -24,7 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusMenuAction: MenuStatusAction?
     private var pasteLastMenuItem: NSMenuItem!
     private var triggerHintMenuItem: NSMenuItem!
-    private var frontmostAppBeforeSettingsActivated: NSRunningApplication?
+    private var appBeforeSorlaActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
     private var modelLoadingStatus: ModelLoadingStatus = .loading {
         didSet { welcomeWindowController?.state.modelLoadingStatus = modelLoadingStatus }
@@ -322,7 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             settingsWindowController = controller
         }
-        frontmostAppBeforeSettingsActivated = NSWorkspace.shared.frontmostApplication
+        rememberFrontmostApp()
         settingsWindowController?.show()
     }
 
@@ -334,6 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 modelLoadingStatus: modelLoadingStatus
             )
         }
+        rememberFrontmostApp()
         welcomeWindowController?.show()
     }
 
@@ -358,6 +359,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         triggerMonitor?.recordingDidStartElsewhere()
+        // Started while Settings or About is key: as with Paste Last, the text belongs in the app the user came from.
+        if isSorlaWindowInFront { previousApp?.activate() }
         scheduleStartSound(after: 0)
     }
 
@@ -406,6 +409,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if aboutWindowController == nil {
             aboutWindowController = AboutWindowController()
         }
+        rememberFrontmostApp()
         aboutWindowController?.show()
     }
 
@@ -449,17 +453,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // The status menu doesn't activate Sorla, so it is only frontmost here when one of its windows is key.
     @objc private func pasteLastTranscription() {
-        let ownPID = NSRunningApplication.current.processIdentifier
-        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == ownPID,
-              welcomeWindowController?.isKey != true
-        else {
+        guard isSorlaWindowInFront else {
             recordingController.pasteLastTranscript()
             return
         }
-        guard let previousApp = frontmostAppBeforeSettingsActivated,
-              previousApp.processIdentifier != ownPID,
-              !previousApp.isTerminated
-        else {
+        guard let previousApp else {
             Self.logger.info("paste last skipped (no app to paste into)")
             return
         }
@@ -469,6 +467,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private static let activationTimeout: TimeInterval = 0.5
+
+    // The Welcome window's Try it here field is the one Sorla window worth pasting into.
+    private var isSorlaWindowInFront: Bool {
+        NSWorkspace.shared.frontmostApplication?.processIdentifier == NSRunningApplication.current.processIdentifier
+            && welcomeWindowController?.isKey != true
+    }
+
+    private var previousApp: NSRunningApplication? {
+        guard let app = appBeforeSorlaActivated, !app.isTerminated else { return nil }
+        return app
+    }
+
+    private func rememberFrontmostApp() {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.processIdentifier != NSRunningApplication.current.processIdentifier
+        else { return }
+        appBeforeSorlaActivated = app
+    }
 
     private static func activate(_ app: NSRunningApplication, timeout: TimeInterval) async -> Bool {
         app.activate()
