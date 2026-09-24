@@ -32,7 +32,7 @@ struct SettingsView: View {
 
     private static let updatesSectionID = "updates"
 
-    private static let keepLastTranscriptionDescription = String(localized: "Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once.")
+    private static let keepLastTranscriptionDescription = String(localized: "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once.")
 
     var body: some View {
         ScrollViewReader { proxy in

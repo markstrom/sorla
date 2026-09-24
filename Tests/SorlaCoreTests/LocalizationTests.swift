@@ -172,6 +172,14 @@ final class LocalizationTests: XCTestCase {
     }
 
     // Sorla only knows it sent ⌘V, so VoiceOver hears the attempt, not a confirmed paste.
+    func testTheKeepLastTranscriptionHintSaysWhatTheUserCanDo() throws {
+        let key = "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once."
+        XCTAssertEqual(
+            try strings("sv")[key],
+            "Håller din senaste text i minnet i upp till fem minuter så att du kan klistra in den igen med Klistra in senaste transkriberingen. Stänger du av det glöms texten direkt."
+        )
+    }
+
     func testTheSuccessAnnouncementDescribesTheAttempt() throws {
         XCTAssertEqual(try strings("en")["Pasting text"], "Pasting text")
         XCTAssertEqual(try strings("sv")["Pasting text"], "Klistrar in texten")
