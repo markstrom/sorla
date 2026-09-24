@@ -45,7 +45,15 @@ public enum TriggerEdge: Equatable, Sendable {
     public static func afterRecheck(isKeyPhysicallyDown: Bool) -> TriggerEdge? {
         isKeyPhysicallyDown ? nil : .up
     }
+
+    // Keys and clicks only matter during a press or a recording (a custom shortcut needs just Esc), so idle watches nothing.
+    public static func watchesKeys(trigger: TriggerKey, isRecordingActive: Bool, isWaitingForRelease: Bool) -> Bool {
+        trigger == .customShortcut ? isRecordingActive : isRecordingActive || isWaitingForRelease
+    }
 }
+
+// Installs a watch on keys and clicks for the trigger and returns what removes it.
+typealias KeyWatchInstaller = @MainActor (TriggerKey, @escaping @MainActor (NSEvent) -> Void) -> @MainActor () -> Void
 
 @MainActor
 public final class TriggerMonitor {
@@ -57,6 +65,8 @@ public final class TriggerMonitor {
     private var isCustomShortcutActive = false
     private var isRecordingActive = false
     private var releaseRecheck: Task<Void, Never>?
+    private let installKeyWatch: KeyWatchInstaller
+    private var removeKeyWatch: (@MainActor () -> Void)?
 
     public var isSuspended = false {
         didSet {
@@ -67,6 +77,7 @@ public final class TriggerMonitor {
                 onCancel()
             }
             gesture.reset()
+            updateKeyWatch()
         }
     }
 
@@ -75,7 +86,7 @@ public final class TriggerMonitor {
     private let onCancel: () -> Void
     private let onDiscard: () -> Void
 
-    public init(
+    public convenience init(
         trigger: TriggerKey = .default,
         mode: RecordingMode = .pushToTalk,
         onStart: @escaping @MainActor () -> Bool,
@@ -83,8 +94,29 @@ public final class TriggerMonitor {
         onCancel: @escaping @MainActor () -> Void,
         onDiscard: @escaping @MainActor () -> Void
     ) {
+        self.init(
+            trigger: trigger,
+            mode: mode,
+            installKeyWatch: Self.installEventMonitors,
+            onStart: onStart,
+            onFinish: onFinish,
+            onCancel: onCancel,
+            onDiscard: onDiscard
+        )
+    }
+
+    init(
+        trigger: TriggerKey,
+        mode: RecordingMode,
+        installKeyWatch: @escaping KeyWatchInstaller,
+        onStart: @escaping @MainActor () -> Bool,
+        onFinish: @escaping @MainActor () -> Void,
+        onCancel: @escaping @MainActor () -> Void,
+        onDiscard: @escaping @MainActor () -> Void
+    ) {
         self.trigger = trigger
         self.gesture = PushToTalkGesture(mode: mode)
+        self.installKeyWatch = installKeyWatch
         self.onStart = onStart
         self.onFinish = onFinish
         self.onCancel = onCancel
@@ -99,8 +131,9 @@ public final class TriggerMonitor {
             NSEvent.removeMonitor(localMonitor)
         }
         // Safe: this instance is only ever touched and released from the main actor.
-        if isCustomShortcutActive {
-            MainActor.assumeIsolated {
+        MainActor.assumeIsolated {
+            removeKeyWatch?()
+            if isCustomShortcutActive {
                 KeyboardShortcuts.removeHandler(for: .sorlaCustomTrigger)
             }
         }
@@ -111,6 +144,7 @@ public final class TriggerMonitor {
         releaseRecheck?.cancel()
         isRecordingActive = true
         gesture.recordingStartedElsewhere()
+        updateKeyWatch()
     }
 
     // A dictation stopped from the menu or at the length limit no longer belongs to the key, so the next press starts a new one.
@@ -118,6 +152,7 @@ public final class TriggerMonitor {
         releaseRecheck?.cancel()
         isRecordingActive = false
         gesture.reset()
+        updateKeyWatch()
     }
 
     public func configure(trigger: TriggerKey, mode: RecordingMode) {
@@ -133,7 +168,6 @@ public final class TriggerMonitor {
         switch trigger {
         case .customShortcut:
             setUpCustomShortcut()
-            setUpEscapeMonitor()
         case .rightCommand, .rightOption, .rightControl, .fn:
             setUpModifierMonitor(for: trigger)
         }
@@ -141,6 +175,8 @@ public final class TriggerMonitor {
 
     private func tearDown() {
         releaseRecheck?.cancel()
+        removeKeyWatch?()
+        removeKeyWatch = nil
         if let globalMonitor {
             NSEvent.removeMonitor(globalMonitor)
             self.globalMonitor = nil
@@ -155,44 +191,80 @@ public final class TriggerMonitor {
         }
     }
 
+    // Only the trigger's own changes are watched all the time; keys and clicks are watched while they matter.
     private func setUpModifierMonitor(for trigger: TriggerKey) {
         guard let keyCode = trigger.keyCode, let deviceMask = trigger.deviceMask else { return }
-        let mask: NSEvent.EventTypeMask = [.flagsChanged, .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
 
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             MainActor.assumeIsolated {
-                self?.handleModifierEvent(event, keyCode: keyCode, deviceMask: deviceMask)
+                self?.handleFlagsChanged(event, keyCode: keyCode, deviceMask: deviceMask)
             }
         }
 
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             MainActor.assumeIsolated {
-                self?.handleModifierEvent(event, keyCode: keyCode, deviceMask: deviceMask)
-            }
-            return event
-        }
-    }
-
-    // The shortcut itself comes from KeyboardShortcuts, so only Esc needs watching here.
-    private func setUpEscapeMonitor() {
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            MainActor.assumeIsolated {
-                self?.handleEscapeEvent(event)
-            }
-        }
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            MainActor.assumeIsolated {
-                self?.handleEscapeEvent(event)
+                self?.handleFlagsChanged(event, keyCode: keyCode, deviceMask: deviceMask)
             }
             return event
         }
     }
 
-    private func handleEscapeEvent(_ event: NSEvent) {
-        guard !isSuspended, event.keyCode == TriggerEdge.escapeKeyCode, !event.isARepeat,
-              !Self.isSorlaSyntheticEvent(event)
-        else { return }
-        handle(.escape)
+    private func updateKeyWatch() {
+        let isNeeded = !isSuspended && TriggerEdge.watchesKeys(
+            trigger: trigger,
+            isRecordingActive: isRecordingActive,
+            isWaitingForRelease: gesture.isWaitingForRelease
+        )
+        if isNeeded, removeKeyWatch == nil {
+            removeKeyWatch = installKeyWatch(trigger) { [weak self] event in
+                self?.handleWatchedEvent(event)
+            }
+        } else if !isNeeded, let removeKeyWatch {
+            removeKeyWatch()
+            self.removeKeyWatch = nil
+        }
+    }
+
+    private static func installEventMonitors(
+        for trigger: TriggerKey,
+        handler: @escaping @MainActor (NSEvent) -> Void
+    ) -> @MainActor () -> Void {
+        let mask: NSEvent.EventTypeMask = trigger == .customShortcut
+            ? .keyDown
+            : [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+        let global = NSEvent.addGlobalMonitorForEvents(matching: mask) { event in
+            MainActor.assumeIsolated { handler(event) }
+        }
+        let local = NSEvent.addLocalMonitorForEvents(matching: mask) { event in
+            MainActor.assumeIsolated { handler(event) }
+            return event
+        }
+        return {
+            if let global { NSEvent.removeMonitor(global) }
+            if let local { NSEvent.removeMonitor(local) }
+        }
+    }
+
+    private func handleWatchedEvent(_ event: NSEvent) {
+        guard !isSuspended, !Self.isSorlaSyntheticEvent(event) else { return }
+        guard let keyCode = trigger.keyCode else {
+            // The custom shortcut itself comes from KeyboardShortcuts, so only Esc is looked at here.
+            if event.keyCode == TriggerEdge.escapeKeyCode, !event.isARepeat { handle(.escape) }
+            return
+        }
+        let isTriggerDown = { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
+        switch event.type {
+        case .keyDown:
+            if event.keyCode == TriggerEdge.escapeKeyCode {
+                if !event.isARepeat { handle(.escape, isTriggerDown: isTriggerDown) }
+            } else {
+                handle(.otherKeyDown(at: event.timestamp), isTriggerDown: isTriggerDown)
+            }
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            handle(.click(at: event.timestamp), isTriggerDown: isTriggerDown)
+        default:
+            break
+        }
     }
 
     // KeyboardShortcuts only reports down/up of the registered combo, so there's no "other key while held" signal here.
@@ -214,56 +286,33 @@ public final class TriggerMonitor {
         }
     }
 
-    private func handleModifierEvent(_ event: NSEvent, keyCode: UInt16, deviceMask: UInt) {
-        guard !isSuspended else { return }
-        let action: PushToTalkGesture.Action?
-        let isTriggerDown = { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
-
-        switch event.type {
-        case .flagsChanged:
-            guard event.keyCode == keyCode else { return }
-            releaseRecheck?.cancel()
-            let isSynthetic = Self.isSorlaSyntheticEvent(event)
-            let hasTriggerFlag = event.modifierFlags.rawValue & deviceMask != 0
-            let edge = TriggerEdge.forModifierEvent(
+    private func handleFlagsChanged(_ event: NSEvent, keyCode: UInt16, deviceMask: UInt) {
+        guard !isSuspended, event.keyCode == keyCode else { return }
+        releaseRecheck?.cancel()
+        let isSynthetic = Self.isSorlaSyntheticEvent(event)
+        let hasTriggerFlag = event.modifierFlags.rawValue & deviceMask != 0
+        let edge = TriggerEdge.forModifierEvent(
+            isSynthetic: isSynthetic,
+            hasTriggerFlag: hasTriggerFlag,
+            isWaitingForRelease: gesture.isWaitingForRelease,
+            trustsKeyState: trigger.hasReliableKeyState,
+            isKeyPhysicallyDown: { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
+        )
+        switch edge {
+        case .down:
+            handle(.triggerDown(at: event.timestamp))
+        case .up:
+            handle(.triggerUp(at: event.timestamp))
+        case nil:
+            Self.logger.info("trigger flagsChanged ignored: synthetic=\(isSynthetic, privacy: .public) flag=\(hasTriggerFlag, privacy: .public)")
+            if TriggerEdge.shouldRecheckRelease(
                 isSynthetic: isSynthetic,
                 hasTriggerFlag: hasTriggerFlag,
-                isWaitingForRelease: gesture.isWaitingForRelease,
-                trustsKeyState: trigger.hasReliableKeyState,
-                isKeyPhysicallyDown: isTriggerDown
-            )
-            switch edge {
-            case .down:
-                action = gesture.handle(.triggerDown(at: event.timestamp))
-            case .up:
-                action = gesture.handle(.triggerUp(at: event.timestamp))
-            case nil:
-                Self.logger.info("trigger flagsChanged ignored: synthetic=\(isSynthetic, privacy: .public) flag=\(hasTriggerFlag, privacy: .public)")
-                if TriggerEdge.shouldRecheckRelease(
-                    isSynthetic: isSynthetic,
-                    hasTriggerFlag: hasTriggerFlag,
-                    isWaitingForRelease: gesture.isWaitingForRelease
-                ) {
-                    scheduleReleaseRecheck(keyCode: keyCode)
-                }
-                return
+                isWaitingForRelease: gesture.isWaitingForRelease
+            ) {
+                scheduleReleaseRecheck(keyCode: keyCode)
             }
-        case .keyDown:
-            guard !Self.isSorlaSyntheticEvent(event) else { return }
-            if event.keyCode == TriggerEdge.escapeKeyCode {
-                if !event.isARepeat { handle(.escape, isTriggerDown: isTriggerDown) }
-            } else {
-                handle(.otherKeyDown(at: event.timestamp), isTriggerDown: isTriggerDown)
-            }
-            return
-        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
-            handle(.click(at: event.timestamp), isTriggerDown: isTriggerDown)
-            return
-        default:
-            return
         }
-
-        dispatch(action)
     }
 
     private func scheduleReleaseRecheck(keyCode: UInt16) {
@@ -310,9 +359,10 @@ public final class TriggerMonitor {
     private func dispatch(_ action: PushToTalkGesture.Action?) {
         switch action {
         case .start:
-            if onStart() {
-                isRecordingActive = true
-            } else {
+            // Watched before the microphone starts, so the key of a quick ⌘-shortcut isn't missed.
+            isRecordingActive = true
+            updateKeyWatch()
+            if !onStart() {
                 isRecordingActive = false
                 gesture.reset()
             }
@@ -328,5 +378,6 @@ public final class TriggerMonitor {
         case nil:
             break
         }
+        updateKeyWatch()
     }
 }
