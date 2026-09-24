@@ -24,6 +24,7 @@
 - With automatic checks on, the speech model is checked about once a day, like Sorla itself, instead of at every launch.
 - Start Dictation chosen while Settings or About is in front pastes into the app you were using before, like Paste Last.
 - Closing the last Sorla window returns you to the app you were using, so a following ⌘Q doesn't quit Sorla by accident.
+- With VoiceOver on, Settings notes under Play sounds that the sounds tell you when recording starts and stops.
 
 ## 1.0.1 — 2026-09-24
 

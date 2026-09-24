@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
     @State private var customShortcutDescription = KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
+    @State private var isVoiceOverEnabled = NSWorkspace.shared.isVoiceOverEnabled
 
     static let windowTitle = String(localized: "Sorla Settings")
 
@@ -57,6 +58,9 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshLoginItemStatus()
+        }
+        .onReceive(NSWorkspace.shared.publisher(for: \.isVoiceOverEnabled)) { enabled in
+            isVoiceOverEnabled = enabled
         }
         .onChange(of: updateChecker.appStatus) { old, new in
             announceResult(of: "Sorla", wasChecking: old == .checking, row: UpdateRow.app(new))
@@ -110,6 +114,13 @@ struct SettingsView: View {
         Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
 
         Toggle("Play sounds", isOn: $appSettings.playSounds)
+
+        // Without sight of the indicator, the sounds are how a VoiceOver user knows the microphone is on.
+        if isVoiceOverEnabled {
+            Text("The sounds tell you when recording starts and stops.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
 
         LabeledContent("Paste last transcription") {
             ShortcutField(name: .pasteLastTranscription, accessibilityLabel: String(localized: "Paste last transcription"))

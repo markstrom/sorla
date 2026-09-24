@@ -91,6 +91,7 @@
 "Keep clipboard content" = "Behåll urklippets innehåll";
 "Play sounds" = "Spela upp ljud";
 "Paste last transcription" = "Klistra in senaste transkriberingen";
+"The sounds tell you when recording starts and stops." = "Ljuden talar om när inspelningen börjar och slutar.";
 "Launch at login" = "Starta vid inloggning";
 "Sorla needs approval in Login Items to launch at login." = "Sorla behöver godkännas under Inloggningsobjekt för att starta vid inloggning.";
 "Open Login Items Settings…" = "Öppna inställningar för Inloggningsobjekt…";

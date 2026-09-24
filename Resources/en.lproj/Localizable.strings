@@ -91,6 +91,7 @@
 "Keep clipboard content" = "Keep clipboard content";
 "Play sounds" = "Play sounds";
 "Paste last transcription" = "Paste last transcription";
+"The sounds tell you when recording starts and stops." = "The sounds tell you when recording starts and stops.";
 "Launch at login" = "Launch at login";
 "Sorla needs approval in Login Items to launch at login." = "Sorla needs approval in Login Items to launch at login.";
 "Open Login Items Settings…" = "Open Login Items Settings…";
