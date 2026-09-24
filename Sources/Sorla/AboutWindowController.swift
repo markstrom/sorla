@@ -3,19 +3,25 @@ import SwiftUI
 
 @MainActor
 final class AboutWindowController: NSWindowController {
-    convenience init() {
+    private let updateRequest = UpdateCheckRequest()
+
+    init() {
         let window = NSWindow(
             contentRect: .zero,
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
+        super.init(window: window)
         window.title = String(localized: "About Sorla")
-        window.contentViewController = NSHostingController(rootView: AboutView())
+        window.contentViewController = NSHostingController(rootView: AboutView(updateRequest: updateRequest))
         window.isReleasedWhenClosed = false
         window.center()
+    }
 
-        self.init(window: window)
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
     }
 
     // Opened from the status menu: wait until it has closed, or macOS may leave the window behind others.
@@ -26,5 +32,10 @@ final class AboutWindowController: NSWindowController {
             NSApp.activate()
             window.makeKeyAndOrderFront(nil)
         }
+    }
+
+    func showAndCheckForUpdates() {
+        updateRequest.isPending = true
+        show()
     }
 }

@@ -70,7 +70,7 @@ Sorla uses the network only to:
 
 - download the speech model from Hugging Face on first launch,
 - check for model updates, either when you ask it to or, if you turn it on, automatically, and
-- ask GitHub for the latest app version, only when you click Check for Updates in the About window.
+- ask GitHub for the latest app version, only when you choose Check for Updates… in the menu.
 
 There are no accounts, no analytics and no tracking. Once the model is installed, Sorla works offline. Read the full [privacy policy](https://sorla.zerolabs.se/privacy).
 

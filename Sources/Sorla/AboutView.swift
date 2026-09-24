@@ -1,7 +1,15 @@
 import SorlaCore
 import SwiftUI
 
+// Set by the status menu's "Check for Updates…" so the About window runs the check when it shows.
+@MainActor
+final class UpdateCheckRequest: ObservableObject {
+    @Published var isPending = false
+}
+
 struct AboutView: View {
+    @ObservedObject var updateRequest: UpdateCheckRequest
+
     private enum UpdateState: Equatable {
         case idle
         case checking
@@ -86,16 +94,12 @@ struct AboutView: View {
         .padding(24)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
+        .onAppear(perform: runRequestedCheck)
+        .onChange(of: updateRequest.isPending) { runRequestedCheck() }
     }
 
     private var updateSection: some View {
         VStack(spacing: 6) {
-            Button(String(localized: "Check for Updates")) {
-                checkForUpdates()
-            }
-            .controlSize(.small)
-            .disabled(updateState == .checking)
-
             switch updateState {
             case .idle:
                 EmptyView()
@@ -130,6 +134,13 @@ struct AboutView: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             .accessibilityLabel(text)
+    }
+
+    private func runRequestedCheck() {
+        guard updateRequest.isPending else { return }
+        updateRequest.isPending = false
+        guard updateState != .checking else { return }
+        checkForUpdates()
     }
 
     private func checkForUpdates() {
