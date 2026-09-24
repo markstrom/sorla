@@ -86,6 +86,11 @@
     <p>Öppna Systeminställningar → Integritet och säkerhet → Mikrofon och kontrollera att reglaget för Sorla är på. Hjälper inte det, avsluta Sorla och kör raden nedan i Terminal. Öppna sedan Sorla från Program och klicka på Tillåt.</p>
     <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>tccutil reset Microphone com.sorla.app</code></p>
 
+    <h2>Installera med Homebrew</h2>
+    <p>Använder du <a href="https://brew.sh">Homebrew</a> kan du installera Sorla från Terminal:</p>
+    <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>brew install --cask markstrom/tap/sorla</code></p>
+    <p>Uppdatera sedan med <code>brew upgrade --cask sorla</code>.</p>
+
     <h2>Kom igång</h2>
     <p>Första gången Sorla startar öppnas ett välkomstfönster. Det visar de tre saker som behövs: <strong>Mikrofon</strong>, <strong>Hjälpmedel</strong> och <strong>talmodellen</strong>. Mikrofonen tillåter du direkt i fönstret. Hjälpmedel slår du på i Systeminställningar → Integritet och säkerhet → Hjälpmedel; knappen Öppna Systeminställningar tar dig dit. Varje rad får en bock när den är klar. Får Hjälpmedel ingen bock, se <a href="#hjalpmedel">ovan</a>.</p>
     <p>Talmodellen (ungefär 700 MB) börjar laddas ner från Hugging Face av sig själv, medan du ger behörigheterna. Förloppet syns i fönstret och i menyn, först som ”Laddar ner modellen… 42 %” och sedan som ”Förbereder modellen… ~1 min” medan modellen görs klar för Macens Neural Engine. Första gången tar det ungefär en minut. Därefter behövs inget nätverk.</p>

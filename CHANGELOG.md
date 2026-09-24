@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Install and update with Homebrew: `brew install --cask markstrom/tap/sorla`.
+
 ## 1.0.2 — 2026-09-24
 
 - Updates for Sorla and the speech model live in one place, Settings › Updates: a row for each with its version and result, one Check Now that asks GitHub and Hugging Face together, and two toggles (check automatically, install automatically) that replace the model-only ones and keep their values. Check for Updates… in the menu opens that section and runs the check, a newer Sorla shows in the menu's status row, and the About window is back to just the version.

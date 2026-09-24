@@ -50,6 +50,14 @@ Sorla also builds on:
 4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both and downloads the model.
 5. Hold Right ⌘ and speak.
 
+Or with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask markstrom/tap/sorla
+```
+
+Update later with `brew upgrade --cask sorla`, or with **Check for Updates…** in Sorla's menu.
+
 ### If macOS blocks the app
 
 Sorla is signed with Developer ID and notarized by Apple, so this is rare. Step-by-step help, including what to do if Accessibility won't turn on, is on the [help page](https://sorla.zerolabs.se/support#oppna) (in Swedish).
