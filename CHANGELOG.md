@@ -17,6 +17,7 @@
 - Welcome window with VoiceOver: the app icon and row symbols are no longer read out, a finished row says "Done", a busy one "In progress", each row is read as one group, and VoiceOver announces when Sorla is ready.
 - The menu bar icon shows an exclamation mark in place of the dot when the model couldn't be loaded, and VoiceOver reads it as "Sorla (model couldn't be loaded)"; while transcribing it reads "Sorla (transcribing)".
 - The Welcome window and the help page describe a finished row by its checkmark instead of its colour ("shows a checkmark", not "turns green").
+- Warnings and hints in Settings and the Welcome window (the Fn key warning, the Login Items approval hint, a failed update's reason, the Accessibility restart hint) use a larger size and the primary text colour, so they stay readable with Increase Contrast.
 
 ## 1.0.1 — 2026-09-24
 

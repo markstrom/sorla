@@ -62,8 +62,7 @@ struct WelcomeView: View {
                 row(symbol: "accessibility", title: "Accessibility", description: "So Sorla can paste where you type.", status: accessibility)
                 if !accessibility.isDone {
                     Text("If the switch is on but this doesn't show a checkmark, quit and reopen Sorla.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.callout)
                         .padding(.leading, 36)
                 }
                 row(symbol: "waveform", title: "Model", description: LocalizedStringKey(PianissimoModel.displayName), status: model)

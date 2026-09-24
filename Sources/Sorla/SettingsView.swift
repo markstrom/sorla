@@ -194,8 +194,7 @@ struct SettingsView: View {
                 }
                 if row.kind == .failure, let text = row.text {
                     Text(text)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.callout)
                         .multilineTextAlignment(.trailing)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -230,8 +229,7 @@ struct SettingsView: View {
     private var fnHint: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.callout)
             Button("Open Keyboard Settings…") {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
                     NSWorkspace.shared.open(url)
@@ -243,8 +241,7 @@ struct SettingsView: View {
     private var loginItemApprovalHint: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Sorla needs approval in Login Items to launch at login.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.callout)
             Button("Open Login Items Settings…") {
                 LoginItem.openSystemSettingsLoginItems()
             }
