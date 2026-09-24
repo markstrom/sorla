@@ -19,6 +19,14 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V")
     }
 
+    // VoiceOver users can't see the menu row, so the cue itself says a restart is needed.
+    func testAReplacedAppsClipboardCueAlsoAsksForARestart() {
+        let cue = DictationCue.textOnClipboardUntilRestart
+        XCTAssertEqual(cue.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V. Restart Sorla to paste again")
+        XCTAssertEqual(cue.symbolName, DictationCue.textOnClipboard.symbolName)
+        XCTAssertEqual(cue.issue(pasteShortcut: nil), .textOnClipboard(pasteShortcut: "⌘V"))
+    }
+
     func testTheHeldKeysCueAsksForTheShortcutAgain() {
         XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: "⌃⌥V"), "Let go of the keys and press ⌃⌥V again")
         XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: nil), "Let go of the keys and try again")

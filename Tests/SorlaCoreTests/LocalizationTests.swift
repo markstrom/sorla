@@ -150,6 +150,10 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
             XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
             XCTAssertEqual(
+                DictationCue.textOnClipboardUntilRestart.announcement(pasteShortcut: nil),
+                "Texten ligger i urklippet – tryck ⌘V. Starta om Sorla för att klistra in igen"
+            )
+            XCTAssertEqual(
                 MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true)?.title,
                 "Sorla har uppdaterats – Starta om"
             )

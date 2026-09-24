@@ -210,7 +210,7 @@ final class MenuStatusRowTests: XCTestCase {
 
     // A paste that would have been dropped leaves the text on the clipboard for the user's own ⌘V.
     func testAReplacedAppsPasteShowsTheClipboardCue() {
-        XCTAssertEqual(DictationCue(issue: .appReplaced), .textOnClipboard)
+        XCTAssertEqual(DictationCue(issue: .appReplaced), .textOnClipboardUntilRestart)
         XCTAssertNil(SorlaIssue.appReplaced.settingsURL)
     }
 }
