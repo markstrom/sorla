@@ -26,3 +26,45 @@ public struct RecordingLimit: Equatable, Sendable {
         return .stop(after: max(0, maximum - elapsed))
     }
 }
+
+// One task per recording, stopped when the recording ends, so nothing runs while idle.
+@MainActor
+public final class RecordingLimitWatch {
+    private let limit: RecordingLimit
+    private var task: Task<Void, Never>?
+
+    public init(limit: RecordingLimit = .standard) {
+        self.limit = limit
+    }
+
+    public var isWatching: Bool { task != nil }
+
+    public func start(onWarning: @escaping @MainActor () -> Void, onLimit: @escaping @MainActor () -> Void) {
+        stop()
+        let limit = self.limit
+        let start = ContinuousClock.now
+        task = Task { @MainActor [weak self] in
+            var hasWarned = false
+            while !Task.isCancelled {
+                switch limit.nextStep(elapsed: (ContinuousClock.now - start) / .seconds(1)) {
+                case .warn(let delay):
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled, !hasWarned else { continue }
+                    hasWarned = true
+                    onWarning()
+                case .stop(let delay):
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    self?.task = nil
+                    onLimit()
+                    return
+                }
+            }
+        }
+    }
+
+    public func stop() {
+        task?.cancel()
+        task = nil
+    }
+}

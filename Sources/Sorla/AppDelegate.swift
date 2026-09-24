@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isStartingRecording = false
     private var startFailure: DictationCue?
     private var pendingAnnouncement: String?
-    private var recordingLimit: Task<Void, Never>?
+    private let recordingLimit = RecordingLimitWatch()
 
     private static func waitForModifierRelease(timeout: Duration = .seconds(1)) async -> Bool {
         let deadline = ContinuousClock.now + timeout
@@ -378,27 +378,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scheduleStartSound(after: 0)
     }
 
-    // One task per recording, cancelled when it ends, so nothing runs while idle.
     private func watchRecordingLimit(isRecording: Bool) {
-        recordingLimit?.cancel()
-        recordingLimit = nil
-        guard isRecording else { return }
-        let start = ContinuousClock.now
-        recordingLimit = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                switch RecordingLimit.standard.nextStep(elapsed: (ContinuousClock.now - start) / .seconds(1)) {
-                case .warn(let delay):
-                    try? await Task.sleep(for: .seconds(delay))
-                    guard !Task.isCancelled else { return }
-                    self?.recordingIndicator.setNearLimit(true)
-                case .stop(let delay):
-                    try? await Task.sleep(for: .seconds(delay))
-                    guard !Task.isCancelled else { return }
-                    self?.stopAtRecordingLimit()
-                    return
-                }
-            }
-        }
+        guard isRecording else { return recordingLimit.stop() }
+        recordingLimit.start(
+            onWarning: { [weak self] in self?.recordingIndicator.setNearLimit(true) },
+            onLimit: { [weak self] in self?.stopAtRecordingLimit() }
+        )
     }
 
     private func stopAtRecordingLimit() {
