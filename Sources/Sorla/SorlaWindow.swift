@@ -5,6 +5,7 @@ import os
 final class SorlaWindow: NSWindow {
     private static let logger = Logger(subsystem: "com.sorla.app", category: "SorlaWindow")
     private var activationObserver: NSObjectProtocol?
+    private var presentation = WindowPresentation()
 
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
@@ -16,8 +17,16 @@ final class SorlaWindow: NSWindow {
         performClose(sender)
     }
 
+    // A later activation, say for another Sorla window, must not bring this one back.
+    override func close() {
+        presentation.close()
+        stopWaitingForActivation()
+        super.close()
+    }
+
     // The one way Settings, About and Welcome come forward, from the status menu or at launch.
     func present(then didPresent: @escaping @MainActor (SorlaWindow) -> Void = { _ in }) {
+        presentation.request()
         // Opened from the status menu: wait until it has closed, or macOS may leave the window behind others.
         DispatchQueue.main.async { [weak self] in
             self?.bringForward(then: didPresent)
@@ -25,13 +34,18 @@ final class SorlaWindow: NSWindow {
     }
 
     private func bringForward(then didPresent: @escaping @MainActor (SorlaWindow) -> Void) {
+        stopWaitingForActivation()
+        let step = presentation.bringForward(isAppActive: NSApp.isActive)
+        guard step != .none else {
+            logState("not shown (closed before its turn)")
+            return
+        }
         if isMiniaturized {
             deminiaturize(nil)
         }
-        stopWaitingForActivation()
         logState("show")
         orderFrontRegardless()
-        guard !NSApp.isActive else {
+        guard step == .waitForActivation else {
             finish(didPresent)
             return
         }
@@ -44,6 +58,7 @@ final class SorlaWindow: NSWindow {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.stopWaitingForActivation()
+                guard self.presentation.appDidBecomeActive() else { return }
                 self.finish(didPresent)
             }
         }
@@ -71,5 +86,38 @@ final class SorlaWindow: NSWindow {
         let window = windowController.map { String(describing: type(of: $0)) } ?? "window"
         let isSorlaFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == NSRunningApplication.current.processIdentifier
         Self.logger.info("\(window, privacy: .public) \(event, privacy: .public): active=\(NSApp.isActive, privacy: .public) frontmost=\(isSorlaFrontmost, privacy: .public) key=\(self.isKeyWindow, privacy: .public) visible=\(self.isVisible, privacy: .public) occluded=\(!self.occlusionState.contains(.visible), privacy: .public) miniaturized=\(self.isMiniaturized, privacy: .public) activeSpace=\(self.isOnActiveSpace, privacy: .public)")
+    }
+}
+
+// Whether a window asked to come forward still should when its turn, or Sorla's activation, comes (#39).
+struct WindowPresentation: Equatable {
+    enum Step: Equatable {
+        case none
+        case show
+        case waitForActivation
+    }
+
+    private(set) var isWanted = false
+    private(set) var isWaitingForActivation = false
+
+    mutating func request() {
+        isWanted = true
+    }
+
+    mutating func bringForward(isAppActive: Bool) -> Step {
+        guard isWanted else { return .none }
+        isWaitingForActivation = !isAppActive
+        return isAppActive ? .show : .waitForActivation
+    }
+
+    // Returns whether to make the window key now that Sorla is active.
+    mutating func appDidBecomeActive() -> Bool {
+        defer { isWaitingForActivation = false }
+        return isWanted && isWaitingForActivation
+    }
+
+    mutating func close() {
+        isWanted = false
+        isWaitingForActivation = false
     }
 }
