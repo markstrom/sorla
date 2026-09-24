@@ -85,7 +85,7 @@ public final class TriggerMonitor {
         }
     }
 
-    // A dictation stopped from the menu no longer belongs to the key, so the next press starts a new one.
+    // A dictation stopped from the menu or at the length limit no longer belongs to the key, so the next press starts a new one.
     public func recordingDidEndElsewhere() {
         releaseRecheck?.cancel()
         isRecordingActive = false

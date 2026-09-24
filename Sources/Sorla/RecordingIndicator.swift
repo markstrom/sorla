@@ -78,6 +78,7 @@ final class RecordingIndicatorViewModel: ObservableObject {
     @Published private(set) var bands = SIMD8<Float>(repeating: 0)
     @Published private(set) var mode = IndicatorMode.recording
     @Published private(set) var isMicrophoneMuted = false
+    @Published private(set) var isNearLimit = false
     @Published private(set) var isVisible = false
     @Published private(set) var isExpanded = false
     @Published private(set) var isShapeVisible = false
@@ -97,6 +98,10 @@ final class RecordingIndicatorViewModel: ObservableObject {
 
     func setMicrophoneMuted(_ muted: Bool) {
         isMicrophoneMuted = muted
+    }
+
+    func setNearLimit(_ nearLimit: Bool) {
+        isNearLimit = nearLimit
     }
 
     func setVisible(_ visible: Bool) {
@@ -127,6 +132,7 @@ final class RecordingIndicatorViewModel: ObservableObject {
         smoother = BandSmoother()
         bands = SIMD8(repeating: 0)
         isMicrophoneMuted = false
+        isNearLimit = false
     }
 }
 
@@ -186,10 +192,10 @@ struct RecordingIndicatorView: View {
             return Text("Transcribing")
         case .cue(_, let label):
             return Text(verbatim: label)
+        case .recording where viewModel.isMicrophoneMuted:
+            return Text(verbatim: DictationCue.microphoneMuted.announcement(pasteShortcut: nil))
         case .recording:
-            return viewModel.isMicrophoneMuted
-                ? Text(verbatim: DictationCue.microphoneMuted.announcement(pasteShortcut: nil))
-                : Text("Recording")
+            return viewModel.isNearLimit ? Text("Recording, stopping soon") : Text("Recording")
         }
     }
 
@@ -270,6 +276,9 @@ struct RecordingIndicatorView: View {
             ? VisualizerBars.shimmer(time: time, barCount: barCount, reduceMotion: viewModel.reduceMotion)
             : Array(repeating: Float(0), count: barCount)
 
+        // Dimmed bars in the last seconds before the length limit: a quiet cue, with no extra motion.
+        let limitDimming = !transcribing && viewModel.isNearLimit ? 0.45 : 1
+
         return HStack(alignment: .center, spacing: barSpacing) {
             ForEach(0..<barCount, id: \.self) { index in
                 let magnitude = Double(magnitudes[index])
@@ -282,7 +291,7 @@ struct RecordingIndicatorView: View {
                         )
                     )
                     .shadow(color: .white.opacity(0.6 * magnitude * magnitude), radius: 3)
-                    .opacity(transcribing ? 0.3 + 0.55 * Double(shimmer[index]) : 0.35 + 0.65 * magnitude)
+                    .opacity(transcribing ? 0.3 + 0.55 * Double(shimmer[index]) : (0.35 + 0.65 * magnitude) * limitDimming)
             }
         }
         .frame(height: maxHeight)
@@ -337,6 +346,12 @@ final class RecordingIndicatorPanel: NSPanel {
 
     func setMicrophoneMuted(_ muted: Bool) {
         viewModel.setMicrophoneMuted(muted)
+    }
+
+    func setNearLimit(_ nearLimit: Bool) {
+        withAnimation(viewModel.reduceMotion ? Self.reduceMotionFade : .easeInOut(duration: 1)) {
+            viewModel.setNearLimit(nearLimit)
+        }
     }
 
     func showRecording() {

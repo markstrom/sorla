@@ -109,6 +109,7 @@
 /* Recording indicator */
 "Recording" = "Spelar in";
 "Transcribing" = "Transkriberar";
+"Recording, stopping soon" = "Spelar in, stoppas snart";
 
 /* About */
 "Version %@ (%@)" = "Version %@ (%@)";

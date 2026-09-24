@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isStartingRecording = false
     private var startFailure: DictationCue?
     private var pendingAnnouncement: String?
+    private var recordingLimit: Task<Void, Never>?
 
     private static func waitForModifierRelease(timeout: Duration = .seconds(1)) async -> Bool {
         let deadline = ContinuousClock.now + timeout
@@ -131,8 +132,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingIndicator = RecordingIndicatorPanel()
         feedbackSounds = FeedbackSoundPlayer()
 
-        recordingController.onStateChange = { [weak self] _ in
+        recordingController.onStateChange = { [weak self] isRecording in
             self?.updateTriggerHintMenuItem()
+            self?.watchRecordingLimit(isRecording: isRecording)
         }
         recordingController.onPhaseChange = { [weak self] phase in
             guard let self, let indicator = self.recordingIndicator else { return }
@@ -358,6 +360,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         scheduleStartSound(after: 0)
+    }
+
+    // One task per recording, cancelled when it ends, so nothing runs while idle.
+    private func watchRecordingLimit(isRecording: Bool) {
+        recordingLimit?.cancel()
+        recordingLimit = nil
+        guard isRecording else { return }
+        let start = ContinuousClock.now
+        recordingLimit = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                switch RecordingLimit.standard.nextStep(elapsed: (ContinuousClock.now - start) / .seconds(1)) {
+                case .warn(let delay):
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    self?.recordingIndicator.setNearLimit(true)
+                case .stop(let delay):
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    self?.stopAtRecordingLimit()
+                    return
+                }
+            }
+        }
+    }
+
+    private func stopAtRecordingLimit() {
+        Self.logger.info("recording stopped at the length limit")
+        triggerMonitor?.recordingDidEndElsewhere()
+        finishRecording()
     }
 
     private func finishRecording() {

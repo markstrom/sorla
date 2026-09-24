@@ -109,6 +109,7 @@
 /* Recording indicator */
 "Recording" = "Recording";
 "Transcribing" = "Transcribing";
+"Recording, stopping soon" = "Recording, stopping soon";
 
 /* About */
 "Version %@ (%@)" = "Version %@ (%@)";
