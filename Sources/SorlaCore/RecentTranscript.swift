@@ -6,6 +6,8 @@ public struct RecentTranscript: Equatable, Sendable {
 
     private var text: String?
     public private(set) var expiresAt: Date?
+    // Bumped by forget(), so a transcription that was in flight when the Mac locked is dropped too.
+    public private(set) var generation = 0
 
     public init() {}
 
@@ -25,5 +27,15 @@ public struct RecentTranscript: Equatable, Sendable {
     public mutating func clear() {
         text = nil
         expiresAt = nil
+    }
+
+    public mutating func forget() {
+        clear()
+        generation += 1
+    }
+
+    // A transcription begun before the last forget() may neither be pasted nor kept.
+    public func accepts(from generation: Int) -> Bool {
+        generation == self.generation
     }
 }

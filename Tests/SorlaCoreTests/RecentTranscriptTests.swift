@@ -41,4 +41,27 @@ final class RecentTranscriptTests: XCTestCase {
         XCTAssertNil(recent.text(at: start))
         XCTAssertNil(recent.expiresAt)
     }
+
+    func testForgetClearsTheTextAndRejectsWorkBegunBefore() {
+        var recent = RecentTranscript()
+        recent.store("hej", at: start)
+        let inFlight = recent.generation
+        XCTAssertTrue(recent.accepts(from: inFlight))
+
+        recent.forget()
+
+        XCTAssertNil(recent.text(at: start))
+        XCTAssertFalse(recent.accepts(from: inFlight))
+        XCTAssertTrue(recent.accepts(from: recent.generation))
+    }
+
+    // Expiry only ends the text's lifetime; a dictation still being transcribed is kept.
+    func testExpiryAndClearDoNotRejectWorkInFlight() {
+        var recent = RecentTranscript()
+        let inFlight = recent.generation
+        recent.store("hej", at: start)
+        _ = recent.text(at: start.addingTimeInterval(RecentTranscript.lifetime))
+        recent.clear()
+        XCTAssertTrue(recent.accepts(from: inFlight))
+    }
 }

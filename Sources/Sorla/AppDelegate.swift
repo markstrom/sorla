@@ -241,7 +241,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
-        // Someone else at the Mac shouldn't be able to paste what was last dictated.
+        // Someone else at the Mac shouldn't be able to paste what was last dictated, or keep the microphone open.
         Publishers.MergeMany(
             NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification),
             NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.sessionDidResignActiveNotification),
@@ -249,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
-            self?.forgetLastTranscript()
+            self?.endDictationAndForget()
         }
         .store(in: &cancellables)
 
@@ -434,8 +434,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func forgetLastTranscript() {
-        recordingController.clearLastTranscript()
+    private func endDictationAndForget() {
+        pendingStartSound?.cancel()
+        isRefusedDictationHeld = false
+        startFailure = nil
+        triggerMonitor?.recordingDidEndElsewhere()
+        recordingController.cancelRecording()
+        recordingController.forgetLastTranscript()
         pasteLastMenuItem.isEnabled = false
         if transientStatus?.row.action == .pasteLastTranscription {
             transientStatus = nil

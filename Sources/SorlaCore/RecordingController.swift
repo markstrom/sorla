@@ -178,6 +178,7 @@ public final class RecordingController {
         muteDetector = nil
         let deviceSeemedMuted = self.deviceSeemedMuted
         let dictationID = recordingID
+        let generation = recentTranscript.generation
         updatePhase { $0.release(dictationID) }
 
         let released = Date()
@@ -225,6 +226,10 @@ public final class RecordingController {
 
             do {
                 let text = try await engine.transcribe(samples)
+                guard self.recentTranscript.accepts(from: generation) else {
+                    self.logger.info("transcription dropped (the Mac locked, slept or switched user)")
+                    return
+                }
                 guard !text.isEmpty else {
                     self.logger.info("\(modelName, privacy: .public): empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
                     self.onCue?(.noText)
@@ -270,10 +275,11 @@ public final class RecordingController {
         }
     }
 
-    public func clearLastTranscript() {
+    // Also drops a transcription still in flight, which would otherwise paste and keep its text afterwards.
+    public func forgetLastTranscript() {
         transcriptExpiry?.cancel()
         transcriptExpiry = nil
-        recentTranscript.clear()
+        recentTranscript.forget()
     }
 
     // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
@@ -288,10 +294,15 @@ public final class RecordingController {
             return
         }
         isPasteLastInFlight = true
+        let generation = recentTranscript.generation
         Task { @MainActor in
             defer { self.isPasteLastInFlight = false }
             guard await prepare() else {
                 self.logger.info("paste-last skipped (target app never became frontmost)")
+                return
+            }
+            guard self.recentTranscript.accepts(from: generation) else {
+                self.logger.info("paste-last skipped (the text was forgotten)")
                 return
             }
             guard self.phase == .idle else {
