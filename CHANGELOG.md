@@ -2,9 +2,10 @@
 
 ## Unreleased
 
+- Updates for Sorla and the speech model live in one place, Settings › Updates: a row for each with its version and result, one Check Now that asks GitHub and Hugging Face together, and two toggles (check automatically, install automatically) that replace the model-only ones and keep their values. Check for Updates… in the menu opens that section and runs the check, a newer Sorla shows in the menu's status row, and the About window is back to just the version.
 - Sorla no longer uses notifications, so macOS never asks for a third permission. Problems show in the indicator (an hourglass while the model gets ready, a warning when something failed), VoiceOver announces them, and the menu's status row explains the last dictation (muted microphone, text on the clipboard, no microphone, failed transcription) until the next one starts or for five minutes.
 - The update check tells "offline", "GitHub rate limit" and "bad response" apart and never shows a failure as "up to date".
-- About window: calmer layout with the Klang Pianissimo credit up front, links to the website, GitHub and privacy page, and a Check for Updates button; other credits and the license texts are in Credits and Licenses….
+- About window: calmer layout with the Klang Pianissimo credit up front, links to the website, GitHub and privacy page; other credits and the license texts are in Credits and Licenses….
 - When the model couldn't be loaded, dictation is refused up front with a pointer to Try Again in the menu.
 - Cancelling a recording while an earlier one is still being transcribed no longer hides the indicator early or lets a model update swap in mid-transcription.
 - Something you copy between two quick dictations is kept instead of being replaced by the older clipboard content.

@@ -15,6 +15,7 @@
 "Model not installed — Download" = "Modellen är inte installerad – Ladda ner";
 "%@ — Try Again" = "%@ – Försök igen";
 "Model update available (%@)" = "Modelluppdatering tillgänglig (%@)";
+"Sorla %@ is available — Download" = "Sorla %@ finns – Ladda ner";
 "Microphone access needed" = "Mikrofonåtkomst behövs";
 "Accessibility access needed to paste" = "Hjälpmedelsåtkomst behövs för att klistra in";
 "Model couldn't be loaded" = "Modellen kunde inte läsas in";
@@ -64,9 +65,13 @@
 "Failed: %@" = "Misslyckades: %@";
 "Download" = "Ladda ner";
 "Try Again" = "Försök igen";
-"Check for model updates automatically" = "Sök efter modelluppdateringar automatiskt";
-"Download updates automatically" = "Ladda ner uppdateringar automatiskt";
 "Check Now" = "Sök nu";
+"Updates" = "Uppdateringar";
+"Speech model" = "Talmodell";
+"Latest" = "Senaste";
+"%@ available" = "%@ finns";
+"Check for updates automatically" = "Sök efter uppdateringar automatiskt";
+"Install updates automatically" = "Installera uppdateringar automatiskt";
 "Keep clipboard content" = "Behåll urklippets innehåll";
 "Play sounds" = "Spela upp ljud";
 "Paste last transcription" = "Klistra in senaste transkriberingen";
@@ -108,8 +113,6 @@
 "Talk. Release. Done." = "Prata. Släpp. Klart.";
 "Check for Updates…" = "Sök efter uppdateringar…";
 "Checking…" = "Söker…";
-"You have the latest version." = "Du har den senaste versionen.";
-"Sorla %@ is available." = "Sorla %@ finns.";
 "Couldn't check for updates. Check your internet connection." = "Kunde inte söka efter uppdateringar. Kontrollera internetanslutningen.";
 
 /* Welcome */
@@ -137,7 +140,6 @@
 "Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)." = "Talmodell av Klang AI AB, CC BY 4.0. Konverterad till Core ML med oförändrade vikter, baserad på NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).";
 "Runs the model with Core ML. Apache License 2.0." = "Kör modellen med Core ML. Apache License 2.0.";
 "Custom keyboard shortcuts. MIT License." = "Egna kortkommandon. MIT-licens.";
-"Check for Updates" = "Sök efter uppdateringar";
 
 /* Dictation cues */
 "Nothing heard" = "Inget hördes";

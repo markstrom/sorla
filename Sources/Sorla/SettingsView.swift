@@ -4,9 +4,18 @@ import os
 import SorlaCore
 import SwiftUI
 
+// Set by the menu's "Check for Updates…" so Settings brings the Updates section into view.
+@MainActor
+final class SettingsNavigation: ObservableObject {
+    @Published var showsUpdates = false
+}
+
 struct SettingsView: View {
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var modelManager: ModelManager
+    @ObservedObject var updateChecker: UpdateChecker
+    @ObservedObject var navigation: SettingsNavigation
+    @Environment(\.openURL) private var openURL
     @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
     @State private var customShortcutDescription = KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
@@ -18,62 +27,25 @@ struct SettingsView: View {
     // The recorder's own 130 pt is too narrow for longer translations such as "Spela in kortkommando".
     private static let recorderWidth: CGFloat = 200
 
+    private static let updatesSectionID = "updates"
+
     var body: some View {
+        ScrollViewReader { proxy in
+            form
+                .onAppear { scrollToUpdatesIfAsked(proxy) }
+                .onChange(of: navigation.showsUpdates) { scrollToUpdatesIfAsked(proxy) }
+        }
+    }
+
+    private var form: some View {
         Form {
-            Picker("Trigger", selection: $appSettings.triggerKey) {
-                ForEach(TriggerKey.allCases, id: \.self) { trigger in
-                    Text(trigger.displayName).tag(trigger)
-                }
+            Section {
+                general
             }
-
-            if appSettings.triggerKey == .customShortcut {
-                LabeledContent("Shortcut") {
-                    ShortcutField(name: .sorlaCustomTrigger, accessibilityLabel: String(localized: "Shortcut")) { shortcut in
-                        MainActor.assumeIsolated {
-                            customShortcutDescription = shortcut?.description
-                        }
-                    }
-                    .frame(width: Self.recorderWidth)
-                }
+            Section("Updates") {
+                updates
             }
-
-            if appSettings.triggerKey == .fn {
-                fnHint
-            }
-
-            Picker("Mode", selection: $appSettings.recordingMode) {
-                ForEach(RecordingMode.allCases, id: \.self) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            Text(TriggerHint.explanation(
-                trigger: appSettings.triggerKey,
-                mode: appSettings.recordingMode,
-                customShortcut: customShortcutDescription
-            ))
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            Picker("Model", selection: .constant(PianissimoModel.displayName)) {
-                Text(LocalizedStringKey(PianissimoModel.displayName)).tag(PianissimoModel.displayName)
-            }
-            modelUpdates
-
-            Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
-
-            Toggle("Play sounds", isOn: $appSettings.playSounds)
-
-            LabeledContent("Paste last transcription") {
-                ShortcutField(name: .pasteLastTranscription, accessibilityLabel: String(localized: "Paste last transcription"))
-                    .frame(width: Self.recorderWidth)
-            }
-
-            Toggle("Launch at login", isOn: launchAtLoginBinding)
-
-            if loginItemRequiresApproval {
-                loginItemApprovalHint
-            }
+            .id(Self.updatesSectionID)
         }
         .formStyle(.grouped)
         .frame(width: 460)
@@ -86,6 +58,83 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshLoginItemStatus()
         }
+        .onChange(of: updateChecker.appStatus) { old, new in
+            announceResult(of: "Sorla", wasChecking: old == .checking, row: UpdateRow.app(new))
+        }
+        .onChange(of: modelManager.status) { old, new in
+            announceResult(of: String(localized: "Speech model"), wasChecking: old == .checking, row: UpdateRow.model(new))
+        }
+    }
+
+    @ViewBuilder
+    private var general: some View {
+        Picker("Trigger", selection: $appSettings.triggerKey) {
+            ForEach(TriggerKey.allCases, id: \.self) { trigger in
+                Text(trigger.displayName).tag(trigger)
+            }
+        }
+
+        if appSettings.triggerKey == .customShortcut {
+            LabeledContent("Shortcut") {
+                ShortcutField(name: .sorlaCustomTrigger, accessibilityLabel: String(localized: "Shortcut")) { shortcut in
+                    MainActor.assumeIsolated {
+                        customShortcutDescription = shortcut?.description
+                    }
+                }
+                .frame(width: Self.recorderWidth)
+            }
+        }
+
+        if appSettings.triggerKey == .fn {
+            fnHint
+        }
+
+        Picker("Mode", selection: $appSettings.recordingMode) {
+            ForEach(RecordingMode.allCases, id: \.self) { mode in
+                Text(mode.displayName).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        Text(TriggerHint.explanation(
+            trigger: appSettings.triggerKey,
+            mode: appSettings.recordingMode,
+            customShortcut: customShortcutDescription
+        ))
+        .font(.caption)
+        .foregroundStyle(.secondary)
+
+        Picker("Model", selection: .constant(PianissimoModel.displayName)) {
+            Text(LocalizedStringKey(PianissimoModel.displayName)).tag(PianissimoModel.displayName)
+        }
+
+        Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
+
+        Toggle("Play sounds", isOn: $appSettings.playSounds)
+
+        LabeledContent("Paste last transcription") {
+            ShortcutField(name: .pasteLastTranscription, accessibilityLabel: String(localized: "Paste last transcription"))
+                .frame(width: Self.recorderWidth)
+        }
+
+        Toggle("Launch at login", isOn: launchAtLoginBinding)
+
+        if loginItemRequiresApproval {
+            loginItemApprovalHint
+        }
+    }
+
+    private func scrollToUpdatesIfAsked(_ proxy: ScrollViewProxy) {
+        guard navigation.showsUpdates else { return }
+        navigation.showsUpdates = false
+        proxy.scrollTo(Self.updatesSectionID, anchor: .top)
+    }
+
+    // Only a check the user is watching in Settings is read out; a background one stays quiet.
+    private func announceResult(of title: String, wasChecking: Bool, row: UpdateRow) {
+        guard wasChecking, let text = row.text,
+              NSApp.keyWindow?.title == Self.windowTitle
+        else { return }
+        AccessibilityNotification.Announcement("\(title): \(text)").post()
     }
 
     private func refreshLoginItemStatus() {
@@ -109,25 +158,73 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private var modelUpdates: some View {
-        HStack {
-            Text(modelManager.status.settingsText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer()
-            switch modelManager.status {
-            case .updateAvailable:
-                Button("Download") { modelManager.downloadModel() }
-            case .failed, .notInstalled:
-                Button("Try Again") { modelManager.downloadModel() }
-            default:
-                Button("Check Now") { modelManager.checkNow() }
-                    .disabled(modelManager.status.isBusy)
-            }
+    private var updates: some View {
+        updateRow(title: Text(verbatim: "Sorla"), version: AppVersion.short, row: UpdateRow.app(updateChecker.appStatus)) {
+            openURL(AppUpdateCheck.downloadPageURL)
         }
-        Toggle("Check for model updates automatically", isOn: $appSettings.autoCheckModelUpdates)
-        Toggle("Download updates automatically", isOn: $appSettings.autoDownloadModelUpdates)
-            .disabled(!appSettings.autoCheckModelUpdates)
+        updateRow(title: Text("Speech model"), version: modelManager.installedVersion, row: UpdateRow.model(modelManager.status)) {
+            modelManager.downloadModel()
+        }
+        Toggle("Check for updates automatically", isOn: $appSettings.autoCheckUpdates)
+        Toggle("Install updates automatically", isOn: $appSettings.autoInstallUpdates)
+            .disabled(!appSettings.autoCheckUpdates)
+        HStack {
+            Spacer()
+            Button("Check Now") { updateChecker.checkNow() }
+                .disabled(!UpdateRow.canCheckNow(app: updateChecker.appStatus, model: modelManager.status))
+        }
+    }
+
+    private func updateRow(title: Text, version: String?, row: UpdateRow, download: @escaping () -> Void) -> some View {
+        LabeledContent {
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(verbatim: version ?? "—")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    updateState(row)
+                    switch row.action {
+                    case .download:
+                        Button("Download", action: download)
+                    case .tryAgain:
+                        Button("Try Again", action: download)
+                    case nil:
+                        EmptyView()
+                    }
+                }
+                if row.kind == .failure, let text = row.text {
+                    Text(text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        } label: {
+            title
+        }
+    }
+
+    @ViewBuilder
+    private func updateState(_ row: UpdateRow) -> some View {
+        switch row.kind {
+        case .plain:
+            if let text = row.text {
+                Text(text).foregroundStyle(.secondary)
+            }
+        case .busy:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small).accessibilityHidden(true)
+                if let text = row.text { Text(text).foregroundStyle(.secondary) }
+            }
+        case .latest:
+            Label(row.text ?? "", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.secondary)
+        case .failure:
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+        }
     }
 
     private var fnHint: some View {

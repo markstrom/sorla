@@ -3,6 +3,7 @@ import Foundation
 public enum MenuStatusAction: Equatable, Sendable {
     case showWelcome
     case downloadModel
+    case downloadApp
     case reloadModel
     case openSettings
     case openSoundSettings
@@ -57,6 +58,7 @@ public struct MenuStatusRow: Equatable, Sendable {
         modelLoadFailed: Bool,
         modelLoading: Bool = false,
         transient: TransientMenuStatus? = nil,
+        appUpdate: String? = nil,
         now: Date = Date()
     ) -> MenuStatusRow? {
         if microphoneDenied {
@@ -86,14 +88,16 @@ public struct MenuStatusRow: Equatable, Sendable {
         if let transient, !transient.isExpired(at: now) {
             return transient.row
         }
-        switch model {
-        case .failed(_, isUpdate: true):
+        if case .failed(_, isUpdate: true) = model {
             return retry(.modelUpdateFailed)
-        case .updateAvailable(let version):
-            return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)
-        default:
-            return nil
         }
+        if let appUpdate {
+            return MenuStatusRow(title: String(localized: "Sorla \(appUpdate) is available — Download", bundle: Localization.bundle), action: .downloadApp)
+        }
+        if case .updateAvailable(let version) = model {
+            return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)
+        }
+        return nil
     }
 
     private static func retry(_ issue: SorlaIssue) -> MenuStatusRow {

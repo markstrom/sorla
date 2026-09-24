@@ -9,6 +9,7 @@ final class MenuStatusRowTests: XCTestCase {
         modelLoadFailed: Bool = false,
         modelLoading: Bool = false,
         transient: TransientMenuStatus? = nil,
+        appUpdate: String? = nil,
         now: Date = MenuStatusRowTests.shownAt
     ) -> MenuStatusRow? {
         MenuStatusRow.current(
@@ -18,6 +19,7 @@ final class MenuStatusRowTests: XCTestCase {
             modelLoadFailed: modelLoadFailed,
             modelLoading: modelLoading,
             transient: transient,
+            appUpdate: appUpdate,
             now: now
         )
     }
@@ -156,5 +158,23 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), transient: muted), muted?.row)
         XCTAssertEqual(row(model: .failed(.network, isUpdate: true), transient: muted), muted?.row)
         XCTAssertEqual(row(model: .failed(.network, isUpdate: true), transient: muted, now: Self.shownAt.addingTimeInterval(600))?.action, .downloadModel)
+    }
+
+    func testANewerAppVersionOffersTheDownload() {
+        XCTAssertEqual(row(appUpdate: "1.1.0"), MenuStatusRow(title: "Sorla 1.1.0 is available — Download", action: .downloadApp))
+    }
+
+    func testTheAppUpdateComesJustBeforeTheModelUpdate() {
+        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), appUpdate: "1.2.0")?.action, .downloadApp)
+        XCTAssertEqual(row(model: .failed(.network, isUpdate: true), appUpdate: "1.2.0")?.action, .downloadModel)
+        XCTAssertEqual(row(transient: muted, appUpdate: "1.2.0"), muted?.row)
+        XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), appUpdate: "1.2.0")?.action, .openSettings)
+        XCTAssertEqual(row(modelLoading: true, appUpdate: "1.2.0")?.action, .openSettings)
+        XCTAssertEqual(row(accessibilityMissing: true, appUpdate: "1.2.0")?.action, .showWelcome)
+        XCTAssertEqual(row(modelLoadFailed: true, appUpdate: "1.2.0"), .modelLoadFailed)
+    }
+
+    func testAnExpiredExplanationMakesWayForTheAppUpdate() {
+        XCTAssertEqual(row(transient: muted, appUpdate: "1.2.0", now: Self.shownAt.addingTimeInterval(TransientMenuStatus.lifetime))?.action, .downloadApp)
     }
 }

@@ -78,24 +78,58 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.recordingMode, .pushToTalk)
     }
 
-    func testModelUpdateTogglesDefaultToOff() {
+    func testUpdateTogglesDefaultToOff() {
         let settings = AppSettings(defaults: defaults)
 
-        XCTAssertFalse(settings.autoCheckModelUpdates)
-        XCTAssertFalse(settings.autoDownloadModelUpdates)
+        XCTAssertFalse(settings.autoCheckUpdates)
+        XCTAssertFalse(settings.autoInstallUpdates)
     }
 
-    func testModelUpdateTogglesPersistImmediatelyAndRoundTrip() {
+    func testUpdateTogglesPersistImmediatelyAndRoundTrip() {
         let settings = AppSettings(defaults: defaults)
 
-        settings.autoCheckModelUpdates = true
-        settings.autoDownloadModelUpdates = true
+        settings.autoCheckUpdates = true
+        settings.autoInstallUpdates = true
 
-        XCTAssertEqual(defaults.object(forKey: "autoCheckModelUpdates") as? Bool, true)
-        XCTAssertEqual(defaults.object(forKey: "autoDownloadModelUpdates") as? Bool, true)
+        XCTAssertEqual(defaults.object(forKey: "autoCheckUpdates") as? Bool, true)
+        XCTAssertEqual(defaults.object(forKey: "autoInstallUpdates") as? Bool, true)
         let reloaded = AppSettings(defaults: defaults)
-        XCTAssertTrue(reloaded.autoCheckModelUpdates)
-        XCTAssertTrue(reloaded.autoDownloadModelUpdates)
+        XCTAssertTrue(reloaded.autoCheckUpdates)
+        XCTAssertTrue(reloaded.autoInstallUpdates)
+    }
+
+    func testTheOldModelTogglesBecomeTheUpdateToggles() {
+        defaults.set(true, forKey: "autoCheckModelUpdates")
+        defaults.set(true, forKey: "autoDownloadModelUpdates")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertTrue(settings.autoCheckUpdates)
+        XCTAssertTrue(settings.autoInstallUpdates)
+        XCTAssertEqual(defaults.object(forKey: "autoCheckUpdates") as? Bool, true)
+        XCTAssertEqual(defaults.object(forKey: "autoInstallUpdates") as? Bool, true)
+        XCTAssertNil(defaults.object(forKey: "autoCheckModelUpdates"))
+        XCTAssertNil(defaults.object(forKey: "autoDownloadModelUpdates"))
+    }
+
+    func testAnOldToggleThatWasOffStaysOff() {
+        defaults.set(true, forKey: "autoCheckModelUpdates")
+        defaults.set(false, forKey: "autoDownloadModelUpdates")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertTrue(settings.autoCheckUpdates)
+        XCTAssertFalse(settings.autoInstallUpdates)
+    }
+
+    func testANewToggleValueWinsOverALeftoverOldOne() {
+        defaults.set(false, forKey: "autoCheckUpdates")
+        defaults.set(true, forKey: "autoCheckModelUpdates")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertFalse(settings.autoCheckUpdates)
+        XCTAssertNil(defaults.object(forKey: "autoCheckModelUpdates"))
     }
 
     func testOnboardingIsNotCompletedByDefault() {

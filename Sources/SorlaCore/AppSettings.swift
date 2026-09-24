@@ -8,8 +8,10 @@ public final class AppSettings: ObservableObject {
         static let recordingMode = "recordingMode"
         static let keepClipboardContent = "keepClipboardContent"
         static let playSounds = "playSounds"
-        static let autoCheckModelUpdates = "autoCheckModelUpdates"
-        static let autoDownloadModelUpdates = "autoDownloadModelUpdates"
+        static let autoCheckUpdates = "autoCheckUpdates"
+        static let autoInstallUpdates = "autoInstallUpdates"
+        static let legacyAutoCheckModelUpdates = "autoCheckModelUpdates"
+        static let legacyAutoDownloadModelUpdates = "autoDownloadModelUpdates"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
     }
 
@@ -29,12 +31,14 @@ public final class AppSettings: ObservableObject {
         didSet { defaults.set(playSounds, forKey: Keys.playSounds) }
     }
 
-    @Published public var autoCheckModelUpdates: Bool {
-        didSet { defaults.set(autoCheckModelUpdates, forKey: Keys.autoCheckModelUpdates) }
+    // Covers both the app and the model.
+    @Published public var autoCheckUpdates: Bool {
+        didSet { defaults.set(autoCheckUpdates, forKey: Keys.autoCheckUpdates) }
     }
 
-    @Published public var autoDownloadModelUpdates: Bool {
-        didSet { defaults.set(autoDownloadModelUpdates, forKey: Keys.autoDownloadModelUpdates) }
+    // Applies to the model only until the app can install its own updates (#29).
+    @Published public var autoInstallUpdates: Bool {
+        didSet { defaults.set(autoInstallUpdates, forKey: Keys.autoInstallUpdates) }
     }
 
     @Published public var hasCompletedOnboarding: Bool {
@@ -51,8 +55,19 @@ public final class AppSettings: ObservableObject {
 
         keepClipboardContent = defaults.object(forKey: Keys.keepClipboardContent) as? Bool ?? true
         playSounds = defaults.object(forKey: Keys.playSounds) as? Bool ?? true
-        autoCheckModelUpdates = defaults.object(forKey: Keys.autoCheckModelUpdates) as? Bool ?? false
-        autoDownloadModelUpdates = defaults.object(forKey: Keys.autoDownloadModelUpdates) as? Bool ?? false
+        Self.migrate(from: Keys.legacyAutoCheckModelUpdates, to: Keys.autoCheckUpdates, in: defaults)
+        Self.migrate(from: Keys.legacyAutoDownloadModelUpdates, to: Keys.autoInstallUpdates, in: defaults)
+        autoCheckUpdates = defaults.object(forKey: Keys.autoCheckUpdates) as? Bool ?? false
+        autoInstallUpdates = defaults.object(forKey: Keys.autoInstallUpdates) as? Bool ?? false
         hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
+    }
+
+    // The model-only toggles of 1.0 became the toggles for all updates, so a choice made there carries over.
+    private static func migrate(from legacyKey: String, to key: String, in defaults: UserDefaults) {
+        guard let legacyValue = defaults.object(forKey: legacyKey) as? Bool else { return }
+        if defaults.object(forKey: key) == nil {
+            defaults.set(legacyValue, forKey: key)
+        }
+        defaults.removeObject(forKey: legacyKey)
     }
 }

@@ -5,8 +5,10 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onKeyStateChange: ((Bool) -> Void)?
+    private var navigation: SettingsNavigation?
 
-    convenience init(appSettings: AppSettings, modelManager: ModelManager) {
+    convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker) {
+        let navigation = SettingsNavigation()
         let window = NSWindow(
             contentRect: .zero,
             styleMask: [.titled, .closable, .miniaturizable],
@@ -15,13 +17,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         )
         window.title = SettingsView.windowTitle
         window.contentViewController = NSHostingController(
-            rootView: SettingsView(appSettings: appSettings, modelManager: modelManager)
+            rootView: SettingsView(appSettings: appSettings, modelManager: modelManager, updateChecker: updateChecker, navigation: navigation)
         )
         window.isReleasedWhenClosed = false
         window.center()
 
         self.init(window: window)
+        self.navigation = navigation
         window.delegate = self
+    }
+
+    func revealUpdates() {
+        navigation?.showsUpdates = true
     }
 
     // Opened from the status menu: wait until it has closed, or macOS may leave the window behind others.

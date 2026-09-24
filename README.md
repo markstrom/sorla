@@ -69,9 +69,8 @@ Your voice and your text never leave your Mac. Audio is processed in memory and 
 
 Sorla uses the network only to:
 
-- download the speech model from Hugging Face on first launch,
-- check for model updates, either when you ask it to or, if you turn it on, automatically, and
-- ask GitHub for the latest app version, only when you choose Check for Updates… in the menu.
+- download the speech model from Hugging Face on first launch, and
+- check for updates, asking GitHub for the latest app version and Hugging Face for a newer model in one check, only when you ask it to or, if you turn it on, automatically about once a day.
 
 There are no accounts, no analytics and no tracking. Once the model is installed, Sorla works offline. Read the full [privacy policy](https://sorla.zerolabs.se/privacy).
 

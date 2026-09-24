@@ -1,0 +1,96 @@
+import Combine
+import Foundation
+
+public enum AppUpdateStatus: Equatable, Sendable {
+    case notChecked
+    case checking
+    case upToDate
+    case available(version: String)
+    case failed(AppUpdateFailure)
+
+    public init(_ result: AppUpdateResult) {
+        switch result {
+        case .upToDate: self = .upToDate
+        case .available(let version): self = .available(version: version)
+        case .failed(let failure): self = .failed(failure)
+        }
+    }
+
+    public var availableVersion: String? {
+        if case .available(let version) = self { return version }
+        return nil
+    }
+}
+
+public enum AppUpdateSchedule {
+    public static let interval: TimeInterval = 24 * 60 * 60
+    // The daily timer may fire a little early, and "about once a day" is all that's promised.
+    static let tolerance: TimeInterval = 60 * 60
+
+    public static func isDue(automaticChecks: Bool, lastCheck: Date?, now: Date) -> Bool {
+        guard automaticChecks else { return false }
+        guard let lastCheck else { return true }
+        let elapsed = now.timeIntervalSince(lastCheck)
+        return elapsed < 0 || elapsed >= interval - tolerance
+    }
+}
+
+// One check covers Sorla (GitHub) and the speech model (Hugging Face), whether asked for or automatic.
+@MainActor
+public final class UpdateChecker: ObservableObject {
+    @Published public private(set) var appStatus: AppUpdateStatus = .notChecked
+    public var automaticChecks: Bool
+
+    private let currentVersion: String?
+    private let source: AppReleaseSource
+    private let defaults: UserDefaults
+    private let checkModel: @MainActor () -> Void
+    private let now: () -> Date
+    private(set) var appCheck: Task<Void, Never>?
+
+    private static let lastCheckKey = "lastAppUpdateCheck"
+
+    public init(
+        currentVersion: String?,
+        source: AppReleaseSource,
+        automaticChecks: Bool,
+        defaults: UserDefaults = .standard,
+        now: @escaping () -> Date = Date.init,
+        checkModel: @escaping @MainActor () -> Void
+    ) {
+        self.currentVersion = currentVersion
+        self.source = source
+        self.automaticChecks = automaticChecks
+        self.defaults = defaults
+        self.now = now
+        self.checkModel = checkModel
+    }
+
+    public var lastAppCheck: Date? {
+        defaults.object(forKey: Self.lastCheckKey) as? Date
+    }
+
+    public func checkNow() {
+        checkApp()
+        checkModel()
+    }
+
+    // Called at launch and on the model's daily check, so the app check adds no timer of its own.
+    public func checkAppIfDue() {
+        guard AppUpdateSchedule.isDue(automaticChecks: automaticChecks, lastCheck: lastAppCheck, now: now()) else { return }
+        checkApp()
+    }
+
+    private func checkApp() {
+        guard appStatus != .checking else { return }
+        defaults.set(now(), forKey: Self.lastCheckKey)
+        appStatus = .checking
+        let currentVersion = self.currentVersion
+        let source = self.source
+        appCheck = Task {
+            let result = await AppUpdateCheck.check(currentVersion: currentVersion, source: source)
+            self.appStatus = AppUpdateStatus(result)
+            self.appCheck = nil
+        }
+    }
+}

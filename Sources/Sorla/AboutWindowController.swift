@@ -3,8 +3,6 @@ import SwiftUI
 
 @MainActor
 final class AboutWindowController: NSWindowController {
-    private let updateRequest = UpdateCheckRequest()
-
     init() {
         let window = NSWindow(
             contentRect: .zero,
@@ -14,7 +12,7 @@ final class AboutWindowController: NSWindowController {
         )
         super.init(window: window)
         window.title = String(localized: "About Sorla")
-        window.contentViewController = NSHostingController(rootView: AboutView(updateRequest: updateRequest))
+        window.contentViewController = NSHostingController(rootView: AboutView())
         window.isReleasedWhenClosed = false
         window.center()
     }
@@ -32,10 +30,5 @@ final class AboutWindowController: NSWindowController {
             NSApp.activate()
             window.makeKeyAndOrderFront(nil)
         }
-    }
-
-    func showAndCheckForUpdates() {
-        updateRequest.isPending = true
-        show()
     }
 }

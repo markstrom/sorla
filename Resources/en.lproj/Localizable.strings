@@ -15,6 +15,7 @@
 "Model not installed — Download" = "Model not installed — Download";
 "%@ — Try Again" = "%@ — Try Again";
 "Model update available (%@)" = "Model update available (%@)";
+"Sorla %@ is available — Download" = "Sorla %@ is available — Download";
 "Microphone access needed" = "Microphone access needed";
 "Accessibility access needed to paste" = "Accessibility access needed to paste";
 "Model couldn't be loaded" = "Model couldn't be loaded";
@@ -64,9 +65,13 @@
 "Failed: %@" = "Failed: %@";
 "Download" = "Download";
 "Try Again" = "Try Again";
-"Check for model updates automatically" = "Check for model updates automatically";
-"Download updates automatically" = "Download updates automatically";
 "Check Now" = "Check Now";
+"Updates" = "Updates";
+"Speech model" = "Speech model";
+"Latest" = "Latest";
+"%@ available" = "%@ available";
+"Check for updates automatically" = "Check for updates automatically";
+"Install updates automatically" = "Install updates automatically";
 "Keep clipboard content" = "Keep clipboard content";
 "Play sounds" = "Play sounds";
 "Paste last transcription" = "Paste last transcription";
@@ -108,8 +113,6 @@
 "Talk. Release. Done." = "Talk. Release. Done.";
 "Check for Updates…" = "Check for Updates…";
 "Checking…" = "Checking…";
-"You have the latest version." = "You have the latest version.";
-"Sorla %@ is available." = "Sorla %@ is available.";
 "Couldn't check for updates. Check your internet connection." = "Couldn't check for updates. Check your internet connection.";
 
 /* Welcome */
@@ -137,7 +140,6 @@
 "Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)." = "Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).";
 "Runs the model with Core ML. Apache License 2.0." = "Runs the model with Core ML. Apache License 2.0.";
 "Custom keyboard shortcuts. MIT License." = "Custom keyboard shortcuts. MIT License.";
-"Check for Updates" = "Check for Updates";
 
 /* Dictation cues */
 "Nothing heard" = "Nothing heard";

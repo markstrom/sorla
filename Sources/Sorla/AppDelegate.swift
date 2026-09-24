@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var recordingController: RecordingController!
     private var modelManager: ModelManager!
+    private var updateChecker: UpdateChecker!
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
@@ -74,8 +75,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             ),
             isDictationIdle: { [weak self] in self?.recordingController.phase == .idle },
             reloadModel: { [weak self] in await self?.recordingController.reloadModel() ?? false },
-            automaticChecks: appSettings.autoCheckModelUpdates,
-            automaticDownloads: appSettings.autoDownloadModelUpdates
+            automaticChecks: appSettings.autoCheckUpdates,
+            automaticDownloads: appSettings.autoInstallUpdates
+        )
+        updateChecker = UpdateChecker(
+            currentVersion: AppVersion.short,
+            source: URLSessionAppReleaseSource(appVersion: AppVersion.short ?? "dev"),
+            automaticChecks: appSettings.autoCheckUpdates,
+            checkModel: { [weak self] in
+                // Before the first install the model row's own Download starts the large download instead.
+                guard let modelManager = self?.modelManager, modelManager.isInstalled else { return }
+                modelManager.checkNow()
+            }
         )
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -226,15 +237,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
-        appSettings.$autoCheckModelUpdates
+        updateChecker.$appStatus
+            .removeDuplicates()
+            .sink { [weak self] status in
+                self?.updateStatusMenuItem(appStatus: status)
+            }
+            .store(in: &cancellables)
+
+        appSettings.$autoCheckUpdates
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] enabled in
+                self?.updateChecker.automaticChecks = enabled
                 self?.modelManager.automaticChecks = enabled
             }
             .store(in: &cancellables)
 
-        appSettings.$autoDownloadModelUpdates
+        appSettings.$autoInstallUpdates
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] enabled in
@@ -242,6 +261,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
+        modelManager.onAutomaticCheck = { [weak self] in
+            self?.updateChecker.checkAppIfDue()
+        }
+        updateChecker.checkAppIfDue()
         modelManager.start()
         if modelManager.isInstalled {
             recordingController.prepare()
@@ -264,7 +287,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func showSettings() {
         if settingsWindowController == nil {
-            let controller = SettingsWindowController(appSettings: appSettings, modelManager: modelManager)
+            let controller = SettingsWindowController(appSettings: appSettings, modelManager: modelManager, updateChecker: updateChecker)
             controller.onKeyStateChange = { [weak self] isKey in
                 self?.triggerMonitor?.isSuspended = isKey
                 if isKey {
@@ -291,10 +314,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func checkForUpdates() {
-        if aboutWindowController == nil {
-            aboutWindowController = AboutWindowController()
-        }
-        aboutWindowController?.showAndCheckForUpdates()
+        showSettings()
+        settingsWindowController?.revealUpdates()
+        updateChecker.checkNow()
     }
 
     @objc private func showAbout() {
@@ -310,6 +332,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             showWelcome()
         case .downloadModel:
             modelManager.downloadModel()
+        case .downloadApp:
+            NSWorkspace.shared.open(AppUpdateCheck.downloadPageURL)
         case .reloadModel:
             modelManager.retryLoadingModel()
         case .openSettings:
@@ -359,8 +383,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return true
     }
 
-    // @Published fires before the property changes, so the status sink passes the new value in.
-    private func updateStatusMenuItem(model: ModelStatus? = nil) {
+    // @Published fires before the property changes, so the status sinks pass the new value in.
+    private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil) {
         let now = Date()
         if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
         let row = MenuStatusRow.current(
@@ -370,6 +394,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
             modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
             transient: transientStatus,
+            appUpdate: (appStatus ?? updateChecker.appStatus).availableVersion,
             now: now
         )
         statusMenuAction = row?.action

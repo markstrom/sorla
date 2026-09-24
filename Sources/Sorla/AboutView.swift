@@ -1,34 +1,11 @@
-import SorlaCore
 import SwiftUI
 
-// Set by the status menu's "Check for Updates…" so the About window runs the check when it shows.
-@MainActor
-final class UpdateCheckRequest: ObservableObject {
-    @Published var isPending = false
-}
-
 struct AboutView: View {
-    @ObservedObject var updateRequest: UpdateCheckRequest
-
-    private enum UpdateState: Equatable {
-        case idle
-        case checking
-        case upToDate
-        case available(version: String)
-        case failed(AppUpdateFailure)
-    }
-
-    @Environment(\.openURL) private var openURL
     @State private var showsCredits = false
-    @State private var updateState = UpdateState.idle
-
-    private var shortVersion: String? {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-    }
 
     private var versionString: String {
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
-        return String(localized: "Version \(shortVersion ?? "—") (\(build))")
+        return String(localized: "Version \(AppVersion.short ?? "—") (\(build))")
     }
 
     var body: some View {
@@ -41,7 +18,6 @@ struct AboutView: View {
                 Text("Sorla").font(.title.bold())
                 Text("Talk. Release. Done.").font(.title3).foregroundStyle(.secondary)
                 Text(versionString).font(.callout).foregroundStyle(.secondary)
-                updateSection
             }
 
             VStack(spacing: 4) {
@@ -74,79 +50,6 @@ struct AboutView: View {
         .frame(width: 380)
         .fixedSize(horizontal: false, vertical: true)
         .sheet(isPresented: $showsCredits) { CreditsView() }
-        .onAppear(perform: runRequestedCheck)
-        .onChange(of: updateRequest.isPending) { runRequestedCheck() }
-    }
-
-    private var updateSection: some View {
-        VStack(spacing: 6) {
-            Button("Check for Updates") { checkForUpdates() }
-                .controlSize(.small)
-                .disabled(updateState == .checking)
-
-            switch updateState {
-            case .idle:
-                EmptyView()
-            case .checking:
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel(String(localized: "Checking…"))
-                    Text(String(localized: "Checking…")).accessibilityHidden(true)
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            case .upToDate:
-                updateMessage(String(localized: "You have the latest version."))
-            case .available(let version):
-                HStack(spacing: 8) {
-                    updateMessage(String(localized: "Sorla \(version) is available."))
-                    Button(String(localized: "Download")) {
-                        openURL(AppUpdateCheck.downloadPageURL)
-                    }
-                    .controlSize(.small)
-                }
-            case .failed(let failure):
-                updateMessage(failure.message)
-            }
-        }
-    }
-
-    private func updateMessage(_ text: String) -> some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
-            .accessibilityLabel(text)
-    }
-
-    private func runRequestedCheck() {
-        guard updateRequest.isPending else { return }
-        updateRequest.isPending = false
-        guard updateState != .checking else { return }
-        checkForUpdates()
-    }
-
-    private func checkForUpdates() {
-        updateState = .checking
-        let current = shortVersion
-        let source = URLSessionAppReleaseSource(appVersion: current ?? "dev")
-        Task {
-            let result = await AppUpdateCheck.check(currentVersion: current, source: source)
-            let message: String
-            switch result {
-            case .upToDate:
-                updateState = .upToDate
-                message = String(localized: "You have the latest version.")
-            case .available(let version):
-                updateState = .available(version: version)
-                message = String(localized: "Sorla \(version) is available.")
-            case .failed(let failure):
-                updateState = .failed(failure)
-                message = failure.message
-            }
-            AccessibilityNotification.Announcement(message).post()
-        }
     }
 }
 

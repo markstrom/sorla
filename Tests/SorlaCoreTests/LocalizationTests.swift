@@ -145,6 +145,24 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testSwedishUpdates() throws {
+        try Localization.$bundle.withValue(swedish) {
+            XCTAssertEqual(UpdateRow.app(.upToDate).text, "Senaste")
+            XCTAssertEqual(UpdateRow.model(.updateAvailable(version: "1.1.0")).text, "1.1.0 finns")
+            XCTAssertEqual(UpdateRow.app(.checking).text, "Söker…")
+            XCTAssertEqual(
+                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appUpdate: "1.2.0")?.title,
+                "Sorla 1.2.0 finns – Ladda ner"
+            )
+        }
+        let swedishStrings = try strings("sv")
+        XCTAssertEqual(swedishStrings["Updates"], "Uppdateringar")
+        XCTAssertEqual(swedishStrings["Speech model"], "Talmodell")
+        XCTAssertEqual(swedishStrings["Check Now"], "Sök nu")
+        XCTAssertEqual(swedishStrings["Check for updates automatically"], "Sök efter uppdateringar automatiskt")
+        XCTAssertEqual(swedishStrings["Install updates automatically"], "Installera uppdateringar automatiskt")
+    }
+
     func testSwedishDiskSpaceUsesADecimalComma() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(

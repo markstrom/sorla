@@ -15,6 +15,8 @@ public final class ModelManager: ObservableObject {
     public var automaticDownloads: Bool
     public var onInstalled: ((_ wasFirstInstall: Bool) -> Void)?
     public var onFailure: ((SorlaIssue) -> Void)?
+    // Lets the app update check ride on this timer instead of waking the Mac on its own.
+    public var onAutomaticCheck: (() -> Void)?
 
     private let installer: ModelInstaller
     private let swap: ModelSwap
@@ -52,7 +54,7 @@ public final class ModelManager: ObservableObject {
 
     public var isInstalled: Bool { PianissimoModel.hasRequiredFiles(at: swap.installed) }
 
-    private var installedVersion: String? { PianissimoModel.installedVersion(at: swap.installed) }
+    public var installedVersion: String? { PianissimoModel.installedVersion(at: swap.installed) }
 
     public func start() {
         guard !hasStarted else { return }
@@ -363,6 +365,7 @@ public final class ModelManager: ObservableObject {
                 }
                 checkNext = false
                 guard !Task.isCancelled, let self else { return }
+                self.onAutomaticCheck?()
                 self.check(userInitiated: false)
             }
         }

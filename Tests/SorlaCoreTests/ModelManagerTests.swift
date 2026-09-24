@@ -163,6 +163,31 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(settled, later)
     }
 
+    func testTheAppCheckRidesOnEachAutomaticCheck() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.0.0").publish(on: network)
+        let manager = makeManager(autoCheck: true, checkInterval: 0.05)
+        var ticks = 0
+        manager.onAutomaticCheck = { ticks += 1 }
+
+        manager.start()
+        await waitUntil(ticks >= 2)
+
+        XCTAssertGreaterThanOrEqual(ticks, 2)
+    }
+
+    func testNoAutomaticCheckMeansNoRideAlongCheck() async throws {
+        try installModel(version: "1.0.0")
+        let manager = makeManager(autoCheck: false, checkInterval: 0.01)
+        var ticks = 0
+        manager.onAutomaticCheck = { ticks += 1 }
+
+        manager.start()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(ticks, 0)
+    }
+
     func testAnUpdateIsOfferedWhenAutomaticDownloadIsOff() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
