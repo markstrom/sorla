@@ -28,6 +28,18 @@ public final class RecordingController {
     private var muteDetector: MicrophoneMuteDetector?
     private var deviceSeemedMuted = false
     public var phase: DictationPhase { phaseTracker.phase }
+
+    // What an update or restart has to wait for, not just what the indicator shows.
+    public var activity: DictationActivity {
+        DictationActivity(
+            isRecording: isRecording,
+            isCapturingTail: isCapturingTail,
+            isTranscribing: phase != .idle,
+            pendingDeliveries: pendingDeliveries,
+            isPasteLastInFlight: isPasteLastInFlight,
+            isRestoringClipboard: pendingClipboardRestores > 0
+        )
+    }
     private var phaseTracker = DictationPhaseTracker()
     private var recordingID = 0
     public var keepClipboardContent = true
@@ -42,7 +54,7 @@ public final class RecordingController {
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
     private var isPasteLastInFlight = false
-    private var pasteLastRequest: Task<Void, Never>?
+    private(set) var pasteLastRequest: Task<Void, Never>?
     // Bumped when a waiting Paste Last is called off, since it may already be queued behind a delivery.
     private var pasteLastToken = 0
 
@@ -63,6 +75,8 @@ public final class RecordingController {
     private(set) var deliveries: Task<Void, Never>?
     private var lastPasteAt: ContinuousClock.Instant?
     private(set) var clipboardRestore: Task<Void, Never>?
+    private var pendingDeliveries = 0
+    private var pendingClipboardRestores = 0
     // Lets tests wait until a request has taken its place in line.
     var didEnqueueDelivery: (() -> Void)?
 
@@ -391,7 +405,9 @@ public final class RecordingController {
     private func enqueueDelivery(_ work: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
         didEnqueueDelivery?()
         let previous = deliveries
+        pendingDeliveries += 1
         let delivery = Task { @MainActor in
+            defer { self.pendingDeliveries -= 1 }
             await previous?.value
             await work()
         }
@@ -571,7 +587,9 @@ public final class RecordingController {
             logger.info("clipboard kept (not pasted)")
             return
         }
+        pendingClipboardRestores += 1
         clipboardRestore = Task { @MainActor in
+            defer { self.pendingClipboardRestores -= 1 }
             await self.sleep(Self.pasteSettleTime)
             switch self.clipboardOwnership.finish(generation: generation) {
             case .skip:

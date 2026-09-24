@@ -122,6 +122,28 @@ final class AppRelaunchTests: XCTestCase {
         XCTAssertEqual(result.output, "")
     }
 
+    // After an install the helper opens the path only once it holds the new version, never the old app.
+    func testWithAVersionOnlyThatVersionIsOpened() throws {
+        let gone = Process()
+        gone.executableURL = URL(fileURLWithPath: "/usr/bin/true")
+        try gone.run()
+        gone.waitUntilExit()
+        let bundle = FileManager.default.temporaryDirectory.appendingPathComponent("SorlaRelaunch-\(UUID().uuidString)/Sorla.app")
+        let contents = bundle.appendingPathComponent("Contents")
+        try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: bundle.deletingLastPathComponent()) }
+        let info = try PropertyListSerialization.data(fromPropertyList: ["CFBundleShortVersionString": "1.1.0"], format: .xml, options: 0)
+        try info.write(to: contents.appendingPathComponent("Info.plist"))
+
+        let opened = try run(AppRelaunch.arguments(waitingFor: gone.processIdentifier, thenOpen: bundle, expectedVersion: "1.1.0", opener: "/bin/echo"))
+        XCTAssertEqual(opened.status, 0)
+        XCTAssertEqual(opened.output, bundle.path + "\n")
+
+        let refused = try run(AppRelaunch.arguments(waitingFor: gone.processIdentifier, thenOpen: bundle, expectedVersion: "1.0.3", opener: "/bin/echo"))
+        XCTAssertEqual(refused.status, 2)
+        XCTAssertEqual(refused.output, "")
+    }
+
     func testATranslocatedCopyCannotBeReopened() {
         XCTAssertTrue(AppRelaunch.canReopen(URL(fileURLWithPath: "/Applications/Sorla.app")))
         XCTAssertFalse(AppRelaunch.canReopen(URL(fileURLWithPath: "/private/var/folders/xy/T/AppTranslocation/1A2B/d/Sorla.app")))
@@ -129,6 +151,6 @@ final class AppRelaunchTests: XCTestCase {
 
     func testTheWaitIsBounded() {
         let arguments = AppRelaunch.arguments(waitingFor: 42, thenOpen: URL(fileURLWithPath: "/Applications/Sorla.app"))
-        XCTAssertEqual(Array(arguments.suffix(4)), ["42", "/Applications/Sorla.app", "300", "/usr/bin/open"])
+        XCTAssertEqual(Array(arguments.suffix(5)), ["42", "/Applications/Sorla.app", "300", "/usr/bin/open", ""])
     }
 }

@@ -66,8 +66,20 @@ final class ModelLoadingStatusTests: XCTestCase {
         )
     }
 
-    private func pixels(of glyph: MenuBarGlyph) throws -> Data {
-        let image = glyph.image(accessibilityDescription: "Sorla")
+    func testAPendingRestartBadgesTheIconInEveryState() throws {
+        for status in [ModelLoadingStatus.ready, .loading, .failed] {
+            let icon = ModelLoadingStatus.menuBarIcon(for: status, phase: .idle, restartPending: true)
+            XCTAssertTrue(icon.restartBadge)
+            XCTAssertEqual(icon.glyph, ModelLoadingStatus.menuBarIcon(for: status, phase: .idle).glyph)
+            XCTAssertEqual(icon.accessibilityDescription, "Sorla (needs a restart)")
+        }
+        XCTAssertFalse(ModelLoadingStatus.menuBarIcon(for: .ready, phase: .idle).restartBadge)
+        XCTAssertNotEqual(try pixels(of: .ready, restartBadge: true), try pixels(of: .ready))
+        XCTAssertTrue(MenuBarGlyph.ready.image(accessibilityDescription: "Sorla", restartBadge: true).isTemplate)
+    }
+
+    private func pixels(of glyph: MenuBarGlyph, restartBadge: Bool = false) throws -> Data {
+        let image = glyph.image(accessibilityDescription: "Sorla", restartBadge: restartBadge)
         let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
         return try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))

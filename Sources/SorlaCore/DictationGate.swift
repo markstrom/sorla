@@ -52,6 +52,12 @@ public enum DictationGate {
         }
     }
 
+    // A replaced Sorla's pastes are dropped (#7), so a press restarts it rather than recording words it can't deliver.
+    // One that can't reopen itself records as before and leaves the text on the clipboard.
+    public static func restartRefusal(isAppReplaced: Bool, canRestart: Bool) -> DictationCue? {
+        isAppReplaced && canRestart ? .restarting : nil
+    }
+
     // A push-to-talk press may still become a ⌘-shortcut, so its refusal is only reported on release.
     public static func waitsForRelease(mode: RecordingMode) -> Bool {
         mode == .pushToTalk

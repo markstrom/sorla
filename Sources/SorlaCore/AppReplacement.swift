@@ -69,7 +69,7 @@ public enum AppRelaunch {
         !bundleURL.path.contains("/AppTranslocation/")
     }
 
-    // Waits for this process to be gone before opening the new copy, so two Sorlas never run at once.
+    // Waits for this process to exit so two Sorlas never run at once; given a version, it opens only a bundle that has it.
     static let script = """
         i=0
         while kill -0 "$1" 2>/dev/null; do
@@ -77,6 +77,10 @@ public enum AppRelaunch {
           [ "$i" -gt "$3" ] && exit 1
           sleep 0.1
         done
+        if [ -n "$5" ]; then
+          v=$(/usr/bin/plutil -extract CFBundleShortVersionString raw -o - "$2/Contents/Info.plist" 2>/dev/null)
+          [ "$v" = "$5" ] || exit 2
+        fi
         exec "$4" "$2"
         """
 
@@ -84,10 +88,11 @@ public enum AppRelaunch {
     public static func arguments(
         waitingFor pid: Int32,
         thenOpen bundleURL: URL,
+        expectedVersion: String? = nil,
         timeout: TimeInterval = exitTimeout,
         opener: String = "/usr/bin/open"
     ) -> [String] {
-        ["-c", script, "sorla-relaunch", String(pid), bundleURL.path, String(Int(timeout * 10)), opener]
+        ["-c", script, "sorla-relaunch", String(pid), bundleURL.path, String(Int(timeout * 10)), opener, expectedVersion ?? ""]
     }
 
     public static let shell = URL(fileURLWithPath: "/bin/sh")

@@ -7,10 +7,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onKeyStateChange: ((Bool) -> Void)?
     private var navigation: SettingsNavigation?
 
-    convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker, announce: @escaping (String) -> Void) {
+    convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker, appUpdater: AppUpdater, announce: @escaping (String) -> Void) {
         let navigation = SettingsNavigation()
         let window = Self.makeWindow(content: NSHostingController(
-            rootView: SettingsView(appSettings: appSettings, modelManager: modelManager, updateChecker: updateChecker, navigation: navigation, announce: announce)
+            rootView: SettingsView(
+                appSettings: appSettings,
+                modelManager: modelManager,
+                updateChecker: updateChecker,
+                appUpdater: appUpdater,
+                navigation: navigation,
+                announce: announce
+            )
         ))
 
         self.init(window: window)

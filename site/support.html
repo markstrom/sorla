@@ -137,12 +137,16 @@
     <h2>Uppdateringar</h2>
     <p>Allt om uppdateringar finns på ett ställe: avsnittet <strong>Uppdateringar</strong> i Inställningar. Där står vilken version du har av Sorla och av talmodellen, och vad den senaste sökningen gav, till exempel ”Senaste” eller ”1.1.0 finns”.</p>
     <p><strong>Sök nu</strong> frågar GitHub efter en ny version av Sorla och Hugging Face efter en ny talmodell på samma gång. <strong>Sök efter uppdateringar…</strong> i Sorlas meny öppnar Inställningar och gör samma sak. Går sökningen inte att genomföra, till exempel utan internet, står det vad som gick fel. Ett misslyckande visas aldrig som att du har den senaste versionen.</p>
+    <p>Hittas en ny version av Sorla visas <strong>Installera och starta om</strong> i Inställningar och överst i Sorlas meny. Ett klick räcker. Sorla laddar ner just den version som sökningen hittade från GitHub, kontrollerar att den är signerad av Sorlas utvecklare, notariserad av Apple och har rätt versionsnummer, byter ut appen på samma plats och startar om på några sekunder. Pågår en diktering väntar Sorla tills texten är inklistrad. Eftersom appen ligger kvar på samma ställe finns behörigheterna kvar. Går något fel behålls versionen du har, och det står vad som hände.</p>
+    <p>Den gamla versionen ligger kvar bredvid den nya, till exempel som <code>Sorla 1.0.3.app</code>, tills den nya har startat. Sedan tas den bort. Skulle den nya inte gå att starta kan du öppna den gamla därifrån.</p>
     <p>Två reglage styr resten, och båda är avstängda från början:</p>
     <ul>
       <li><strong>Sök efter uppdateringar automatiskt</strong>: Sorla söker ungefär en gång om dagen. Hittas en ny version syns den överst i Sorlas meny.</li>
-      <li><strong>Installera uppdateringar automatiskt</strong>: en ny talmodell laddas ner i bakgrunden och byts in mellan två dikteringar. Själva appen installeras inte automatiskt än.</li>
+      <li><strong>Installera uppdateringar automatiskt</strong> (fungerar bara när automatisk sökning är på): en ny talmodell laddas ner i bakgrunden och byts in mellan två dikteringar. En ny version av Sorla laddas ner och kontrolleras i bakgrunden och installeras när du inte har dikterat på tio minuter, eller nästa gång Sorla startar, aldrig mitt i en diktering. Efteråt står det en stund ”Sorla uppdaterades till 1.1.0” i menyn.</li>
     </ul>
-    <p>För att uppdatera appen: klicka på <strong>Ladda ner</strong>, avsluta Sorla, öppna den nya DMG-filen, dra Sorla till Program och välj <strong>Ersätt</strong>. Behörigheterna finns kvar.</p>
+    <p><strong>Ladda ner</strong> finns kvar när Sorla inte kan byta ut sig själv: om appen ligger i en mapp du inte får ändra i, till exempel om du inte är administratör, eller om den körs direkt från Hämtade filer. Då står det varför under raden. Klicka på <strong>Ladda ner</strong>, avsluta Sorla, öppna den nya DMG-filen, dra Sorla till Program och välj <strong>Ersätt</strong>. Behörigheterna finns kvar.</p>
+    <p>Har du installerat Sorla med Homebrew uppdaterar du med <code>brew upgrade --cask sorla</code>, så att Homebrew vet vilken version du har.</p>
+    <p>Byter du ut <code>Sorla.app</code> medan Sorla är igång kan den gamla Sorla inte klistra in längre. Menyradsikonen får då en liten pil, och nästa gång du trycker på tangenten visar indikatorn en pil i stället för att spela in och Sorla startar om sig själv i den nya versionen.</p>
 
     <h2>Avinstallera</h2>
     <p>Avsluta Sorla, flytta appen till papperskorgen och ta bort mappen <code class="path" data-copy="~/Library/Application Support/Sorla">~/Library/Application Support/Sorla</code>.</p>

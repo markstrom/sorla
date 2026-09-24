@@ -137,6 +137,37 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(relaunched.appStatus, .notChecked)
     }
 
+    // The install takes exactly what this check saw, and learns whether the check was automatic.
+    func testANewerReleaseIsPinnedAndReported() async {
+        let asset = AppReleaseAsset(name: "Sorla-1.1.0.dmg", size: 11_000_000, downloadURL: URL(string: "https://github.com/markstrom/sorla/releases/download/v1.1.0/Sorla-1.1.0.dmg")!)
+        let source = CountingReleaseSource(.success(AppRelease(tagName: "v1.1.0", assets: [asset])))
+        let checker = makeChecker(source: source, automaticChecks: true)
+        var finished: [Bool] = []
+        checker.onAppCheckFinished = { finished.append($0) }
+
+        checker.checkAppIfDue()
+        await checker.appCheck?.value
+        XCTAssertEqual(checker.pinnedRelease?.assetURL, asset.downloadURL)
+        XCTAssertEqual(checker.pinnedRelease?.version, "1.1.0")
+
+        checker.checkNow()
+        await checker.appCheck?.value
+        XCTAssertEqual(finished, [true, false])
+    }
+
+    func testNoPinWithoutANewerInstallableRelease() async {
+        let checker = makeChecker(source: CountingReleaseSource(.success(AppRelease(tagName: "v1.1.0"))), automaticChecks: false)
+        checker.checkNow()
+        await checker.appCheck?.value
+        XCTAssertEqual(checker.appStatus, .available(version: "1.1.0"))
+        XCTAssertNil(checker.pinnedRelease, "only the download page is offered")
+
+        let failing = makeChecker(source: CountingReleaseSource(.failure(URLError(.timedOut))), automaticChecks: false)
+        failing.checkNow()
+        await failing.appCheck?.value
+        XCTAssertNil(failing.pinnedRelease)
+    }
+
     func testTurningTheToggleOffStopsAutomaticChecks() async {
         let source = CountingReleaseSource(.success(AppRelease(tagName: "v1.0.0")))
         let checker = makeChecker(source: source, automaticChecks: true)

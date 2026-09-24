@@ -3,8 +3,8 @@ import XCTest
 
 final class DictationCueTests: XCTestCase {
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .cancelled, .waitingForModel(""), .failed("")]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "xmark", "hourglass", "exclamationmark.triangle"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .cancelled, .restarting, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
@@ -25,6 +25,12 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(cue.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V. Restart Sorla to paste again")
         XCTAssertEqual(cue.symbolName, DictationCue.textOnClipboard.symbolName)
         XCTAssertEqual(cue.issue(pasteShortcut: nil), .textOnClipboard(pasteShortcut: "⌘V"))
+    }
+
+    // Shown in place of the red dot, so a press on a replaced Sorla says why nothing is recorded (#43).
+    func testTheRestartCueSaysSorlaIsRestarting() {
+        XCTAssertEqual(DictationCue.restarting.announcement(pasteShortcut: nil), "Sorla has been updated — restarting")
+        XCTAssertNil(DictationCue.restarting.issue(pasteShortcut: nil))
     }
 
     func testTheHeldKeysCueAsksForTheShortcutAgain() {

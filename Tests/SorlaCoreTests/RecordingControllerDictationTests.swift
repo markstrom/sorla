@@ -633,4 +633,65 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(checks, 1)
         XCTAssertEqual(paste.pastes, ["A"])
     }
+
+    // MARK: - An update waits for everything in flight, not just the indicator (#29)
+
+    func testTheActivityIsQuietOnlyOnceTheClipboardIsBack() async {
+        XCTAssertTrue(controller.activity.isQuiet)
+
+        record()
+        XCTAssertTrue(controller.activity.isRecording)
+        controller.stopRecordingAndTranscribe()
+        XCTAssertTrue(controller.activity.isCapturingTail)
+        XCTAssertFalse(controller.activity.isQuiet)
+
+        await clock.waitForSleeps(1)
+        await clock.advance(by: tail)
+        await engine.waitForCalls(1)
+        XCTAssertFalse(controller.activity.isCapturingTail)
+        XCTAssertTrue(controller.activity.isTranscribing)
+
+        await engine.finish(0, with: "A")
+        await controller.dictationJobs[1]?.value
+        await controller.deliveries?.value
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertEqual(controller.phase, .idle)
+        XCTAssertEqual(controller.activity, DictationActivity(isRestoringClipboard: true))
+
+        await clock.waitForSleeps(2)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+        XCTAssertTrue(controller.activity.isQuiet)
+    }
+
+    func testAPasteLastWaitingForItsTurnIsActivity() async {
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        await untilEnqueued { controller.pasteLastTranscript() }
+        XCTAssertTrue(controller.activity.isPasteLastInFlight)
+        XCTAssertEqual(controller.activity.pendingDeliveries, 1)
+
+        await clock.waitForSleeps(3)
+        await clock.advance(by: settle)
+        await controller.deliveries?.value
+        await clock.waitForSleeps(4)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+        await controller.pasteLastRequest?.value
+        XCTAssertEqual(paste.pastes, ["A", "A"])
+        XCTAssertTrue(controller.activity.isQuiet)
+    }
+
+    func testEachPartOfTheActivityKeepsItFromBeingQuiet() {
+        XCTAssertTrue(DictationActivity.quiet.isQuiet)
+        XCTAssertFalse(DictationActivity(isRecording: true).isQuiet)
+        XCTAssertFalse(DictationActivity(isCapturingTail: true).isQuiet)
+        XCTAssertFalse(DictationActivity(isTranscribing: true).isQuiet)
+        XCTAssertFalse(DictationActivity(pendingDeliveries: 1).isQuiet)
+        XCTAssertFalse(DictationActivity(isPasteLastInFlight: true).isQuiet)
+        XCTAssertFalse(DictationActivity(isRestoringClipboard: true).isQuiet)
+    }
 }

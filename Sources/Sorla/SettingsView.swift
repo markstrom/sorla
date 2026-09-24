@@ -14,6 +14,7 @@ struct SettingsView: View {
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var modelManager: ModelManager
     @ObservedObject var updateChecker: UpdateChecker
+    @ObservedObject var appUpdater: AppUpdater
     @ObservedObject var navigation: SettingsNavigation
     // Goes through the app's queue, which holds speech back while the microphone is recording.
     let announce: (String) -> Void
@@ -76,7 +77,7 @@ struct SettingsView: View {
             isVoiceOverEnabled = enabled
         }
         .onChange(of: updateChecker.appStatus) { old, new in
-            announceResult(of: SettingsRow.appUpdates.title, wasChecking: old == .checking, row: UpdateRow.app(new))
+            announceResult(of: SettingsRow.appUpdates.title, wasChecking: old == .checking, row: UpdateRow.app(new, offer: appOffer(status: new)))
         }
         .onChange(of: modelManager.status) { old, new in
             announceResult(of: SettingsRow.speechModel.title, wasChecking: old == .checking, row: UpdateRow.model(new))
@@ -195,14 +196,21 @@ struct SettingsView: View {
         )
     }
 
+    private func appOffer(status: AppUpdateStatus) -> AppUpdateOffer? {
+        AppUpdateOffer.make(status: status, pin: updateChecker.pinnedRelease, install: appUpdater.state, location: appUpdater.location)
+    }
+
     @ViewBuilder
     private var updates: some View {
         updateRow(
             .appUpdates,
             version: AppVersion.short,
-            row: UpdateRow.app(updateChecker.appStatus),
+            row: UpdateRow.app(updateChecker.appStatus, offer: appOffer(status: updateChecker.appStatus)),
             downloadLabel: Text("Download the new version of Sorla"),
-            tryAgainLabel: Text("Try Again")
+            tryAgainLabel: Text("Try Again"),
+            install: {
+                if let pin = updateChecker.pinnedRelease { appUpdater.install(pin) }
+            }
         ) {
             openURL(AppUpdateCheck.downloadPageURL)
         }
@@ -218,11 +226,14 @@ struct SettingsView: View {
         Toggle(SettingsRow.autoCheckUpdates.title, isOn: $appSettings.autoCheckUpdates)
         Toggle(SettingsRow.autoInstallUpdates.title, isOn: $appSettings.autoInstallUpdates)
             .disabled(!appSettings.autoCheckUpdates)
+        Text("Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         HStack {
             Spacer()
             Button("Check Now") { updateChecker.checkNow() }
                 .accessibilityLabel(Text("Check for updates now"))
-                .disabled(!UpdateRow.canCheckNow(app: updateChecker.appStatus, model: modelManager.status))
+                .disabled(!UpdateRow.canCheckNow(app: updateChecker.appStatus, model: modelManager.status, install: appUpdater.state))
         }
     }
 
@@ -233,6 +244,7 @@ struct SettingsView: View {
         row: UpdateRow,
         downloadLabel: Text,
         tryAgainLabel: Text,
+        install: @escaping () -> Void = {},
         download: @escaping () -> Void
     ) -> some View {
         LabeledContent {
@@ -249,6 +261,9 @@ struct SettingsView: View {
                     case .tryAgain:
                         Button("Try Again", action: download)
                             .accessibilityLabel(tryAgainLabel)
+                    case .install:
+                        Button("Install and Relaunch", action: install)
+                            .accessibilityLabel(Text("Install Sorla and relaunch it"))
                     case nil:
                         EmptyView()
                     }
@@ -258,6 +273,13 @@ struct SettingsView: View {
                         .font(.callout)
                         .multilineTextAlignment(.trailing)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if let note = row.note {
+                    Text(note)
+                        .font(.callout)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
             }
         } label: {

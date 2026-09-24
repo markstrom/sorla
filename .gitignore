@@ -5,3 +5,24 @@ DerivedData/
 .DS_Store
 .claude/
 .wrangler/
+
+# Local planning notes
+docs/superpowers/
+.superpowers/
+
+# Secrets and local configuration: never commit these
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
+*.cer
+AuthKey_*
+release.env
+.netrc

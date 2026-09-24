@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingController: RecordingController!
     private var modelManager: ModelManager!
     private var updateChecker: UpdateChecker!
+    private var appUpdater: AppUpdater!
+    private let relauncher = SystemAppRelauncher()
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
@@ -37,6 +39,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var announcer: DictationAnnouncer!
     private let recordingLimit = RecordingLimitWatch()
     private var appReplacement = AppReplacementCheck(executableURL: Bundle.main.executableURL)
+    private var bundleFolderWatch: DispatchSourceFileSystemObject?
+    private var pendingRestart: Task<Void, Never>?
+    // Long enough for the restart arrow to be seen and for VoiceOver to say why.
+    private static let restartCueHold: Duration = .seconds(1.5)
+    private static let quietPollInterval: Duration = .milliseconds(250)
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -85,6 +92,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         )
 
+        let bundleURL = Bundle.main.bundleURL
+        appUpdater = AppUpdater(
+            installer: AppInstaller(
+                bundleURL: bundleURL,
+                runningVersion: AppVersion.short,
+                downloader: URLSessionAppUpdateDownloader(),
+                mounter: HdiutilDiskImageMounter(),
+                signatures: SecurityAppSignatureChecker(),
+                files: SystemAppFileOperations()
+            ),
+            location: AppInstallLocation.current(bundleURL: bundleURL),
+            relauncher: relauncher,
+            journal: AppInstallJournal(),
+            automaticChecks: appSettings.autoCheckUpdates,
+            automaticInstalls: appSettings.autoInstallUpdates,
+            activity: { [weak self] in self?.recordingController.activity ?? .quiet },
+            terminate: {
+                NSApp.terminate(nil)
+                return false
+            },
+            isAppReplaced: { [weak self] in self?.checkForReplacement() ?? false }
+        )
+
         NSApp.mainMenu = MainMenu.make(target: self, about: #selector(showAbout), settings: #selector(showSettings))
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -123,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         updateStatusMenuItem()
         updateTriggerHintMenuItem()
+        watchForReplacement()
 
         recordingIndicator = RecordingIndicatorPanel()
         feedbackSounds = FeedbackSoundPlayer()
@@ -141,6 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .idle:
                 indicator.hide()
             }
+            self.appUpdater.dictationActivityChanged()
             self.updateIcon()
             self.updateStatusMenuItem()
         }
@@ -175,7 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             onStart: { [weak self] in
                 guard let self else { return false }
                 self.startFailure = nil
-                if let refusal = self.modelRefusal() {
+                // Also the restart waits for the release, so Right ⌘ + C on a replaced Sorla doesn't restart it.
+                if let refusal = self.restartRefusal() ?? self.modelRefusal() {
                     return self.refuse(refusal)
                 }
                 self.isStartingRecording = true
@@ -193,7 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self else { return }
                 if self.isRefusedDictationHeld {
                     self.isRefusedDictationHeld = false
-                    if let refusal = self.modelRefusal() ?? self.startFailure { self.refuseDictation(refusal) }
+                    if let refusal = self.restartRefusal() ?? self.modelRefusal() ?? self.startFailure { self.refuseDictation(refusal) }
                     self.startFailure = nil
                     return
                 }
@@ -284,12 +317,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
+        updateChecker.onAppCheckFinished = { [weak self] automatic in
+            guard let self else { return }
+            self.appUpdater.updateFound(self.updateChecker.pinnedRelease, automatic: automatic)
+        }
+        appUpdater.$state
+            .removeDuplicates()
+            .sink { [weak self] state in
+                self?.updateStatusMenuItem(install: state)
+            }
+            .store(in: &cancellables)
+        appUpdater.onUpdated = { [weak self] version in
+            // Same path and signature, so Accessibility should carry over; if not, the menu and Welcome ask for it.
+            Self.logger.info("updated to \(version, privacy: .public); accessibility trusted: \(PermissionsManager.isAccessibilityTrusted(), privacy: .public)")
+            self?.transientStatus = TransientMenuStatus(updatedTo: version, at: Date())
+            self?.updateStatusMenuItem()
+        }
+        appUpdater.start()
+
         appSettings.$autoCheckUpdates
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] enabled in
                 self?.updateChecker.automaticChecks = enabled
                 self?.modelManager.automaticChecks = enabled
+                self?.appUpdater.automaticChecks = enabled
             }
             .store(in: &cancellables)
 
@@ -298,6 +350,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .removeDuplicates()
             .sink { [weak self] enabled in
                 self?.modelManager.automaticDownloads = enabled
+                self?.appUpdater.automaticInstalls = enabled
             }
             .store(in: &cancellables)
 
@@ -334,6 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 appSettings: appSettings,
                 modelManager: modelManager,
                 updateChecker: updateChecker,
+                appUpdater: appUpdater,
                 announce: { [weak self] text in self?.announce(text) }
             )
             controller.onKeyStateChange = { [weak self] isKey in
@@ -368,7 +422,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         startFailure = nil
-        if let refusal = modelRefusal() {
+        if let refusal = restartRefusal() ?? modelRefusal() {
             refuseDictation(refusal)
             return
         }
@@ -440,6 +494,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelManager.downloadModel()
         case .downloadApp:
             NSWorkspace.shared.open(AppUpdateCheck.downloadPageURL)
+        case .installApp:
+            if let pin = updateChecker.pinnedRelease { appUpdater.install(pin) }
+        case .showUpdates:
+            showSettings()
+            settingsWindowController?.revealUpdates()
         case .reloadModel:
             modelManager.retryLoadingModel()
         case .openSettings:
@@ -468,26 +527,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let wasReplaced = appReplacement.isReplaced
         guard appReplacement.check(), !wasReplaced else { return appReplacement.isReplaced }
         Self.logger.info("Sorla.app was replaced on disk; pasting needs a restart")
+        bundleFolderWatch?.cancel()
+        bundleFolderWatch = nil
         updateStatusMenuItem()
+        updateIcon()
         return true
     }
 
-    // The helper waits for this process to exit before opening the new copy.
+    // Replacing Sorla.app changes its folder, so this wakes only then and costs nothing while idle.
+    private func watchForReplacement() {
+        let folder = Bundle.main.bundleURL.deletingLastPathComponent()
+        let descriptor = open(folder.path, O_EVTONLY)
+        guard descriptor >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor, eventMask: [.write, .rename, .delete], queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { _ = self?.checkForReplacement() }
+        }
+        source.setCancelHandler { close(descriptor) }
+        source.resume()
+        bundleFolderWatch = source
+    }
+
+    private func restartRefusal() -> DictationCue? {
+        DictationGate.restartRefusal(isAppReplaced: checkForReplacement(), canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL))
+    }
+
+    // An earlier dictation still in flight lands on the clipboard first, so no words are lost to the restart.
+    private func restartWhenQuiet() {
+        guard pendingRestart == nil else { return }
+        pendingRestart = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.restartCueHold)
+            while self?.recordingController.activity.isQuiet == false {
+                try? await Task.sleep(for: Self.quietPollInterval)
+            }
+            self?.restart()
+            self?.pendingRestart = nil
+        }
+    }
+
+    // The helper waits for this process to exit before opening the new copy; if quitting is called off, so is the helper.
     private func restart() {
-        Self.logger.info("restart requested for \(Bundle.main.bundleURL.path, privacy: .public)")
-        let helper = Process()
-        helper.executableURL = AppRelaunch.shell
-        helper.arguments = AppRelaunch.arguments(
-            waitingFor: ProcessInfo.processInfo.processIdentifier,
-            thenOpen: Bundle.main.bundleURL
-        )
+        Self.logger.info("restart requested")
         do {
-            try helper.run()
+            try relauncher.start(waitingFor: ProcessInfo.processInfo.processIdentifier, thenOpen: Bundle.main.bundleURL, expectedVersion: nil)
         } catch {
-            Self.logger.error("restart failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("restart failed: \(ErrorSummary.of(error), privacy: .public)")
             return
         }
         NSApp.terminate(nil)
+        relauncher.cancel()
     }
 
     private func endDictationAndForget() {
@@ -581,7 +669,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // @Published fires before the property changes, so the status sinks pass the new value in.
-    private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil) {
+    private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil, install: AppInstallState? = nil) {
         let now = Date()
         if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
         let row = MenuStatusRow.current(
@@ -593,7 +681,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appReplaced: appReplacement.isReplaced,
             canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL),
             transient: transientStatus,
-            appUpdate: (appStatus ?? updateChecker.appStatus).availableVersion,
+            appUpdate: AppUpdateOffer.make(
+                status: appStatus ?? updateChecker.appStatus,
+                pin: updateChecker.pinnedRelease,
+                install: install ?? appUpdater.state,
+                location: appUpdater.location
+            ),
             now: now
         )
         statusMenuAction = row?.action
@@ -631,6 +724,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func refuseDictation(_ refusal: DictationCue) {
         Self.logger.info("dictation refused: \(refusal.symbolName, privacy: .public)")
         presentCue(refusal)
+        if refusal == .restarting {
+            restartWhenQuiet()
+        }
     }
 
     private func handleIssue(_ issue: SorlaIssue) {
@@ -707,8 +803,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateIcon() {
-        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, phase: recordingController.phase)
-        statusItem.button?.image = icon.glyph.image(accessibilityDescription: icon.accessibilityDescription)
+        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, phase: recordingController.phase, restartPending: appReplacement.isReplaced)
+        statusItem.button?.image = icon.glyph.image(accessibilityDescription: icon.accessibilityDescription, restartBadge: icon.restartBadge)
     }
 
     @objc private func quit() {

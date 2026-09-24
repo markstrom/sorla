@@ -4,15 +4,21 @@
 #   Scripts/release.sh                    build, sign and verify the DMG
 #   SORLA_NOTARIZE=1 Scripts/release.sh   also notarize and staple it
 #                                         (only with a Developer ID identity)
+#
+# Notarizing reads the App Store Connect API key details from the environment
+# or from a local file outside the repository (see Scripts/release.env.example):
+#   ${SORLA_RELEASE_CONFIG:-~/.config/sorla/release.env}
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 APP_DIR=".build/Sorla.app"
 ARTIFACTS_DIR=".build/release-artifacts"
-ASC_KEY_PATH="$HOME/.config/asc/AuthKey_57BP75L5L2.p8"
-ASC_KEY_ID="57BP75L5L2"
-ASC_ISSUER_ID="69a6de74-d12e-47e3-e053-5b8c7c11a4d1"
+RELEASE_CONFIG="${SORLA_RELEASE_CONFIG:-$HOME/.config/sorla/release.env}"
+if [ -f "$RELEASE_CONFIG" ]; then
+    # shellcheck source=/dev/null
+    source "$RELEASE_CONFIG"
+fi
 
 # 1. Pick a signing identity: Developer ID if there is one, otherwise Apple Development.
 IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
@@ -64,6 +70,12 @@ codesign --verify --verbose=2 "$DMG_PATH"
 # The API key is only passed by path; the script never reads it.
 if [ "${SORLA_NOTARIZE:-0}" = "1" ]; then
     if [ "$DEVELOPER_ID" = "1" ]; then
+        for name in ASC_KEY_PATH ASC_KEY_ID ASC_ISSUER_ID; do
+            if [ -z "${!name:-}" ]; then
+                echo "error: $name is not set; add it to $RELEASE_CONFIG (see Scripts/release.env.example)." >&2
+                exit 1
+            fi
+        done
         xcrun notarytool submit "$DMG_PATH" \
             --key "$ASC_KEY_PATH" \
             --key-id "$ASC_KEY_ID" \

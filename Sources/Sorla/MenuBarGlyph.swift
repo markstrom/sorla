@@ -9,13 +9,16 @@ enum MenuBarGlyph: Equatable {
     // Geometry of site/favicon.svg on its 64-unit grid, cropped to the dot and bars.
     private static let content = CGRect(x: 12.5, y: 17, width: 41.5, height: 30)
     private static let glyphHeight: CGFloat = 14
+    private static let badgeSize: CGFloat = 10
 
-    func image(accessibilityDescription: String) -> NSImage {
+    func image(accessibilityDescription: String, restartBadge: Bool = false) -> NSImage {
         let scale = Self.glyphHeight / Self.content.height
-        let size = NSSize(width: (Self.content.width * scale).rounded(.up), height: 18)
+        let width = (Self.content.width * scale).rounded(.up) + (restartBadge ? Self.badgeSize / 2 : 0)
+        let size = NSSize(width: width, height: 18)
         let isLoading = self == .loading
         let image = NSImage(size: size, flipped: true) { rect in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
+            ctx.saveGState()
             ctx.translateBy(x: 0, y: (rect.height - Self.glyphHeight) / 2)
             ctx.scaleBy(x: scale, y: scale)
             ctx.translateBy(x: -Self.content.minX, y: -Self.content.minY)
@@ -43,10 +46,29 @@ enum MenuBarGlyph: Equatable {
                 ctx.addPath(CGPath(roundedRect: bar, cornerWidth: 2.5, cornerHeight: 2.5, transform: nil))
                 ctx.fillPath()
             }
+            ctx.restoreGState()
+            if restartBadge {
+                Self.drawRestartBadge(in: rect, ctx: ctx)
+            }
             return true
         }
         image.isTemplate = true
         image.accessibilityDescription = accessibilityDescription
         return image
+    }
+
+    // A small arrow in the top corner, cut free of the bars so it reads at menu bar size.
+    private static func drawRestartBadge(in rect: NSRect, ctx: CGContext) {
+        let badge = NSRect(x: rect.maxX - badgeSize, y: 0, width: badgeSize, height: badgeSize)
+        ctx.setBlendMode(.clear)
+        ctx.fillEllipse(in: badge.insetBy(dx: -1, dy: -1))
+        ctx.setBlendMode(.normal)
+        let configuration = NSImage.SymbolConfiguration(pointSize: 8, weight: .heavy)
+        guard let symbol = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)
+        else { return }
+        let size = symbol.size
+        let frame = NSRect(x: badge.midX - size.width / 2, y: badge.midY - size.height / 2, width: size.width, height: size.height)
+        symbol.draw(in: frame, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
     }
 }

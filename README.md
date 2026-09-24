@@ -56,7 +56,15 @@ Or with [Homebrew](https://brew.sh):
 brew install --cask markstrom/tap/sorla
 ```
 
-Update later with `brew upgrade --cask sorla`, or with **Check for Updates…** in Sorla's menu.
+Update later with `brew upgrade --cask sorla`.
+
+### Updates
+
+Sorla can update itself. When **Check for Updates…** in the menu (or **Check Now** in Settings › Updates) finds a newer version, choose **Install and Relaunch** there or in the menu's status row. Sorla downloads that exact release from GitHub, checks that it is signed by Sorla's developer, notarized by Apple and the version that was found, swaps it in at the same path, and relaunches in a few seconds, waiting for any dictation in flight. The previous version stays next to it until the new one has started. If anything fails, the current version is kept.
+
+With both **Check for updates automatically** and **Install updates automatically** turned on (both are off by default), Sorla downloads and verifies a new version in the background and installs it once you haven't dictated for 10 minutes, or at its next launch.
+
+If Sorla can't replace itself (a folder you can't write to, or a copy macOS runs from a temporary location), it offers **Download** instead. A Homebrew install is updated with `brew upgrade --cask sorla`.
 
 ### If macOS blocks the app
 
@@ -77,8 +85,9 @@ Your voice and your text never leave your Mac. Audio is processed in memory and 
 
 Sorla uses the network only to:
 
-- download the speech model from Hugging Face on first launch, and
-- check for updates, asking GitHub for the latest app version and Hugging Face for a newer model in one check, only when you ask it to or, if you turn it on, automatically about once a day.
+- download the speech model from Hugging Face on first launch,
+- check for updates, asking GitHub for the latest app version and Hugging Face for a newer model in one check, only when you ask it to or, if you turn it on, automatically about once a day, and
+- download a new version of Sorla from GitHub, only when you choose Install and Relaunch or have turned on both automatic checks and automatic installs. Before installing it, macOS asks Apple whether it is notarized.
 
 There are no accounts, no analytics and no tracking. Once the model is installed, Sorla works offline. Read the full [privacy policy](https://sorla.zerolabs.se/privacy).
 
@@ -99,7 +108,7 @@ Scripts/release.sh          # build a signed DMG in .build/release-artifacts
 
 `Scripts/build-app.sh` signs with the hardened runtime, using the first Apple Development identity in your keychain, or ad hoc if there is none. Set `SORLA_SIGN_IDENTITY` to choose another identity.
 
-`Scripts/release.sh` signs with a Developer ID Application identity when one is available and falls back to Apple Development. With a Developer ID identity, `SORLA_NOTARIZE=1 Scripts/release.sh` also notarizes and staples the DMG.
+`Scripts/release.sh` signs with a Developer ID Application identity when one is available and falls back to Apple Development. With a Developer ID identity, `SORLA_NOTARIZE=1 Scripts/release.sh` also notarizes and staples the DMG. Notarizing reads your App Store Connect API key details from `~/.config/sorla/release.env`, outside the repository; copy `Scripts/release.env.example` there and fill it in.
 
 ## License
 
