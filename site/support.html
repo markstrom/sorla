@@ -66,7 +66,7 @@
       <li><strong>Öppna Sorla från Program.</strong> Dubbelklicka på Sorla i mappen Program. Får du frågan om du vill öppna appen, klicka på <strong>Öppna</strong>.</li>
       <li><strong>Om Sorla blockeras.</strong> Öppna Systeminställningar → Integritet och säkerhet. Rulla ner till avsnittet Säkerhet. Där står att Sorla blockerades. Klicka på <strong>Öppna ändå</strong>. Öppna sedan Sorla från Program igen och bekräfta med <strong>Öppna</strong>. På en del Mac-datorer behöver du skriva ditt lösenord eller använda Touch ID.</li>
       <li><strong>Om du är van vid Terminal.</strong> Det går också att ta bort markeringen som macOS sätter på nedladdade filer. Öppna Terminal (i Program → Verktygsprogram), klistra in raden nedan och tryck på <code>Retur</code>:
-        <p class="command"><code>xattr -dr com.apple.quarantine /Applications/Sorla.app</code></p>
+        <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>xattr -dr com.apple.quarantine /Applications/Sorla.app</code></p>
         Öppna sedan Sorla från Program.</li>
     </ol>
     <p>När Sorla väl har öppnats en gång frågar macOS inte igen.</p>
@@ -77,14 +77,14 @@
       <li>Avsluta Sorla: klicka på Sorla i menyraden och välj Avsluta Sorla.</li>
       <li>Öppna Systeminställningar → Integritet och säkerhet → Hjälpmedel. Markera Sorla i listan och klicka på minusknappen <code>−</code>. Finns en gammal rad som heter Prata, ta bort den också.</li>
       <li>Öppna Terminal, klistra in raden nedan och tryck på <code>Retur</code>:
-        <p class="command"><code>tccutil reset Accessibility com.sorla.app</code></p></li>
+        <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>tccutil reset Accessibility com.sorla.app</code></p></li>
       <li>Öppna Sorla från Program igen och ge behörigheten Hjälpmedel på nytt.</li>
       <li>Blir det ändå inte grönt: starta om Macen och öppna Sorla igen.</li>
     </ol>
 
     <h3 id="mikrofon">Om mikrofonen inte fungerar</h3>
     <p>Öppna Systeminställningar → Integritet och säkerhet → Mikrofon och kontrollera att reglaget för Sorla är på. Hjälper inte det, avsluta Sorla och kör raden nedan i Terminal. Öppna sedan Sorla från Program och klicka på Tillåt.</p>
-    <p class="command"><code>tccutil reset Microphone com.sorla.app</code></p>
+    <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>tccutil reset Microphone com.sorla.app</code></p>
 
     <h2>Kom igång</h2>
     <p>Första gången Sorla startar öppnas ett välkomstfönster. Det visar de tre saker som behövs: <strong>Mikrofon</strong>, <strong>Hjälpmedel</strong> och <strong>talmodellen</strong>. Mikrofonen tillåter du direkt i fönstret. Hjälpmedel slår du på i Systeminställningar → Integritet och säkerhet → Hjälpmedel; knappen Öppna Systeminställningar tar dig dit. Varje rad blir grön när den är klar. Blir Hjälpmedel inte grönt, se <a href="#hjalpmedel">ovan</a>.</p>
@@ -127,12 +127,15 @@
       <p>Tillåt Sorla i Systeminställningar → Notiser.</p>
     </details>
 
+    <h2 id="medan-du-pratar">Varför syns inte texten medan jag pratar?</h2>
+    <p>Talmodellen Klang Pianissimo är byggd för att lyssna på det du säger i sin helhet och är inte tränad för att skriva ut orden medan du pratar. Det går att köra modellen på bitar av ljudet, men då blir texten sämre, orden ändras hela tiden på skärmen och det kräver mycket mer av datorn. Sorla väntar därför tills du släpper tangenten. Från att du släpper tills texten står där tar det ungefär en halv sekund.</p>
+
     <h2>Uppdateringar av modellen</h2>
     <p>Sorla letar bara efter en ny modell när du ber om det i Inställningar, eller automatiskt om du slår på det. Uppdateringen laddas ner i bakgrunden och byts in mellan två dikteringar.</p>
     <p>Du ser om det finns en ny version av själva appen genom att välja <strong>Sök efter uppdateringar…</strong> i Sorlas meny. För att uppdatera: avsluta Sorla, ladda ner den nya DMG-filen och dra Sorla till Program och välj <strong>Ersätt</strong>. Behörigheterna finns kvar.</p>
 
     <h2>Avinstallera</h2>
-    <p>Avsluta Sorla, flytta appen till papperskorgen och ta bort mappen <code>~/Library/Application Support/Sorla</code>.</p>
+    <p>Avsluta Sorla, flytta appen till papperskorgen och ta bort mappen <code class="path">~/Library/Application Support/Sorla</code>.</p>
 
     <h2>Integritet</h2>
     <p>Sorla samlar inte in några uppgifter om dig. <a href="/privacy">Läs integritetspolicyn</a>.</p>

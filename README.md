@@ -34,6 +34,7 @@ Sorla also builds on:
 - **Your clipboard is kept.** Whatever you had copied is still there after Sorla pastes.
 - Soft start and stop sounds, and optional launch at login.
 - English and Swedish user interface.
+- Text appears when you let go, not while you speak: Klang Pianissimo transcribes a whole utterance at once and isn't built for streaming, and transcribing in chunks would mean worse text. From release to text takes about half a second.
 
 ## Requirements
 
