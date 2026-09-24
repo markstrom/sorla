@@ -68,6 +68,34 @@ public struct ClipboardOwnershipTracker {
     }
 }
 
+// What delivering text needs from the Mac, so tests can stand in for the pasteboard and the frontmost app.
+@MainActor
+public protocol PasteEnvironment: AnyObject {
+    var frontmostProcessID: pid_t? { get }
+    var changeCount: Int { get }
+    func snapshot() -> PasteboardSnapshot
+    @discardableResult
+    func write(_ text: String, transient: Bool) -> Int
+    func restore(_ snapshot: PasteboardSnapshot)
+    // Posts ⌘V; false when macOS drops it for want of Accessibility access.
+    func paste() -> Bool
+}
+
+public final class SystemPasteEnvironment: PasteEnvironment {
+    nonisolated public init() {}
+
+    public var frontmostProcessID: pid_t? { NSWorkspace.shared.frontmostApplication?.processIdentifier }
+    public var changeCount: Int { NSPasteboard.general.changeCount }
+    public func snapshot() -> PasteboardSnapshot { PasteService.snapshot() }
+    public func write(_ text: String, transient: Bool) -> Int { PasteService.writeToPasteboard(text, transient: transient) }
+    public func restore(_ snapshot: PasteboardSnapshot) { PasteService.restore(snapshot) }
+
+    public func paste() -> Bool {
+        PasteService.paste()
+        return AXIsProcessTrusted()
+    }
+}
+
 public enum PasteService {
     // Tags CGEvents Sorla posts so TriggerMonitor can tell its own synthetic ⌘V apart from a real key.
     public static let syntheticEventMarker: Int64 = 0x536F726C
