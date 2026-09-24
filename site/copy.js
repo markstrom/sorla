@@ -22,33 +22,31 @@ document.querySelectorAll('.command').forEach((row) => {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'copy';
-  button.title = 'Kopiera';
   button.setAttribute('aria-label', 'Kopiera kommandot ' + command);
   button.append(icon('copy'));
   const status = document.createElement('span');
   status.className = 'visually-hidden';
   status.setAttribute('aria-live', 'polite');
   let reset;
-  const show = (name, title, message) => {
+  const show = (name, message) => {
     button.replaceChildren(icon(name));
-    button.title = title;
     button.classList.toggle('is-done', name === 'done');
     status.textContent = message;
   };
   button.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(command);
-      show('done', 'Kopierat', 'Kommandot är kopierat.');
+      show('done', 'Kommandot är kopierat.');
     } catch {
       const range = document.createRange();
       range.selectNodeContents(code);
       const selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      show('copy', 'Markerat – tryck ⌘C', 'Kommandot är markerat. Tryck Kommando C för att kopiera.');
+      show('copy', 'Kommandot är markerat. Tryck Kommando C för att kopiera.');
     }
     clearTimeout(reset);
-    reset = setTimeout(() => show('copy', 'Kopiera', ''), 1800);
+    reset = setTimeout(() => show('copy', ''), 1800);
   });
   const wrap = document.createElement('div');
   wrap.className = 'cmd';
