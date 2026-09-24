@@ -155,4 +155,41 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
         XCTAssertNil(gesture.handle(.triggerDown(at: 1)))
         XCTAssertEqual(gesture.handle(.triggerUp(at: 1.05)), .start)
     }
+
+    // A dictation started from the menu: the key stops it on a clean release, in both modes.
+    func testAMenuStartedDictationFinishesOnACleanReleaseNotOnPress() {
+        for mode in [RecordingMode.pushToTalk, .toggle] {
+            var gesture = PushToTalkGesture(minimumHold: 0.3, mode: mode)
+            gesture.recordingStartedElsewhere()
+
+            XCTAssertEqual(gesture.handle(.triggerDown(at: 10)), nil, "\(mode)")
+            XCTAssertTrue(gesture.isWaitingForRelease)
+            XCTAssertEqual(gesture.handle(.triggerUp(at: 10.05)), .finish, "\(mode)")
+            XCTAssertEqual(gesture.handle(.triggerDown(at: 20)), mode == .pushToTalk ? .start : nil, "\(mode): next press is a new dictation")
+        }
+    }
+
+    func testAShortcutDuringAMenuStartedDictationNeitherFinishesNorCancelsIt() {
+        for mode in [RecordingMode.pushToTalk, .toggle] {
+            var gesture = PushToTalkGesture(minimumHold: 0.3, mode: mode)
+            gesture.recordingStartedElsewhere()
+
+            XCTAssertEqual(gesture.handle(.triggerDown(at: 10)), nil)
+            XCTAssertEqual(gesture.handle(.otherKeyDown), nil)
+            XCTAssertEqual(gesture.handle(.triggerUp(at: 11)), nil, "\(mode): ⌘Tab or ⌘C must not end it")
+            XCTAssertFalse(gesture.isWaitingForRelease)
+
+            XCTAssertEqual(gesture.handle(.triggerDown(at: 12)), nil)
+            XCTAssertEqual(gesture.handle(.triggerUp(at: 12.5)), .finish, "\(mode): a later clean press still stops it")
+        }
+    }
+
+    func testKeysAndClicksWithoutTheTriggerDoNothingToAMenuStartedDictation() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+        gesture.recordingStartedElsewhere()
+
+        XCTAssertEqual(gesture.handle(.otherKeyDown), nil)
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 1)), nil)
+        XCTAssertFalse(gesture.isWaitingForRelease)
+    }
 }

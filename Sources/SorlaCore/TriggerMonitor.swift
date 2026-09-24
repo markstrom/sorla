@@ -61,10 +61,12 @@ public final class TriggerMonitor {
     private let onCancel: () -> Void
 
     public init(
+        mode: RecordingMode = .pushToTalk,
         onStart: @escaping @MainActor () -> Bool,
         onFinish: @escaping @MainActor () -> Void,
         onCancel: @escaping @MainActor () -> Void
     ) {
+        self.gesture = PushToTalkGesture(mode: mode)
         self.onStart = onStart
         self.onFinish = onFinish
         self.onCancel = onCancel
@@ -83,6 +85,13 @@ public final class TriggerMonitor {
                 KeyboardShortcuts.removeHandler(for: .sorlaCustomTrigger)
             }
         }
+    }
+
+    // A dictation started from the menu is stopped by a clean press and release, not by a ⌘-shortcut's key-down.
+    public func recordingDidStartElsewhere() {
+        releaseRecheck?.cancel()
+        isRecordingActive = true
+        gesture.recordingStartedElsewhere()
     }
 
     // A dictation stopped from the menu or at the length limit no longer belongs to the key, so the next press starts a new one.
@@ -150,14 +159,14 @@ public final class TriggerMonitor {
         KeyboardShortcuts.onKeyDown(for: .sorlaCustomTrigger) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, !self.isSuspended else { return }
-                self.dispatch(self.gesture.handle(.triggerDown(at: ProcessInfo.processInfo.systemUptime)))
+                self.handle(.triggerDown(at: ProcessInfo.processInfo.systemUptime))
             }
         }
 
         KeyboardShortcuts.onKeyUp(for: .sorlaCustomTrigger) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, !self.isSuspended else { return }
-                self.dispatch(self.gesture.handle(.triggerUp(at: ProcessInfo.processInfo.systemUptime)))
+                self.handle(.triggerUp(at: ProcessInfo.processInfo.systemUptime))
             }
         }
     }
@@ -220,6 +229,10 @@ public final class TriggerMonitor {
     private static func isSorlaSyntheticEvent(_ event: NSEvent) -> Bool {
         guard let marker = event.cgEvent?.getIntegerValueField(.eventSourceUserData) else { return false }
         return PasteService.isSyntheticMarker(marker)
+    }
+
+    func handle(_ event: PushToTalkGesture.Event) {
+        dispatch(gesture.handle(event))
     }
 
     private func dispatch(_ action: PushToTalkGesture.Action?) {

@@ -177,10 +177,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in
                 guard let self else { return false }
-                if self.recordingController.isRecording {
-                    self.finishRecording()
-                    return false
-                }
                 self.startFailure = nil
                 if let refusal = self.modelRefusal() {
                     return self.refuse(refusal)
@@ -359,6 +355,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             startFailure = nil
             return
         }
+        triggerMonitor?.recordingDidStartElsewhere()
         scheduleStartSound(after: 0)
     }
 
