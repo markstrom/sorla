@@ -34,6 +34,14 @@ public struct PushToTalkGesture {
         self.mode = mode
     }
 
+    // A press is in progress, so a lost release would leave the gesture stuck.
+    public var isWaitingForRelease: Bool {
+        switch state {
+        case .holding, .heldDirty, .cancelled, .recordingHeld, .recordingHeldDirty: return true
+        case .idle, .recording: return false
+        }
+    }
+
     public mutating func handle(_ event: Event) -> Action? {
         switch mode {
         case .pushToTalk:

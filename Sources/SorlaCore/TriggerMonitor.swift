@@ -21,6 +21,17 @@ public enum TriggerEdge: Equatable, Sendable {
         if hasTriggerFlag { return .down }
         return isKeyPhysicallyDown() ? nil : .up
     }
+
+    public static let releaseRecheckDelay: Duration = .milliseconds(100)
+
+    // The key state can be stale (Fn/Globe, remapping tools), so an ignored release gets one more look while a press is in progress.
+    public static func shouldRecheckRelease(isSynthetic: Bool, hasTriggerFlag: Bool, isWaitingForRelease: Bool) -> Bool {
+        !isSynthetic && !hasTriggerFlag && isWaitingForRelease
+    }
+
+    public static func afterRecheck(isKeyPhysicallyDown: Bool) -> TriggerEdge? {
+        isKeyPhysicallyDown ? nil : .up
+    }
 }
 
 @MainActor
@@ -31,10 +42,12 @@ public final class TriggerMonitor {
     private var localMonitor: Any?
     private var isCustomShortcutActive = false
     private var isRecordingActive = false
+    private var releaseRecheck: Task<Void, Never>?
 
     public var isSuspended = false {
         didSet {
             guard isSuspended, isSuspended != oldValue else { return }
+            releaseRecheck?.cancel()
             if isRecordingActive {
                 isRecordingActive = false
                 onCancel()
@@ -90,6 +103,7 @@ public final class TriggerMonitor {
     }
 
     private func tearDown() {
+        releaseRecheck?.cancel()
         if let globalMonitor {
             NSEvent.removeMonitor(globalMonitor)
             self.globalMonitor = nil
@@ -148,6 +162,7 @@ public final class TriggerMonitor {
         switch event.type {
         case .flagsChanged:
             guard event.keyCode == keyCode else { return }
+            releaseRecheck?.cancel()
             let isSynthetic = Self.isSorlaSyntheticEvent(event)
             let hasTriggerFlag = event.modifierFlags.rawValue & deviceMask != 0
             let edge = TriggerEdge.forModifierEvent(
@@ -162,6 +177,13 @@ public final class TriggerMonitor {
                 action = gesture.handle(.triggerUp(at: event.timestamp))
             case nil:
                 Self.logger.info("trigger flagsChanged ignored: synthetic=\(isSynthetic, privacy: .public) flag=\(hasTriggerFlag, privacy: .public)")
+                if TriggerEdge.shouldRecheckRelease(
+                    isSynthetic: isSynthetic,
+                    hasTriggerFlag: hasTriggerFlag,
+                    isWaitingForRelease: gesture.isWaitingForRelease
+                ) {
+                    scheduleReleaseRecheck(keyCode: keyCode)
+                }
                 return
             }
         case .keyDown:
@@ -174,6 +196,17 @@ public final class TriggerMonitor {
         }
 
         dispatch(action)
+    }
+
+    private func scheduleReleaseRecheck(keyCode: UInt16) {
+        releaseRecheck = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: TriggerEdge.releaseRecheckDelay)
+            guard let self, !Task.isCancelled, !self.isSuspended, self.gesture.isWaitingForRelease else { return }
+            let isDown = CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode))
+            guard TriggerEdge.afterRecheck(isKeyPhysicallyDown: isDown) == .up else { return }
+            Self.logger.info("trigger release confirmed on recheck")
+            self.dispatch(self.gesture.handle(.triggerUp(at: ProcessInfo.processInfo.systemUptime)))
+        }
     }
 
     // Sorla's own ⌘V paste posts events this monitor would otherwise read as another key or a trigger release.

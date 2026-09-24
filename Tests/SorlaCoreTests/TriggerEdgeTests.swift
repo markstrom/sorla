@@ -32,6 +32,35 @@ final class TriggerEdgeTests: XCTestCase {
         XCTAssertNil(edge(isSynthetic: true, hasTriggerFlag: true, isKeyPhysicallyDown: true))
     }
 
+    func testAnIgnoredReleaseIsRecheckedOnlyWhileAPressIsInProgress() {
+        XCTAssertTrue(TriggerEdge.shouldRecheckRelease(isSynthetic: false, hasTriggerFlag: false, isWaitingForRelease: true))
+        XCTAssertFalse(TriggerEdge.shouldRecheckRelease(isSynthetic: false, hasTriggerFlag: false, isWaitingForRelease: false))
+        XCTAssertFalse(TriggerEdge.shouldRecheckRelease(isSynthetic: true, hasTriggerFlag: false, isWaitingForRelease: true))
+        XCTAssertFalse(TriggerEdge.shouldRecheckRelease(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true))
+    }
+
+    func testTheRecheckReleasesOnlyAKeyThatIsUpByThen() {
+        XCTAssertEqual(TriggerEdge.afterRecheck(isKeyPhysicallyDown: false), .up)
+        XCTAssertNil(TriggerEdge.afterRecheck(isKeyPhysicallyDown: true))
+    }
+
+    func testAGestureWaitsForTheReleaseOnlyDuringAPress() {
+        var pushToTalk = PushToTalkGesture(mode: .pushToTalk)
+        XCTAssertFalse(pushToTalk.isWaitingForRelease)
+        _ = pushToTalk.handle(.triggerDown(at: 0))
+        XCTAssertTrue(pushToTalk.isWaitingForRelease)
+        _ = pushToTalk.handle(.triggerUp(at: 1))
+        XCTAssertFalse(pushToTalk.isWaitingForRelease)
+
+        var toggle = PushToTalkGesture(mode: .toggle)
+        _ = toggle.handle(.triggerDown(at: 0))
+        XCTAssertTrue(toggle.isWaitingForRelease)
+        _ = toggle.handle(.triggerUp(at: 0.1))
+        XCTAssertFalse(toggle.isWaitingForRelease, "recording, key up: no release pending")
+        _ = toggle.handle(.triggerDown(at: 2))
+        XCTAssertTrue(toggle.isWaitingForRelease)
+    }
+
     func testThePhysicalStateIsOnlyAskedForOnARelease() {
         var asked = 0
         _ = TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true) { asked += 1; return true }
