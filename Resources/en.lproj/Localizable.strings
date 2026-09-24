@@ -128,3 +128,15 @@
 "Done" = "Done";
 "GitHub isn't answering more update checks right now. Try again in a while." = "GitHub isn't answering more update checks right now. Try again in a while.";
 "Couldn't read the answer from GitHub. Try again later." = "Couldn't read the answer from GitHub. Try again later.";
+"Speech recognition by [Klang Pianissimo](https://huggingface.co/KlangAI/pianissimo-sv) from Klang AI AB." = "Speech recognition by [Klang Pianissimo](https://huggingface.co/KlangAI/pianissimo-sv) from Klang AI AB.";
+"Sorla is independent and not made by Klang AI AB." = "Sorla is independent and not made by Klang AI AB.";
+"Website" = "Website";
+"Privacy" = "Privacy";
+"GitHub" = "GitHub";
+"Credits and Licenses…" = "Credits and Licenses…";
+"Credits and Licenses" = "Credits and Licenses";
+"Open source under the Apache License 2.0. © 2026 Anders Markström" = "Open source under the Apache License 2.0. © 2026 Anders Markström";
+"Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)." = "Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).";
+"Runs the model with Core ML. Apache License 2.0." = "Runs the model with Core ML. Apache License 2.0.";
+"Custom keyboard shortcuts. MIT License." = "Custom keyboard shortcuts. MIT License.";
+"Check for Updates" = "Check for Updates";

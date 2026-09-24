@@ -128,3 +128,15 @@
 "Done" = "Klar";
 "GitHub isn't answering more update checks right now. Try again in a while." = "GitHub tar inte emot fler sökningar just nu. Försök igen om en stund.";
 "Couldn't read the answer from GitHub. Try again later." = "Kunde inte läsa svaret från GitHub. Försök igen senare.";
+"Speech recognition by [Klang Pianissimo](https://huggingface.co/KlangAI/pianissimo-sv) from Klang AI AB." = "Taligenkänning med [Klang Pianissimo](https://huggingface.co/KlangAI/pianissimo-sv) från Klang AI AB.";
+"Sorla is independent and not made by Klang AI AB." = "Sorla är fristående och inte gjord av Klang AI AB.";
+"Website" = "Webbplats";
+"Privacy" = "Integritet";
+"GitHub" = "GitHub";
+"Credits and Licenses…" = "Medverkande och licenser…";
+"Credits and Licenses" = "Medverkande och licenser";
+"Open source under the Apache License 2.0. © 2026 Anders Markström" = "Öppen källkod under Apache License 2.0. © 2026 Anders Markström";
+"Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)." = "Talmodell av Klang AI AB, CC BY 4.0. Konverterad till Core ML med oförändrade vikter, baserad på NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0).";
+"Runs the model with Core ML. Apache License 2.0." = "Kör modellen med Core ML. Apache License 2.0.";
+"Custom keyboard shortcuts. MIT License." = "Egna kortkommandon. MIT-licens.";
+"Check for Updates" = "Sök efter uppdateringar";

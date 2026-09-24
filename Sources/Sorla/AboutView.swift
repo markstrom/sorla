@@ -19,7 +19,7 @@ struct AboutView: View {
     }
 
     @Environment(\.openURL) private var openURL
-    @State private var showsLicenses = false
+    @State private var showsCredits = false
     @State private var updateState = UpdateState.idle
 
     private var shortVersion: String? {
@@ -32,74 +32,58 @@ struct AboutView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 96, height: 96)
-
-            VStack(spacing: 4) {
-                Text("Sorla").font(.title2.bold())
-                Text(versionString).font(.caption).foregroundStyle(.secondary)
+        VStack(spacing: 18) {
+            VStack(spacing: 6) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 88, height: 88)
+                    .accessibilityHidden(true)
+                Text("Sorla").font(.title.bold())
+                Text("Talk. Release. Done.").font(.title3).foregroundStyle(.secondary)
+                Text(versionString).font(.callout).foregroundStyle(.secondary)
+                updateSection
             }
 
-            updateSection
+            VStack(spacing: 4) {
+                Text("Speech recognition by [Klang Pianissimo](https://huggingface.co/KlangAI/pianissimo-sv) from Klang AI AB.")
+                Text("Sorla is independent and not made by Klang AI AB.")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.callout)
+            .multilineTextAlignment(.center)
 
-            Text("Talk. Release. Done.").font(.headline)
-
-            Text("Push-to-talk dictation for Mac. Runs entirely on your device.")
-                .font(.callout)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                Link("Website", destination: URL(string: "https://sorla.zerolabs.se")!)
+                Link("GitHub", destination: URL(string: "https://github.com/markstrom/sorla")!)
+                Link("Privacy", destination: URL(string: "https://sorla.zerolabs.se/privacy")!)
+            }
+            .font(.callout)
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Credits").font(.headline)
-
-                creditRow(
-                    title: String(localized: "Speech model: Klang Pianissimo"),
-                    lines: [
-                        String(localized: "By Klang AI AB"),
-                        String(localized: "Converted to Core ML for on-device use; weights unchanged."),
-                        String(localized: "Based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)."),
-                    ],
-                    links: [
-                        (String(localized: "Model"), URL(string: "https://huggingface.co/KlangAI/pianissimo-sv")!),
-                        (String(localized: "License (CC BY 4.0)"), URL(string: "https://creativecommons.org/licenses/by/4.0/")!),
-                    ]
-                )
-
-                creditRow(
-                    title: "FluidAudio",
-                    lines: ["Apache License 2.0"],
-                    links: [(String(localized: "Project"), URL(string: "https://github.com/FluidInference/FluidAudio")!)]
-                )
-
-                creditRow(
-                    title: "KeyboardShortcuts",
-                    lines: ["MIT License"],
-                    links: [(String(localized: "Project"), URL(string: "https://github.com/sindresorhus/KeyboardShortcuts")!)]
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(showsLicenses ? String(localized: "Hide Licenses") : String(localized: "Licenses")) {
-                showsLicenses.toggle()
-            }
-
-            if showsLicenses {
-                LicensesView()
+            VStack(spacing: 6) {
+                Button("Credits and Licenses…") { showsCredits = true }
+                    .controlSize(.small)
+                Text("Open source under the Apache License 2.0. © 2026 Anders Markström")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
-        .padding(24)
-        .frame(width: 420)
+        .padding(28)
+        .frame(width: 380)
         .fixedSize(horizontal: false, vertical: true)
+        .sheet(isPresented: $showsCredits) { CreditsView() }
         .onAppear(perform: runRequestedCheck)
         .onChange(of: updateRequest.isPending) { runRequestedCheck() }
     }
 
     private var updateSection: some View {
         VStack(spacing: 6) {
+            Button("Check for Updates") { checkForUpdates() }
+                .controlSize(.small)
+                .disabled(updateState == .checking)
+
             switch updateState {
             case .idle:
                 EmptyView()
@@ -164,19 +148,48 @@ struct AboutView: View {
             AccessibilityNotification.Announcement(message).post()
         }
     }
+}
 
-    @ViewBuilder
-    private func creditRow(title: String, lines: [String], links: [(String, URL)]) -> some View {
+// Everything Sorla builds on, with the full license texts, kept out of the main About view.
+struct CreditsView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Credits and Licenses").font(.headline)
+
+            creditRow(
+                title: "Klang Pianissimo",
+                detail: String(localized: "Speech model by Klang AI AB, CC BY 4.0. Converted to Core ML with unchanged weights; based on NVIDIA Parakeet TDT 0.6B v3 (CC BY 4.0)."),
+                url: URL(string: "https://huggingface.co/KlangAI/pianissimo-sv")!
+            )
+            creditRow(
+                title: "FluidAudio",
+                detail: String(localized: "Runs the model with Core ML. Apache License 2.0."),
+                url: URL(string: "https://github.com/FluidInference/FluidAudio")!
+            )
+            creditRow(
+                title: "KeyboardShortcuts",
+                detail: String(localized: "Custom keyboard shortcuts. MIT License."),
+                url: URL(string: "https://github.com/sindresorhus/KeyboardShortcuts")!
+            )
+
+            LicensesView()
+
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
+    }
+
+    private func creditRow(title: String, detail: String, url: URL) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.subheadline.bold())
-            ForEach(lines, id: \.self) { line in
-                Text(line).font(.caption).foregroundStyle(.secondary)
-            }
-            HStack(spacing: 12) {
-                ForEach(links, id: \.0) { label, url in
-                    Link(label, destination: url).font(.caption)
-                }
-            }
+            Link(title, destination: url).font(.subheadline.bold())
+            Text(detail).font(.caption).foregroundStyle(.secondary)
         }
     }
 }
