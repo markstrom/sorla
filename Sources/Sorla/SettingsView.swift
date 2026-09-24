@@ -15,6 +15,9 @@ struct SettingsView: View {
 
     private static let logger = Logger(subsystem: "com.sorla.app", category: "SettingsView")
 
+    // The recorder's own 130 pt is too narrow for longer translations such as "Spela in kortkommando".
+    private static let recorderWidth: CGFloat = 200
+
     var body: some View {
         Form {
             Picker("Trigger", selection: $appSettings.triggerKey) {
@@ -24,10 +27,13 @@ struct SettingsView: View {
             }
 
             if appSettings.triggerKey == .customShortcut {
-                KeyboardShortcuts.Recorder("Shortcut", name: .sorlaCustomTrigger) { shortcut in
-                    MainActor.assumeIsolated {
-                        customShortcutDescription = shortcut?.description
+                LabeledContent("Shortcut") {
+                    ShortcutField(name: .sorlaCustomTrigger, accessibilityLabel: String(localized: "Shortcut")) { shortcut in
+                        MainActor.assumeIsolated {
+                            customShortcutDescription = shortcut?.description
+                        }
                     }
+                    .frame(width: Self.recorderWidth)
                 }
             }
 
@@ -58,18 +64,15 @@ struct SettingsView: View {
 
             Toggle("Play sounds", isOn: $appSettings.playSounds)
 
-            KeyboardShortcuts.Recorder("Paste last transcription", name: .pasteLastTranscription)
+            LabeledContent("Paste last transcription") {
+                ShortcutField(name: .pasteLastTranscription, accessibilityLabel: String(localized: "Paste last transcription"))
+                    .frame(width: Self.recorderWidth)
+            }
 
             Toggle("Launch at login", isOn: launchAtLoginBinding)
 
             if loginItemRequiresApproval {
                 loginItemApprovalHint
-            }
-
-            // The menu bar icon can hide behind the notch, so Settings also offers a way out.
-            HStack {
-                Spacer()
-                Button("Quit Sorla") { NSApp.terminate(nil) }
             }
         }
         .formStyle(.grouped)

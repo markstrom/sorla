@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Opening Sorla again while it runs shows Settings, which now has a Quit button. The menu bar icon can be hidden behind the notch.
+- Opening Sorla again while it runs shows Settings, since the menu bar icon can be hidden behind the notch.
+- The Paste Last shortcut (⌃⌥V) works: Sorla waits for the shortcut's keys to be released before pasting.
+- The shortcut fields in Settings are wide enough for longer translations and have accessible names.
 - English tagline: "Talk. Release. Done."
 
 ## 1.0.0 — 2026-09-24
