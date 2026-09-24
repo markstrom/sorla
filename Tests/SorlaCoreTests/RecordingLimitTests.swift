@@ -33,60 +33,75 @@ final class RecordingLimitTests: XCTestCase {
 
 @MainActor
 final class RecordingLimitWatchTests: XCTestCase {
-    private let shortLimit = RecordingLimit(maximum: 0.2, warningLead: 0.1)
+    private let clock = TestClock()
     private var warnings = 0
     private var limits = 0
+
+    private func makeWatch() -> RecordingLimitWatch {
+        RecordingLimitWatch(limit: .standard, now: { [clock] in clock.now }, sleep: { [clock] in await clock.sleep(for: $0) })
+    }
 
     private func start(_ watch: RecordingLimitWatch) {
         watch.start(onWarning: { [unowned self] in self.warnings += 1 }, onLimit: { [unowned self] in self.limits += 1 })
     }
 
-    private func wait(_ seconds: Double) async throws {
-        try await Task.sleep(for: .seconds(seconds))
-    }
-
-    func testWarnsOnceThenStopsAtTheLimit() async throws {
-        let watch = RecordingLimitWatch(limit: shortLimit)
+    func testWarnsOnceThenStopsAtTheLimit() async {
+        let watch = makeWatch()
         start(watch)
         XCTAssertTrue(watch.isWatching)
+        await clock.waitForSleeps(1)
 
-        let deadline = Date().addingTimeInterval(5)
-        while limits == 0, Date() < deadline { try await wait(0.01) }
+        await clock.advance(by: .seconds(289))
+        XCTAssertEqual([warnings, limits], [0, 0])
+        await clock.advance(by: .seconds(1))
+        XCTAssertEqual([warnings, limits], [1, 0])
+        await clock.advance(by: .seconds(9))
+        XCTAssertEqual([warnings, limits], [1, 0])
+        await clock.advance(by: .seconds(1))
 
         XCTAssertEqual([warnings, limits], [1, 1])
         XCTAssertFalse(watch.isWatching)
     }
 
-    func testARecordingThatEndsEarlyIsNeitherWarnedNorStopped() async throws {
-        let watch = RecordingLimitWatch(limit: shortLimit)
+    func testARecordingThatEndsEarlyIsNeitherWarnedNorStopped() async {
+        let watch = makeWatch()
         start(watch)
+        await clock.waitForSleeps(1)
         watch.stop()
         XCTAssertFalse(watch.isWatching)
 
-        try await wait(0.4)
+        await clock.advance(by: .seconds(400))
+
         XCTAssertEqual([warnings, limits], [0, 0])
+        XCTAssertEqual(clock.sleeps.count, 1)
     }
 
-    func testEndingAfterTheWarningCancelsTheStop() async throws {
-        let watch = RecordingLimitWatch(limit: RecordingLimit(maximum: 0.3, warningLead: 0.2))
+    func testEndingAfterTheWarningCancelsTheStop() async {
+        let watch = makeWatch()
         start(watch)
-        let deadline = Date().addingTimeInterval(5)
-        while warnings == 0, Date() < deadline { try await wait(0.005) }
+        await clock.waitForSleeps(1)
+        await clock.advance(by: .seconds(290))
+        XCTAssertEqual(warnings, 1)
         watch.stop()
 
-        try await wait(0.4)
+        await clock.advance(by: .seconds(100))
+
         XCTAssertEqual([warnings, limits], [1, 0])
     }
 
-    func testANewRecordingReplacesTheOldWatch() async throws {
-        let watch = RecordingLimitWatch(limit: shortLimit)
+    func testANewRecordingReplacesTheOldWatch() async {
+        let watch = makeWatch()
         start(watch)
+        await clock.waitForSleeps(1)
+        await clock.advance(by: .seconds(200))
         start(watch)
+        await clock.waitForSleeps(2)
 
-        let deadline = Date().addingTimeInterval(5)
-        while limits == 0, Date() < deadline { try await wait(0.01) }
-        try await wait(0.3)
+        await clock.advance(by: .seconds(100))
+        XCTAssertEqual([warnings, limits], [0, 0])
+        await clock.advance(by: .seconds(200))
 
         XCTAssertEqual([warnings, limits], [1, 1])
+        XCTAssertFalse(watch.isWatching)
     }
 }

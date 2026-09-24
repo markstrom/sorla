@@ -55,13 +55,14 @@ final class RecordingControllerModelTests: XCTestCase {
         await engine.failPrepare()
         let controller = RecordingController(engine: engine, modelName: "test")
         var issues: [SorlaIssue] = []
-        controller.onIssue = { issues.append($0) }
+        let reported = expectation(description: "issue reported")
+        controller.onIssue = {
+            issues.append($0)
+            reported.fulfill()
+        }
 
         controller.prepare()
-        let deadline = Date().addingTimeInterval(5)
-        while issues.isEmpty, Date() < deadline {
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        }
+        await fulfillment(of: [reported], timeout: 5)
 
         XCTAssertEqual(issues, [.modelNotLoaded])
     }

@@ -31,10 +31,18 @@ public struct RecordingLimit: Equatable, Sendable {
 @MainActor
 public final class RecordingLimitWatch {
     private let limit: RecordingLimit
+    private let now: @MainActor () -> ContinuousClock.Instant
+    private let sleep: @MainActor (Duration) async -> Void
     private var task: Task<Void, Never>?
 
-    public init(limit: RecordingLimit = .standard) {
+    public init(
+        limit: RecordingLimit = .standard,
+        now: @escaping @MainActor () -> ContinuousClock.Instant = { .now },
+        sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+    ) {
         self.limit = limit
+        self.now = now
+        self.sleep = sleep
     }
 
     public var isWatching: Bool { task != nil }
@@ -42,18 +50,20 @@ public final class RecordingLimitWatch {
     public func start(onWarning: @escaping @MainActor () -> Void, onLimit: @escaping @MainActor () -> Void) {
         stop()
         let limit = self.limit
-        let start = ContinuousClock.now
+        let now = self.now
+        let sleep = self.sleep
+        let start = now()
         task = Task { @MainActor [weak self] in
             var hasWarned = false
             while !Task.isCancelled {
-                switch limit.nextStep(elapsed: (ContinuousClock.now - start) / .seconds(1)) {
+                switch limit.nextStep(elapsed: (now() - start) / .seconds(1)) {
                 case .warn(let delay):
-                    try? await Task.sleep(for: .seconds(delay))
+                    await sleep(.seconds(delay))
                     guard !Task.isCancelled, !hasWarned else { continue }
                     hasWarned = true
                     onWarning()
                 case .stop(let delay):
-                    try? await Task.sleep(for: .seconds(delay))
+                    await sleep(.seconds(delay))
                     guard !Task.isCancelled else { return }
                     self?.task = nil
                     onLimit()
