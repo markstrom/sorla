@@ -80,11 +80,15 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(TriggerKey.fn.displayName, "Fn")
             XCTAssertEqual(
                 TriggerHint.menuTitle(trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
-                "Håll Höger ⌘ för att spela in"
+                "Starta diktering (håll Höger ⌘)"
             )
             XCTAssertEqual(
                 TriggerHint.menuTitle(trigger: .customShortcut, mode: .toggle, customShortcut: "⌃⌥Space"),
-                "Tryck på ⌃⌥Space för att spela in"
+                "Starta diktering (tryck på ⌃⌥Space)"
+            )
+            XCTAssertEqual(
+                TriggerHint.menuTitle(trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil, isRecording: true),
+                "Stoppa diktering"
             )
         }
     }

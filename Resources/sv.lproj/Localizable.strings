@@ -1,7 +1,8 @@
 /* Status menu */
-"Hold %@ to Record" = "Håll %@ för att spela in";
-"Press %@ to Record" = "Tryck på %@ för att spela in";
-"Record: Shortcut Not Set" = "Spela in: inget kortkommando valt";
+"Start Dictation (Hold %@)" = "Starta diktering (håll %@)";
+"Start Dictation (Press %@)" = "Starta diktering (tryck på %@)";
+"Start Dictation" = "Starta diktering";
+"Stop Dictation" = "Stoppa diktering";
 "Paste Last Transcription" = "Klistra in senaste transkriberingen";
 "About Sorla" = "Om Sorla";
 "Settings…" = "Inställningar…";

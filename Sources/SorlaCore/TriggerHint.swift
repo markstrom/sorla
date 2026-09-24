@@ -1,14 +1,18 @@
 import Foundation
 
 public enum TriggerHint {
-    public static func menuTitle(trigger: TriggerKey, mode: RecordingMode, customShortcut: String?) -> String {
+    // The menu row starts and stops dictation for people who can't use the key, and names the key for everyone else.
+    public static func menuTitle(trigger: TriggerKey, mode: RecordingMode, customShortcut: String?, isRecording: Bool = false) -> String {
+        if isRecording {
+            return String(localized: "Stop Dictation", bundle: Localization.bundle)
+        }
         if trigger == .customShortcut, customShortcut?.isEmpty ?? true {
-            return String(localized: "Record: Shortcut Not Set", bundle: Localization.bundle)
+            return String(localized: "Start Dictation", bundle: Localization.bundle)
         }
         let key = keyLabel(for: trigger, customShortcut: customShortcut)
         switch mode {
-        case .pushToTalk: return String(localized: "Hold \(key) to Record", bundle: Localization.bundle)
-        case .toggle: return String(localized: "Press \(key) to Record", bundle: Localization.bundle)
+        case .pushToTalk: return String(localized: "Start Dictation (Hold \(key))", bundle: Localization.bundle)
+        case .toggle: return String(localized: "Start Dictation (Press \(key))", bundle: Localization.bundle)
         }
     }
 

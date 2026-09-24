@@ -102,7 +102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusRowItem.isHidden = true
         menu.addItem(statusRowItem)
         statusMenuItem = statusRowItem
-        let triggerHintItem = NSMenuItem(title: "", action: #selector(showSettings), keyEquivalent: "")
+        let triggerHintItem = NSMenuItem(title: "", action: #selector(toggleDictation), keyEquivalent: "")
+        triggerHintItem.target = self
         menu.addItem(triggerHintItem)
         triggerHintMenuItem = triggerHintItem
         let pasteLastItem = NSMenuItem(title: String(localized: "Paste Last Transcription"), action: #selector(pasteLastTranscription), keyEquivalent: "")
@@ -132,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         recordingController.onStateChange = { [weak self] isRecording in
             self?.updateIcon(isRecording: isRecording)
+            self?.updateTriggerHintMenuItem()
         }
         recordingController.onPhaseChange = { [weak self] phase in
             guard let self, let indicator = self.recordingIndicator else { return }
@@ -168,6 +170,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in
                 guard let self else { return false }
+                if self.recordingController.isRecording {
+                    self.finishRecording()
+                    return false
+                }
                 self.startFailure = nil
                 if let refusal = self.modelRefusal() {
                     return self.refuse(refusal)
@@ -179,7 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     guard let failure = self.startFailure else { return false }
                     return self.refuse(failure)
                 }
-                self.scheduleStartSound()
+                // In push-to-talk a press only becomes a dictation after the minimum hold, so ⌘-shortcuts stay silent.
+                self.scheduleStartSound(after: self.appSettings.recordingMode == .pushToTalk ? PushToTalkGesture.defaultMinimumHold : 0)
                 return true
             },
             onFinish: { [weak self] in
@@ -190,9 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.startFailure = nil
                     return
                 }
-                self.pendingStartSound?.cancel()
-                guard self.recordingController.stopRecordingAndTranscribe() else { return }
-                self.playStopSoundAfterTail()
+                self.finishRecording()
             },
             onCancel: { [weak self] in
                 self?.isRefusedDictationHeld = false
@@ -313,6 +318,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             )
         }
         welcomeWindowController?.show()
+    }
+
+    // For people who can't use the trigger key; the menu doesn't take focus, so the text lands in the frontmost app.
+    @objc private func toggleDictation() {
+        if recordingController.isRecording {
+            triggerMonitor?.recordingDidEndElsewhere()
+            finishRecording()
+            return
+        }
+        startFailure = nil
+        if let refusal = modelRefusal() {
+            refuseDictation(refusal)
+            return
+        }
+        isStartingRecording = true
+        let started = recordingController.startRecording()
+        isStartingRecording = false
+        guard started else {
+            if let failure = startFailure { refuseDictation(failure) }
+            startFailure = nil
+            return
+        }
+        scheduleStartSound(after: 0)
+    }
+
+    private func finishRecording() {
+        pendingStartSound?.cancel()
+        guard recordingController.stopRecordingAndTranscribe() else { return }
+        playStopSoundAfterTail()
     }
 
     @objc private func checkForUpdates() {
@@ -488,7 +522,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         triggerHintMenuItem.title = TriggerHint.menuTitle(
             trigger: trigger ?? appSettings.triggerKey,
             mode: mode ?? appSettings.recordingMode,
-            customShortcut: KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
+            customShortcut: KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description,
+            isRecording: recordingController.isRecording
         )
     }
 
@@ -502,11 +537,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // In push-to-talk a press only becomes a dictation after the minimum hold, so ⌘-shortcuts stay silent.
-    private func scheduleStartSound() {
+    private func scheduleStartSound(after delay: TimeInterval) {
         pendingStartSound?.cancel()
         guard appSettings.playSounds else { return }
-        let delay = appSettings.recordingMode == .pushToTalk ? PushToTalkGesture.defaultMinimumHold : 0
         pendingStartSound = Task { @MainActor [weak self] in
             if delay > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))

@@ -1,7 +1,8 @@
 /* Status menu */
-"Hold %@ to Record" = "Hold %@ to Record";
-"Press %@ to Record" = "Press %@ to Record";
-"Record: Shortcut Not Set" = "Record: Shortcut Not Set";
+"Start Dictation (Hold %@)" = "Start Dictation (Hold %@)";
+"Start Dictation (Press %@)" = "Start Dictation (Press %@)";
+"Start Dictation" = "Start Dictation";
+"Stop Dictation" = "Stop Dictation";
 "Paste Last Transcription" = "Paste Last Transcription";
 "About Sorla" = "About Sorla";
 "Settings…" = "Settings…";

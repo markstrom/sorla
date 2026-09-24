@@ -5,25 +5,36 @@ final class TriggerHintTests: XCTestCase {
     func testMenuTitleNamesTheKeyForPushToTalk() {
         XCTAssertEqual(
             TriggerHint.menuTitle(trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
-            "Hold Right ⌘ to Record"
+            "Start Dictation (Hold Right ⌘)"
         )
     }
 
     func testMenuTitleNamesTheKeyForToggle() {
-        XCTAssertEqual(TriggerHint.menuTitle(trigger: .fn, mode: .toggle, customShortcut: nil), "Press Fn to Record")
+        XCTAssertEqual(TriggerHint.menuTitle(trigger: .fn, mode: .toggle, customShortcut: nil), "Start Dictation (Press Fn)")
     }
 
     func testMenuTitleUsesTheCustomShortcut() {
         XCTAssertEqual(
             TriggerHint.menuTitle(trigger: .customShortcut, mode: .pushToTalk, customShortcut: "⌃⌥Space"),
-            "Hold ⌃⌥Space to Record"
+            "Start Dictation (Hold ⌃⌥Space)"
         )
     }
 
     func testMenuTitleWhenTheCustomShortcutIsNotSet() {
         XCTAssertEqual(
             TriggerHint.menuTitle(trigger: .customShortcut, mode: .toggle, customShortcut: nil),
-            "Record: Shortcut Not Set"
+            "Start Dictation"
+        )
+    }
+
+    func testMenuTitleWhileRecordingStops() {
+        XCTAssertEqual(
+            TriggerHint.menuTitle(trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil, isRecording: true),
+            "Stop Dictation"
+        )
+        XCTAssertEqual(
+            TriggerHint.menuTitle(trigger: .customShortcut, mode: .toggle, customShortcut: nil, isRecording: true),
+            "Stop Dictation"
         )
     }
 

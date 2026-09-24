@@ -85,6 +85,13 @@ public final class TriggerMonitor {
         }
     }
 
+    // A dictation stopped from the menu no longer belongs to the key, so the next press starts a new one.
+    public func recordingDidEndElsewhere() {
+        releaseRecheck?.cancel()
+        isRecordingActive = false
+        gesture.reset()
+    }
+
     public func configure(trigger: TriggerKey, mode: RecordingMode) {
         if isRecordingActive {
             isRecordingActive = false

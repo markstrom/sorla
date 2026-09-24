@@ -12,6 +12,7 @@
 - A modifier trigger only stops recording once the key is really up, and Sorla's own paste can't read as a release.
 - A dictation that gives no text now says why: the indicator briefly shows a symbol (nothing heard, no text, muted microphone, text on the clipboard) and VoiceOver announces it; a muted microphone also shows while recording.
 - Keyboard: Esc and ⌘W close the Settings, About and Welcome windows, ⌘Q quits from any of them, Return presses Done in the Welcome window, and the Try it here field gets focus as soon as it appears.
+- The first menu item starts and stops dictation (Start Dictation (Hold Right ⌘) / Stop Dictation), so Voice Control, Switch Control and head-pointer users can dictate without the trigger key. The text lands in the app you were working in, and the key can stop a dictation started from the menu.
 
 ## 1.0.1 — 2026-09-24
 
