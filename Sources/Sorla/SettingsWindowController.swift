@@ -7,7 +7,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onKeyStateChange: ((Bool) -> Void)?
     private var navigation: SettingsNavigation?
 
-    convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker) {
+    convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker, announce: @escaping (String) -> Void) {
         let navigation = SettingsNavigation()
         let window = SorlaWindow(
             contentRect: .zero,
@@ -17,7 +17,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         )
         window.title = SettingsView.windowTitle
         window.contentViewController = NSHostingController(
-            rootView: SettingsView(appSettings: appSettings, modelManager: modelManager, updateChecker: updateChecker, navigation: navigation)
+            rootView: SettingsView(appSettings: appSettings, modelManager: modelManager, updateChecker: updateChecker, navigation: navigation, announce: announce)
         )
         window.isReleasedWhenClosed = false
         window.center()

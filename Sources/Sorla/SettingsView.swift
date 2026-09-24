@@ -15,6 +15,8 @@ struct SettingsView: View {
     @ObservedObject var modelManager: ModelManager
     @ObservedObject var updateChecker: UpdateChecker
     @ObservedObject var navigation: SettingsNavigation
+    // Goes through the app's queue, which holds speech back while the microphone is recording.
+    let announce: (String) -> Void
     @Environment(\.openURL) private var openURL
     @State private var isLaunchAtLoginEnabled = LoginItem.isEnabled
     @State private var loginItemRequiresApproval = LoginItem.requiresApproval
@@ -145,7 +147,7 @@ struct SettingsView: View {
         guard wasChecking, let text = row.text,
               NSApp.keyWindow?.title == Self.windowTitle
         else { return }
-        AccessibilityNotification.Announcement("\(title): \(text)").post()
+        announce("\(title): \(text)")
     }
 
     private func refreshLoginItemStatus() {
