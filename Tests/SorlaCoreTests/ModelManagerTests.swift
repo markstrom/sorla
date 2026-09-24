@@ -455,21 +455,22 @@ final class ModelManagerTests: XCTestCase {
 
     func testCheckNowIsIgnoredWhileADownloadIsRunning() async throws {
         try installModel(version: "1.0.0")
-        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        let published = PublishedModelFixture(version: "1.1.0")
+        await published.publish(on: network)
         await network.holdDownloads()
         let manager = makeManager(autoDownload: true)
         manager.checkNow()
-        await waitUntil(manager.status == .downloading(version: "1.1.0", fraction: 0, isUpdate: true))
-        let requestsBefore = await network.requests.count
+        await network.waitForHeldDownload()
+        let requestsBefore = await network.requests
+        XCTAssertEqual(requestsBefore, [PublishedModelFixture.manifestURL, published.url(for: published.files[0].path)])
 
         manager.checkNow()
-        try await Task.sleep(nanoseconds: 50_000_000)
 
-        let requestsAfter = await network.requests.count
-        XCTAssertEqual(requestsAfter, requestsBefore)
         XCTAssertEqual(manager.status, .downloading(version: "1.1.0", fraction: 0, isUpdate: true))
         await network.releaseDownloads()
         await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        let manifestFetches = await network.requests.filter { $0 == PublishedModelFixture.manifestURL }
+        XCTAssertEqual(manifestFetches.count, 1)
     }
 
     func testProgressNeverMovesBackwards() {

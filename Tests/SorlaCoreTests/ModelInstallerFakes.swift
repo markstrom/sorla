@@ -8,6 +8,8 @@ actor FakeModelNetwork: ModelNetwork {
     private var failing: Set<URL> = []
     private var errors: [URL: Error] = [:]
     private var holdsDownloads = false
+    private var heldDownloads: [CheckedContinuation<Void, Never>] = []
+    private var heldDownloadWaiters: [CheckedContinuation<Void, Never>] = []
 
     func serve(_ data: Data, at url: URL) {
         responses[url] = data
@@ -31,6 +33,14 @@ actor FakeModelNetwork: ModelNetwork {
 
     func releaseDownloads() {
         holdsDownloads = false
+        heldDownloads.forEach { $0.resume() }
+        heldDownloads = []
+    }
+
+    // Returns once a download has been requested and is being held.
+    func waitForHeldDownload() async {
+        guard heldDownloads.isEmpty else { return }
+        await withCheckedContinuation { heldDownloadWaiters.append($0) }
     }
 
     func data(from url: URL) async throws -> Data {
@@ -43,8 +53,12 @@ actor FakeModelNetwork: ModelNetwork {
     func download(from url: URL, to destination: URL, maxBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws {
         requests.append(url)
         downloadLimits[url] = maxBytes
-        while holdsDownloads {
-            try await Task.sleep(nanoseconds: 1_000_000)
+        if holdsDownloads {
+            await withCheckedContinuation { held in
+                heldDownloads.append(held)
+                heldDownloadWaiters.forEach { $0.resume() }
+                heldDownloadWaiters = []
+            }
         }
         if let error = errors[url] { throw error }
         guard !failing.contains(url), let data = responses[url] else { throw URLError(.notConnectedToInternet) }
