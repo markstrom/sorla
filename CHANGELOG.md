@@ -21,6 +21,7 @@
 - Settings with VoiceOver: Check Now, Download and Try Again say what they act on ("Check for updates now", "Try downloading the model again"), and the Model row is plain text instead of a picker with a single choice.
 - The last transcription is kept for Paste Last for five minutes, not until Sorla quits, and is forgotten at once when the screen locks, the Mac sleeps or you switch user. Paste Last is then unavailable until the next dictation. Locking, sleeping or switching user also cancels a recording in progress and drops a transcription that hasn't been pasted yet.
 - A recording stops by itself after five minutes and what was said is transcribed and pasted as usual, so a forgotten toggle recording doesn't keep the microphone open. The indicator's bars dim during the last ten seconds.
+- With automatic checks on, the speech model is checked about once a day, like Sorla itself, instead of at every launch.
 
 ## 1.0.1 — 2026-09-24
 

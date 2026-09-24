@@ -1,6 +1,7 @@
 public enum ModelLaunchAction: Equatable, Sendable {
     case none
     case check
+    case checkLater
     case install
 }
 
@@ -12,9 +13,11 @@ public enum ModelUpdateDecision: Equatable, Sendable {
 
 public enum ModelUpdatePolicy {
     // With a model installed and automatic checks off, launch must not touch the network at all.
-    public static func launchAction(isInstalled: Bool, autoCheck: Bool) -> ModelLaunchAction {
+    // "About once a day" holds across relaunches too, so a launch soon after the last check waits for the timer.
+    public static func launchAction(isInstalled: Bool, autoCheck: Bool, isCheckDue: Bool = true) -> ModelLaunchAction {
         guard isInstalled else { return .install }
-        return autoCheck ? .check : .none
+        guard autoCheck else { return .none }
+        return isCheckDue ? .check : .checkLater
     }
 
     // A version that already failed here is only offered, so it is retried when the user asks rather than every day.

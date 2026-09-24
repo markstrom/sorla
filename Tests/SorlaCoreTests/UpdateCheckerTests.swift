@@ -105,6 +105,22 @@ final class UpdateCheckerTests: XCTestCase {
         XCTAssertEqual(modelChecks, 0, "the model keeps its own schedule")
     }
 
+    // The model's launch check reads this, so a relaunch within a day checks neither GitHub nor Hugging Face.
+    func testTheSharedCheckIsDueOnlyAboutOnceADayAcrossRelaunches() async {
+        let source = CountingReleaseSource(.success(AppRelease(tagName: "v1.0.0")))
+        let first = makeChecker(source: source, automaticChecks: true)
+        XCTAssertTrue(first.isAutomaticCheckDue)
+        first.checkAppIfDue()
+        await first.appCheck?.value
+        XCTAssertFalse(first.isAutomaticCheckDue)
+
+        now = now.addingTimeInterval(2 * 60 * 60)
+        XCTAssertFalse(makeChecker(source: source, automaticChecks: true).isAutomaticCheckDue)
+        now = now.addingTimeInterval(22 * 60 * 60)
+        XCTAssertTrue(makeChecker(source: source, automaticChecks: true).isAutomaticCheckDue)
+        XCTAssertFalse(makeChecker(source: source, automaticChecks: false).isAutomaticCheckDue)
+    }
+
     func testTheLastCheckSurvivesARelaunch() async {
         let source = CountingReleaseSource(.success(AppRelease(tagName: "v1.0.0")))
         let first = makeChecker(source: source, automaticChecks: true)

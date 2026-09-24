@@ -56,7 +56,7 @@ public final class ModelManager: ObservableObject {
 
     public var installedVersion: String? { PianissimoModel.installedVersion(at: swap.installed) }
 
-    public func start() {
+    public func start(isCheckDue: Bool = true) {
         guard !hasStarted else { return }
         hasStarted = true
         recoverInterruptedSwap()
@@ -67,11 +67,13 @@ public final class ModelManager: ObservableObject {
             removeUnneededStaging(installedVersion: version)
         }
         status = installed ? .installed(version: version) : .notInstalled
-        switch ModelUpdatePolicy.launchAction(isInstalled: installed, autoCheck: automaticChecks) {
+        switch ModelUpdatePolicy.launchAction(isInstalled: installed, autoCheck: automaticChecks, isCheckDue: isCheckDue) {
         case .none:
             break
         case .check:
             scheduleAutomaticChecks(checkFirst: true)
+        case .checkLater:
+            scheduleAutomaticChecks(checkFirst: false)
         case .install:
             downloadModel()
             if automaticChecks { scheduleAutomaticChecks(checkFirst: false) }

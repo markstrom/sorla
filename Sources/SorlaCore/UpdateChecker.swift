@@ -75,9 +75,14 @@ public final class UpdateChecker: ObservableObject {
         checkModel()
     }
 
+    // The model's launch check reads this too, so both follow the same persisted date.
+    public var isAutomaticCheckDue: Bool {
+        AppUpdateSchedule.isDue(automaticChecks: automaticChecks, lastCheck: lastAppCheck, now: now())
+    }
+
     // Called at launch and on the model's daily check, so the app check adds no timer of its own.
     public func checkAppIfDue() {
-        guard AppUpdateSchedule.isDue(automaticChecks: automaticChecks, lastCheck: lastAppCheck, now: now()) else { return }
+        guard isAutomaticCheckDue else { return }
         checkApp()
     }
 

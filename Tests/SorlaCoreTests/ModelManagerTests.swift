@@ -142,6 +142,19 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(reloads, 0)
     }
 
+    func testALaunchSoonAfterTheLastCheckMakesNoRequestUntilTheTimer() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.0.0").publish(on: network)
+        let manager = makeManager(autoCheck: true, checkInterval: 0.3)
+
+        manager.start(isCheckDue: false)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let early = await network.requests
+        XCTAssertEqual(early, [])
+
+        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+    }
+
     func testAutomaticChecksRepeatOnTheInterval() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.0.0").publish(on: network)

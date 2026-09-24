@@ -12,6 +12,13 @@ final class ModelUpdatePolicyTests: XCTestCase {
         XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: true, autoCheck: true), .check)
     }
 
+    func testLaunchSoonAfterTheLastCheckWaitsForTheDailyTimer() {
+        XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: true, autoCheck: true, isCheckDue: false), .checkLater)
+        XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: true, autoCheck: true, isCheckDue: true), .check)
+        XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: true, autoCheck: false, isCheckDue: true), .none)
+        XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: false, autoCheck: true, isCheckDue: false), .install)
+    }
+
     func testLaunchWithoutAModelInstallsRegardlessOfSettings() {
         XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: false, autoCheck: false), .install)
         XCTAssertEqual(ModelUpdatePolicy.launchAction(isInstalled: false, autoCheck: true), .install)
