@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Install and update with Homebrew: `brew install --cask markstrom/tap/sorla`.
+- Sorla lets go of the recorded audio as soon as the recording stops, instead of holding it until the next one. A cancelled recording, or one cut short by locking the Mac, is dropped without being converted or transcribed.
 
 ## 1.0.2 — 2026-09-24
 

@@ -5,9 +5,11 @@ import os
 
 @MainActor
 public final class RecordingController {
-    private let recorder = AudioRecorder()
+    let recorder: AudioRecorder
     private let engine: TranscriptionEngine
     private let inputDeviceState: InputDeviceStateReading
+    private let isMicrophoneAccessDenied: @MainActor () -> Bool
+    private let sleep: @MainActor (Duration) async -> Void
     private let modelName: String
     public let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.sorla.app", category: "RecordingController")
@@ -40,10 +42,16 @@ public final class RecordingController {
         engine: TranscriptionEngine,
         modelName: String,
         tailDuration: TimeInterval = 0.15,
-        inputDeviceState: InputDeviceStateReading = CoreAudioInputDeviceState()
+        inputDeviceState: InputDeviceStateReading = CoreAudioInputDeviceState(),
+        recorder: AudioRecorder = AudioRecorder(),
+        isMicrophoneAccessDenied: @escaping @MainActor () -> Bool = { PermissionsManager.isMicrophoneAccessDenied() },
+        sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.engine = engine
         self.inputDeviceState = inputDeviceState
+        self.recorder = recorder
+        self.isMicrophoneAccessDenied = isMicrophoneAccessDenied
+        self.sleep = sleep
         self.modelName = modelName
         self.tailDuration = tailDuration
         setUpForwarding()
@@ -145,7 +153,7 @@ public final class RecordingController {
     @discardableResult
     public func startRecording() -> Bool {
         guard !isRecording, !isCapturingTail else { return false }
-        guard !PermissionsManager.isMicrophoneAccessDenied() else {
+        guard !isMicrophoneAccessDenied() else {
             logger.error("recording refused: microphone access denied")
             onIssue?(.microphoneAccessNeeded)
             return false
@@ -189,8 +197,14 @@ public final class RecordingController {
 
         Task { @MainActor in
             defer { self.updatePhase { $0.finish(dictationID) } }
-            try? await Task.sleep(nanoseconds: UInt64(tailDuration * 1_000_000_000))
+            await self.sleep(.seconds(tailDuration))
             self.isCapturingTail = false
+            // Locked during the tail: the audio would only be transcribed to be thrown away.
+            guard self.recentTranscript.accepts(from: generation) else {
+                self.recorder.cancel()
+                self.logger.info("recording dropped (the Mac locked, slept or switched user)")
+                return
+            }
 
             let samples: [Float]
             do {
@@ -372,11 +386,7 @@ public final class RecordingController {
 
     public func cancelRecording() {
         guard isRecording else { return }
-        do {
-            _ = try recorder.stop()
-        } catch {
-            logger.error("failed to stop recording: \(String(describing: error), privacy: .public)")
-        }
+        recorder.cancel()
         isRecording = false
         muteDetector = nil
         onStateChange?(false)

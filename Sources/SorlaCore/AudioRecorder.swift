@@ -18,37 +18,37 @@ public struct AudioBufferSummary: Equatable, Sendable {
     }
 }
 
-public final class AudioRecorder {
-    private let engine = AVAudioEngine()
-    private var sampleRate: Double = 0
-    private var samples: [Float] = []
-    private let lock = NSLock()
-    private var analyzer: SpectrumAnalyzer?
+// The microphone side of a recording, so the recorder can be driven without one.
+public protocol AudioInput: AnyObject {
+    // Returns the input's sample rate; frames delivered after start() are channel 0 at that rate.
+    func prepare() throws -> Double
+    func start(onFrames: @escaping (UnsafeBufferPointer<Float>) -> Void) throws
+    func stop()
+}
 
-    public var onBuffer: (@Sendable (AudioBufferSummary) -> Void)?
+public final class EngineAudioInput: AudioInput {
+    private let engine = AVAudioEngine()
+    private var format: AVAudioFormat?
 
     public init() {}
 
-    public func start() throws {
-        lock.lock()
-        samples.removeAll()
-        lock.unlock()
-
+    public func prepare() throws -> Double {
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         let format = input.inputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0 else {
             throw AudioRecorderError.noInputDevice
         }
-        sampleRate = format.sampleRate
-        if analyzer?.sampleRate != format.sampleRate {
-            analyzer = SpectrumAnalyzer(sampleRate: format.sampleRate)
-        }
-        let analyzer = self.analyzer
+        self.format = format
+        return format.sampleRate
+    }
 
-        input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(SpectrumAnalyzer.frameCount), format: format) {
-            [weak self] buffer, _ in
-            self?.append(buffer, analyzer: analyzer)
+    public func start(onFrames: @escaping (UnsafeBufferPointer<Float>) -> Void) throws {
+        guard let format else { throw AudioRecorderError.noInputDevice }
+        let input = engine.inputNode
+        input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(SpectrumAnalyzer.frameCount), format: format) { buffer, _ in
+            guard let channelData = buffer.floatChannelData else { return }
+            onFrames(UnsafeBufferPointer(start: channelData[0], count: Int(buffer.frameLength)))
         }
 
         engine.prepare()
@@ -60,27 +60,80 @@ public final class AudioRecorder {
         }
     }
 
-    public func stop() throws -> [Float] {
+    public func stop() {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
+    }
+}
 
-        lock.lock()
-        let captured = samples
-        lock.unlock()
+public final class AudioRecorder {
+    private let input: AudioInput
+    private let resample: ([Float], Double) throws -> [Float]
+    private var sampleRate: Double = 0
+    private var samples: [Float] = []
+    private let lock = NSLock()
+    private var analyzer: SpectrumAnalyzer?
 
-        guard !captured.isEmpty else { return [] }
-        return try Self.resample(captured, sampleRate: sampleRate)
+    public var onBuffer: (@Sendable (AudioBufferSummary) -> Void)?
+
+    public init(
+        input: AudioInput = EngineAudioInput(),
+        resample: @escaping ([Float], Double) throws -> [Float] = { try AudioRecorder.resample($0, sampleRate: $1) }
+    ) {
+        self.input = input
+        self.resample = resample
     }
 
-    private func append(_ buffer: AVAudioPCMBuffer, analyzer: SpectrumAnalyzer?) {
-        guard let channelData = buffer.floatChannelData else { return }
-        let frameLength = Int(buffer.frameLength)
-        let channel0 = UnsafeBufferPointer(start: channelData[0], count: frameLength)
+    // What the recorder itself still holds; the audio should live only as long as its transcription needs it.
+    var heldSampleCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return samples.count
+    }
 
+    public func start() throws {
+        _ = takeSamples()
+
+        let sampleRate = try input.prepare()
+        self.sampleRate = sampleRate
+        if analyzer?.sampleRate != sampleRate {
+            analyzer = SpectrumAnalyzer(sampleRate: sampleRate)
+        }
+        let analyzer = self.analyzer
+
+        try input.start { [weak self] frames in
+            self?.append(frames, analyzer: analyzer)
+        }
+    }
+
+    // The recorder lets go of the audio before resampling, so a failed conversion can't leave it behind.
+    public func stop() throws -> [Float] {
+        input.stop()
+        let captured = takeSamples()
+        guard !captured.isEmpty else { return [] }
+        return try resample(captured, sampleRate)
+    }
+
+    // A cancelled recording is never transcribed, so its audio is dropped without resampling.
+    public func cancel() {
+        input.stop()
+        _ = takeSamples()
+    }
+
+    private func takeSamples() -> [Float] {
+        var captured: [Float] = []
+        lock.lock()
+        swap(&captured, &samples)
+        lock.unlock()
+        return captured
+    }
+
+    private func append(_ channel0: UnsafeBufferPointer<Float>, analyzer: SpectrumAnalyzer?) {
         lock.lock()
         samples.append(contentsOf: channel0)
         lock.unlock()
 
+        let frameLength = channel0.count
         if let onBuffer, let analyzer, let base = channel0.baseAddress, frameLength > 0 {
             var peak: Float = 0
             vDSP_maxmgv(base, 1, &peak, vDSP_Length(frameLength))
@@ -92,7 +145,7 @@ public final class AudioRecorder {
         }
     }
 
-    static func resample(_ nativeSamples: [Float], sampleRate: Double) throws -> [Float] {
+    public static func resample(_ nativeSamples: [Float], sampleRate: Double) throws -> [Float] {
         guard !nativeSamples.isEmpty else { return [] }
 
         guard
