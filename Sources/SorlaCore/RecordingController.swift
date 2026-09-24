@@ -9,6 +9,7 @@ public final class RecordingController {
     private let isMicrophoneAccessDenied: @MainActor () -> Bool
     private let sleep: @MainActor (Duration) async -> Void
     private let now: @MainActor () -> ContinuousClock.Instant
+    private let waitForTimeLimit: @MainActor (Duration) async -> Void
     private let modelName: String
     public let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.sorla.app", category: "RecordingController")
@@ -70,7 +71,8 @@ public final class RecordingController {
         pasteEnvironment: PasteEnvironment = SystemPasteEnvironment(),
         isMicrophoneAccessDenied: @escaping @MainActor () -> Bool = { PermissionsManager.isMicrophoneAccessDenied() },
         sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
-        now: @escaping @MainActor () -> ContinuousClock.Instant = { .now }
+        now: @escaping @MainActor () -> ContinuousClock.Instant = { .now },
+        waitForTimeLimit: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.engine = engine
         self.inputDeviceState = inputDeviceState
@@ -79,6 +81,7 @@ public final class RecordingController {
         self.isMicrophoneAccessDenied = isMicrophoneAccessDenied
         self.sleep = sleep
         self.now = now
+        self.waitForTimeLimit = waitForTimeLimit
         self.modelName = modelName
         self.tailDuration = tailDuration
         setUpForwarding()
@@ -293,16 +296,65 @@ public final class RecordingController {
             break
         }
 
-        do {
-            let text = try await engine.transcribe(samples)
+        switch await transcribe(samples, within: Self.transcriptionTimeLimit(audioSeconds: audioSeconds)) {
+        case .text(let text):
             guard !text.isEmpty else {
                 logger.info("\(self.modelName, privacy: .public): empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
                 return .cue(.noText)
             }
             return .text(text, audioSeconds: audioSeconds)
-        } catch {
+        case .failed(let error):
             logger.error("\(self.modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
             return .failed
+        case .timedOut:
+            logger.error("\(self.modelName, privacy: .public): transcription timed out: \(Self.format(audioSeconds), privacy: .public) audio")
+            return .failed
+        }
+    }
+
+    // Generous, since a slow Mac is not a hung one; it only has to end a wait that would never end.
+    public static func transcriptionTimeLimit(audioSeconds: Double) -> Duration {
+        .seconds(max(30, 3 * audioSeconds))
+    }
+
+    private enum Transcription {
+        case text(String)
+        case failed(Error)
+        case timedOut
+    }
+
+    // A hung engine call is left behind, so the recordings after it are not held up.
+    private func transcribe(_ samples: [Float], within limit: Duration) async -> Transcription {
+        let engine = self.engine
+        let waitForTimeLimit = self.waitForTimeLimit
+        return await withCheckedContinuation { continuation in
+            let outcome = FirstOutcome(continuation)
+            let timer = Task { @MainActor in
+                await waitForTimeLimit(limit)
+                outcome.resolve(.timedOut)
+            }
+            Task { @MainActor in
+                do {
+                    outcome.resolve(.text(try await engine.transcribe(samples)))
+                } catch {
+                    outcome.resolve(.failed(error))
+                }
+                timer.cancel()
+            }
+        }
+    }
+
+    @MainActor
+    private final class FirstOutcome {
+        private var continuation: CheckedContinuation<Transcription, Never>?
+
+        init(_ continuation: CheckedContinuation<Transcription, Never>) {
+            self.continuation = continuation
+        }
+
+        func resolve(_ transcription: Transcription) {
+            continuation?.resume(returning: transcription)
+            continuation = nil
         }
     }
 

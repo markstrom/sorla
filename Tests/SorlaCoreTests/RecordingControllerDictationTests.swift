@@ -4,6 +4,8 @@ import XCTest
 @MainActor
 final class RecordingControllerDictationTests: XCTestCase {
     private let clock = TestClock()
+    // The transcription time limit runs on its own clock, so its waits don't count among the others.
+    private let limitClock = TestClock()
     private let input = FakeAudioInput()
     private let resampler = FakeResampler()
     private let engine = HeldTranscriptionEngine()
@@ -13,6 +15,7 @@ final class RecordingControllerDictationTests: XCTestCase {
 
     override func setUp() async throws {
         let clock = self.clock
+        let limitClock = self.limitClock
         controller = RecordingController(
             engine: engine,
             modelName: "test",
@@ -21,7 +24,8 @@ final class RecordingControllerDictationTests: XCTestCase {
             pasteEnvironment: paste,
             isMicrophoneAccessDenied: { false },
             sleep: { await clock.sleep(for: $0) },
-            now: { clock.now }
+            now: { clock.now },
+            waitForTimeLimit: { await limitClock.sleep(for: $0) }
         )
         controller.onCue = { [unowned self] in events.append("cue \($0.symbolName)") }
         controller.onIssue = { [unowned self] in events.append("issue \($0.menuTitle)") }
@@ -192,6 +196,30 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(paste.writes, ["B"])
         XCTAssertEqual(controller.lastTranscript(), "B")
         XCTAssertEqual(controller.phase, .idle)
+    }
+
+    func testAHungTranscriptionGivesUpAtItsTimeLimitSoTheNextIsDelivered() async {
+        let first = await dictate(call: 0)
+        let second = await dictate(call: 1)
+        await engine.finish(1, with: "B")
+        await second.value
+        await limitClock.waitForSleeps(2)
+        XCTAssertEqual(limitClock.sleeps, [.seconds(30), .seconds(30)])
+        XCTAssertEqual(paste.pastes, [])
+
+        await limitClock.advance(by: .seconds(30))
+        await first.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(events, ["issue \(SorlaIssue.transcriptionFailed.menuTitle)", "pasted B"])
+        XCTAssertEqual(controller.lastTranscript(), "B")
+        XCTAssertEqual(controller.phase, .idle)
+        await engine.finish(0, with: "A")
+    }
+
+    func testTheTimeLimitGrowsWithLongRecordings() {
+        XCTAssertEqual(RecordingController.transcriptionTimeLimit(audioSeconds: 1), .seconds(30))
+        XCTAssertEqual(RecordingController.transcriptionTimeLimit(audioSeconds: 60), .seconds(180))
     }
 
     func testALockWhileAResultWaitsItsTurnDropsIt() async {
