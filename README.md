@@ -108,7 +108,7 @@ Scripts/release.sh          # build a signed DMG in .build/release-artifacts
 
 `Scripts/build-app.sh` signs with the hardened runtime, using the first Apple Development identity in your keychain, or ad hoc if there is none. Set `SORLA_SIGN_IDENTITY` to choose another identity.
 
-`Scripts/release.sh` signs with a Developer ID Application identity when one is available and falls back to Apple Development. With a Developer ID identity, `SORLA_NOTARIZE=1 Scripts/release.sh` also notarizes and staples the DMG.
+`Scripts/release.sh` signs with a Developer ID Application identity when one is available and falls back to Apple Development. With a Developer ID identity, `SORLA_NOTARIZE=1 Scripts/release.sh` also notarizes and staples the DMG. Notarizing reads your App Store Connect API key details from `~/.config/sorla/release.env`, outside the repository; copy `Scripts/release.env.example` there and fill it in.
 
 ## License
 
