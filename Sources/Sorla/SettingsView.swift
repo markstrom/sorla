@@ -121,14 +121,13 @@ struct SettingsView: View {
             case .failed, .notInstalled:
                 Button("Try Again") { modelManager.downloadModel() }
             default:
-                EmptyView()
+                Button("Check Now") { modelManager.checkNow() }
+                    .disabled(modelManager.status.isBusy)
             }
         }
         Toggle("Check for model updates automatically", isOn: $appSettings.autoCheckModelUpdates)
         Toggle("Download updates automatically", isOn: $appSettings.autoDownloadModelUpdates)
             .disabled(!appSettings.autoCheckModelUpdates)
-        Button("Check Now") { modelManager.checkNow() }
-            .disabled(modelManager.status.isBusy)
     }
 
     private var fnHint: some View {
