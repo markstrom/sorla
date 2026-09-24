@@ -207,11 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             onStart: { [weak self] in
                 guard let self else { return false }
                 self.startFailure = nil
-                if let restart = self.restartRefusal() {
-                    self.refuseDictation(restart)
-                    return false
-                }
-                if let refusal = self.modelRefusal() {
+                // Also the restart waits for the release, so Right ⌘ + C on a replaced Sorla doesn't restart it.
+                if let refusal = self.restartRefusal() ?? self.modelRefusal() {
                     return self.refuse(refusal)
                 }
                 self.isStartingRecording = true
@@ -229,7 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self else { return }
                 if self.isRefusedDictationHeld {
                     self.isRefusedDictationHeld = false
-                    if let refusal = self.modelRefusal() ?? self.startFailure { self.refuseDictation(refusal) }
+                    if let refusal = self.restartRefusal() ?? self.modelRefusal() ?? self.startFailure { self.refuseDictation(refusal) }
                     self.startFailure = nil
                     return
                 }
