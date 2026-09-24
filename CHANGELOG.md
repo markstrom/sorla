@@ -6,6 +6,7 @@
 - The Paste Last shortcut (⌃⌥V) works: Sorla waits for the shortcut's keys to be released before pasting.
 - The shortcut fields in Settings are wide enough for longer translations and have accessible names.
 - English tagline: "Talk. Release. Done."
+- Check for new versions of Sorla from the About window (manual; asks GitHub only when you click).
 
 ## 1.0.0 — 2026-09-24
 
