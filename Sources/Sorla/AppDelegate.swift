@@ -36,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var startFailure: DictationCue?
     private var announcements = AnnouncementGate()
     private let recordingLimit = RecordingLimitWatch()
+    private var appReplacement = AppReplacementCheck(executableURL: Bundle.main.executableURL)
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -168,6 +169,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         recordingController.onIssue = { [weak self] issue in
             self?.handleIssue(issue)
+        }
+        recordingController.isAppReplaced = { [weak self] in
+            self?.checkForReplacement() ?? false
         }
 
         let triggerMonitor = TriggerMonitor(
@@ -321,6 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        checkForReplacement()
         updateStatusMenuItem()
         updateTriggerHintMenuItem()
         pasteLastMenuItem.isEnabled = recordingController.lastTranscript() != nil
@@ -449,12 +454,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .pasteLastTranscription:
             transientStatus = nil
             updateStatusMenuItem()
+        case .restart:
+            restart()
         case .dismiss:
             transientStatus = nil
             updateStatusMenuItem()
         case nil:
             break
         }
+    }
+
+    @discardableResult
+    private func checkForReplacement() -> Bool {
+        let wasReplaced = appReplacement.isReplaced
+        guard appReplacement.check(), !wasReplaced else { return appReplacement.isReplaced }
+        Self.logger.info("Sorla.app was replaced on disk; pasting needs a restart")
+        updateStatusMenuItem()
+        return true
+    }
+
+    // The helper waits for this process to exit before opening the new copy.
+    private func restart() {
+        let helper = Process()
+        helper.executableURL = AppRelaunch.shell
+        helper.arguments = AppRelaunch.arguments(
+            waitingFor: ProcessInfo.processInfo.processIdentifier,
+            thenOpen: Bundle.main.bundleURL
+        )
+        do {
+            try helper.run()
+        } catch {
+            Self.logger.error("restart failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        NSApp.terminate(nil)
     }
 
     private func endDictationAndForget() {
@@ -557,6 +590,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model: model ?? modelManager.status,
             modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
             modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
+            appReplaced: appReplacement.isReplaced,
             transient: transientStatus,
             appUpdate: (appStatus ?? updateChecker.appStatus).availableVersion,
             now: now
@@ -610,8 +644,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if isStartingRecording {
                 startFailure = cue
             } else {
-                // Paste Last needs Accessibility too, so without it only ⌘V works.
-                presentCue(cue, pasteShortcut: issue == .accessibilityAccessNeeded ? nil : currentPasteShortcut)
+                // Paste Last posts ⌘V too, so without Accessibility or after a replacement only the user's own ⌘V works.
+                let isPasteBlocked = issue == .accessibilityAccessNeeded || issue == .appReplaced
+                presentCue(cue, pasteShortcut: isPasteBlocked ? nil : currentPasteShortcut)
             }
         }
         updateStatusMenuItem()

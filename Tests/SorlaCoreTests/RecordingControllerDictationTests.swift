@@ -461,4 +461,46 @@ final class RecordingControllerDictationTests: XCTestCase {
         controller.forgetLastTranscript()
         XCTAssertNil(controller.lastTranscript())
     }
+
+    // MARK: - Replaced on disk (#7)
+
+    func testAfterSorlaIsReplacedADictationIsLeftOnTheClipboardAndKept() async {
+        controller.isAppReplaced = { true }
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.events, ["write A"], "no ⌘V that macOS would drop")
+        XCTAssertEqual(paste.lastWriteWasTransient, false)
+        XCTAssertEqual(events, ["issue \(SorlaIssue.appReplaced.menuTitle)"])
+        XCTAssertEqual(controller.lastTranscript(), "A")
+        XCTAssertEqual(controller.phase, .idle)
+    }
+
+    func testPasteLastAfterSorlaIsReplacedLeavesTheTextOnTheClipboard() async {
+        await deliverOneDictation("A")
+        controller.isAppReplaced = { true }
+        let issued = expectation(description: "issue")
+        controller.onIssue = { [unowned self] in
+            events.append("issue \($0.menuTitle)")
+            issued.fulfill()
+        }
+
+        controller.pasteLastTranscript()
+        await fulfillment(of: [issued], timeout: 5)
+
+        XCTAssertEqual(paste.events, ["write A", "paste A", "restore", "write A"])
+        XCTAssertEqual(events, ["issue \(SorlaIssue.appReplaced.menuTitle)"])
+        XCTAssertEqual(controller.lastTranscript(), "A")
+    }
+
+    func testTheReplacementIsCheckedJustBeforeEachPaste() async {
+        var checks = 0
+        controller.isAppReplaced = { checks += 1; return false }
+        await deliverOneDictation("A")
+
+        XCTAssertEqual(checks, 1)
+        XCTAssertEqual(paste.pastes, ["A"])
+    }
 }

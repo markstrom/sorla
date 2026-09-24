@@ -8,6 +8,7 @@ final class MenuStatusRowTests: XCTestCase {
         model: ModelStatus = .installed(version: "1.0.0"),
         modelLoadFailed: Bool = false,
         modelLoading: Bool = false,
+        appReplaced: Bool = false,
         transient: TransientMenuStatus? = nil,
         appUpdate: String? = nil,
         now: Date = MenuStatusRowTests.shownAt
@@ -18,6 +19,7 @@ final class MenuStatusRowTests: XCTestCase {
             model: model,
             modelLoadFailed: modelLoadFailed,
             modelLoading: modelLoading,
+            appReplaced: appReplaced,
             transient: transient,
             appUpdate: appUpdate,
             now: now
@@ -128,7 +130,7 @@ final class MenuStatusRowTests: XCTestCase {
 
     // These already have a row of their own that lasts as long as the problem.
     func testLastingProblemsAreNeverTransient() {
-        let issues: [SorlaIssue] = [.microphoneAccessNeeded, .accessibilityAccessNeeded, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed]
+        let issues: [SorlaIssue] = [.microphoneAccessNeeded, .accessibilityAccessNeeded, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed, .appReplaced]
         for issue in issues {
             XCTAssertNil(TransientMenuStatus(issue: issue, at: Self.shownAt), "\(issue)")
         }
@@ -176,5 +178,28 @@ final class MenuStatusRowTests: XCTestCase {
 
     func testAnExpiredExplanationMakesWayForTheAppUpdate() {
         XCTAssertEqual(row(transient: muted, appUpdate: "1.2.0", now: Self.shownAt.addingTimeInterval(TransientMenuStatus.lifetime))?.action, .downloadApp)
+    }
+
+    // MARK: - Replaced on disk (#7)
+
+    func testAReplacedAppOffersARestart() {
+        XCTAssertEqual(row(appReplaced: true), MenuStatusRow(title: "Sorla has been updated — Restart", action: .restart))
+    }
+
+    // Its pastes are dropped until it restarts, and a restart retries the model too; permissions still need the user.
+    func testARestartOutranksEverythingButPermissions() {
+        let clipboard = TransientMenuStatus(issue: .textOnClipboard(pasteShortcut: "⌘V"), at: Self.shownAt)
+        XCTAssertEqual(row(appReplaced: true, transient: clipboard)?.action, .restart)
+        XCTAssertEqual(row(modelLoadFailed: true, appReplaced: true)?.action, .restart)
+        XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), appReplaced: true)?.action, .restart)
+        XCTAssertEqual(row(appReplaced: true, appUpdate: "1.2.0")?.action, .restart)
+        XCTAssertEqual(row(microphoneDenied: true, appReplaced: true)?.action, .showWelcome)
+        XCTAssertEqual(row(accessibilityMissing: true, appReplaced: true)?.action, .showWelcome)
+    }
+
+    // A paste that would have been dropped leaves the text on the clipboard for the user's own ⌘V.
+    func testAReplacedAppsPasteShowsTheClipboardCue() {
+        XCTAssertEqual(DictationCue(issue: .appReplaced), .textOnClipboard)
+        XCTAssertNil(SorlaIssue.appReplaced.settingsURL)
     }
 }

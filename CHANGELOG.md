@@ -14,6 +14,7 @@
 - A cancelled recording says so: the indicator briefly shows a cross and VoiceOver says "Recording cancelled" once the microphone has closed. A ⌘-shortcut made with the trigger key, or a press shorter than 0.3 s, still goes quietly.
 - With Sticky Keys, a trigger key that is latched instead of released no longer turns the next key press or click into a cancel: if the key is up by then, the recording ends as if you had let go. This hasn't been verified on a Mac with Sticky Keys yet; Esc and Stop Dictation in the menu always end a recording.
 - The Welcome window suggests Toggle mode (press once to start, again to stop) for anyone who finds holding a key down hard.
+- When Sorla.app is replaced on disk while Sorla is running (a new version dragged into Applications without quitting), macOS silently drops its pastes. Sorla now notices when you open its menu or before it pastes: the menu shows "Sorla has been updated — Restart", which quits and opens the new version once the old one has exited, and a dictation or Paste Last in the meantime is left on the clipboard for ⌘V and kept for Paste Last instead of vanishing.
 
 ## 1.0.2 — 2026-09-24
 

@@ -148,6 +148,10 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
             XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
             XCTAssertEqual(
+                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true)?.title,
+                "Sorla har uppdaterats – Starta om"
+            )
+            XCTAssertEqual(
                 WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
                 "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa."
             )

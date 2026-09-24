@@ -20,7 +20,7 @@ public enum DictationCue: Equatable, Sendable {
             self = .failed(String(localized: "No microphone found", bundle: Localization.bundle))
         case .transcriptionFailed:
             self = .failed(String(localized: "Couldn't transcribe the recording", bundle: Localization.bundle))
-        case .accessibilityAccessNeeded:
+        case .accessibilityAccessNeeded, .appReplaced:
             self = .textOnClipboard
         case .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
             return nil

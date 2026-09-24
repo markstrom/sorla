@@ -90,6 +90,7 @@ final class FakePasteEnvironment: PasteEnvironment {
     private(set) var writes: [String] = []
     private(set) var pastes: [String] = []
     private(set) var events: [String] = []
+    private(set) var lastWriteWasTransient: Bool?
 
     nonisolated init() {}
 
@@ -99,6 +100,7 @@ final class FakePasteEnvironment: PasteEnvironment {
 
     func write(_ text: String, transient: Bool) -> Int {
         contents = text
+        lastWriteWasTransient = transient
         writes.append(text)
         events.append("write \(text)")
         changeCount += 1
