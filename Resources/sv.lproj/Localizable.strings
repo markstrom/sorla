@@ -8,6 +8,15 @@
 "Quit Sorla" = "Avsluta Sorla";
 "Sorla (loading model)" = "Sorla (läser in modellen)";
 "Sorla (recording)" = "Sorla (spelar in)";
+"File" = "Arkiv";
+"Close" = "Stäng";
+"Edit" = "Redigera";
+"Undo" = "Ångra";
+"Redo" = "Gör om";
+"Cut" = "Klipp ut";
+"Copy" = "Kopiera";
+"Paste" = "Klistra in";
+"Select All" = "Markera allt";
 
 /* Status row */
 "Downloading model… %lld%%" = "Laddar ner modellen… %lld %%";

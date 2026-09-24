@@ -14,7 +14,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         self.appSettings = appSettings
         self.modelManager = modelManager
 
-        let window = WelcomeWindow(
+        let window = SorlaWindow(
             contentRect: .zero,
             styleMask: [.titled, .closable],
             backing: .buffered,
@@ -86,25 +86,5 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         case .reloadModel:
             modelManager.retryLoadingModel()
         }
-    }
-}
-
-// Sorla has no Edit menu, so without this ⌘V, including Sorla's own paste after a dictation, would do nothing here.
-private final class WelcomeWindow: NSWindow {
-    private static let editActions: [String: Selector] = [
-        "x": #selector(NSText.cut(_:)),
-        "c": #selector(NSText.copy(_:)),
-        "v": #selector(NSText.paste(_:)),
-        "a": #selector(NSText.selectAll(_:)),
-    ]
-
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if super.performKeyEquivalent(with: event) { return true }
-        guard event.type == .keyDown,
-              event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command,
-              let key = event.charactersIgnoringModifiers?.lowercased(),
-              let action = Self.editActions[key]
-        else { return false }
-        return NSApp.sendAction(action, to: nil, from: self)
     }
 }

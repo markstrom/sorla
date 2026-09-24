@@ -8,6 +8,15 @@
 "Quit Sorla" = "Quit Sorla";
 "Sorla (loading model)" = "Sorla (loading model)";
 "Sorla (recording)" = "Sorla (recording)";
+"File" = "File";
+"Close" = "Close";
+"Edit" = "Edit";
+"Undo" = "Undo";
+"Redo" = "Redo";
+"Cut" = "Cut";
+"Copy" = "Copy";
+"Paste" = "Paste";
+"Select All" = "Select All";
 
 /* Status row */
 "Downloading model… %lld%%" = "Downloading model… %lld%%";

@@ -4,7 +4,7 @@ import SwiftUI
 @MainActor
 final class AboutWindowController: NSWindowController {
     init() {
-        let window = NSWindow(
+        let window = SorlaWindow(
             contentRect: .zero,
             styleMask: [.titled, .closable],
             backing: .buffered,

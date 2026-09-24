@@ -9,7 +9,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker) {
         let navigation = SettingsNavigation()
-        let window = NSWindow(
+        let window = SorlaWindow(
             contentRect: .zero,
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,

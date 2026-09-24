@@ -11,6 +11,7 @@
 - Something you copy between two quick dictations is kept instead of being replaced by the older clipboard content.
 - A modifier trigger only stops recording once the key is really up, and Sorla's own paste can't read as a release.
 - A dictation that gives no text now says why: the indicator briefly shows a symbol (nothing heard, no text, muted microphone, text on the clipboard) and VoiceOver announces it; a muted microphone also shows while recording.
+- Keyboard: Esc and ⌘W close the Settings, About and Welcome windows, ⌘Q quits from any of them, Return presses Done in the Welcome window, and the Try it here field gets focus as soon as it appears.
 
 ## 1.0.1 — 2026-09-24
 

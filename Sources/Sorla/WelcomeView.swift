@@ -28,6 +28,7 @@ struct WelcomeView: View {
     let perform: (WelcomeAction) -> Void
     let onDone: () -> Void
     @State private var tryItText = ""
+    @FocusState private var isTryItFocused: Bool
 
     static let windowTitle = String(localized: "Welcome to Sorla")
 
@@ -77,11 +78,14 @@ struct WelcomeView: View {
                 TextField("Try it here", text: $tryItText, axis: .vertical)
                     .lineLimit(3...6)
                     .textFieldStyle(.roundedBorder)
+                    .focused($isTryItFocused)
+                    .onAppear { isTryItFocused = true }
             }
 
             HStack {
                 Spacer()
                 Button("Done", action: onDone)
+                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)

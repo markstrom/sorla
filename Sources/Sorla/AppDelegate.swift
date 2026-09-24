@@ -89,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         )
 
+        NSApp.mainMenu = MainMenu.make(target: self, about: #selector(showAbout), settings: #selector(showSettings))
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         updateIcon(isRecording: false)
 
