@@ -32,7 +32,8 @@ public final class RecordingController {
     public var onModelReadyChange: ((Bool) -> Void)?
     public var onIssue: ((SorlaIssue) -> Void)?
 
-    public private(set) var lastTranscript: String?
+    private var recentTranscript = RecentTranscript()
+    private var transcriptExpiry: Task<Void, Never>?
     private var isPasteLastInFlight = false
 
     public init(
@@ -229,7 +230,7 @@ public final class RecordingController {
                     self.onCue?(.noText)
                     return
                 }
-                self.lastTranscript = text
+                self.keepLastTranscript(text)
 
                 let frontmostPIDAtDelivery = NSWorkspace.shared.frontmostApplication?.processIdentifier
                 guard PasteService.shouldAutoPaste(
@@ -254,8 +255,30 @@ public final class RecordingController {
         return true
     }
 
+    public func lastTranscript(at now: Date = Date()) -> String? {
+        recentTranscript.text(at: now)
+    }
+
+    // One one-shot expiry per transcript, replaced by the next one, so nothing runs while idle.
+    private func keepLastTranscript(_ text: String) {
+        recentTranscript.store(text, at: Date())
+        transcriptExpiry?.cancel()
+        transcriptExpiry = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(RecentTranscript.lifetime))
+            guard !Task.isCancelled else { return }
+            self?.recentTranscript.clear()
+        }
+    }
+
+    public func clearLastTranscript() {
+        transcriptExpiry?.cancel()
+        transcriptExpiry = nil
+        recentTranscript.clear()
+    }
+
     // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
     public func pasteLastTranscript(after prepare: @escaping @MainActor () async -> Bool = { true }) {
+        let lastTranscript = lastTranscript()
         guard PasteService.shouldPasteLast(
             hasTranscript: lastTranscript != nil,
             phase: phase,

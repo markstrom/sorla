@@ -239,6 +239,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
+        // Someone else at the Mac shouldn't be able to paste what was last dictated.
+        Publishers.MergeMany(
+            NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification),
+            NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.sessionDidResignActiveNotification),
+            DistributedNotificationCenter.default().publisher(for: Notification.Name("com.apple.screenIsLocked"))
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.forgetLastTranscript()
+        }
+        .store(in: &cancellables)
+
         modelManager.onFailure = { [weak self] issue in
             self?.handleIssue(issue)
         }
@@ -294,7 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         updateStatusMenuItem()
         updateTriggerHintMenuItem()
-        pasteLastMenuItem.isEnabled = recordingController.lastTranscript != nil
+        pasteLastMenuItem.isEnabled = recordingController.lastTranscript() != nil
     }
 
     @objc private func showSettings() {
@@ -388,6 +400,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateStatusMenuItem()
         case nil:
             break
+        }
+    }
+
+    private func forgetLastTranscript() {
+        recordingController.clearLastTranscript()
+        pasteLastMenuItem.isEnabled = false
+        if transientStatus?.row.action == .pasteLastTranscription {
+            transientStatus = nil
+            updateStatusMenuItem()
         }
     }
 
