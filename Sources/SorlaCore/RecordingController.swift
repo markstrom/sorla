@@ -36,6 +36,8 @@ public final class RecordingController {
     public private(set) var isModelReady = false
     public var onModelReadyChange: ((Bool) -> Void)?
     public var onIssue: ((SorlaIssue) -> Void)?
+    // Asked just before each ⌘V: a replaced app's paste would be dropped without a word.
+    public var isAppReplaced: () -> Bool = { false }
 
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
@@ -426,6 +428,7 @@ public final class RecordingController {
                 onCue?(.textOnClipboard)
                 return
             }
+            guard !leaveOnClipboardIfReplaced(text) else { return }
 
             let outcome = issuePaste(text)
             updatePhase { $0.finish(dictationID) }
@@ -500,11 +503,20 @@ public final class RecordingController {
                     self.onCue?(.releaseKeys)
                     return
                 }
+                guard !self.leaveOnClipboardIfReplaced(text) else { return }
                 let outcome = self.issuePaste(text)
                 self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
                 self.restoreClipboard(after: outcome)
             }.value
         }
+    }
+
+    private func leaveOnClipboardIfReplaced(_ text: String) -> Bool {
+        guard isAppReplaced() else { return false }
+        pasteEnvironment.write(text, transient: false)
+        logger.info("paste skipped (Sorla was replaced on disk)")
+        onIssue?(.appReplaced)
+        return true
     }
 
     private func cancelPasteLast() {

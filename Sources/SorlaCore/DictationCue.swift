@@ -8,6 +8,7 @@ public enum DictationCue: Equatable, Sendable {
     case noText
     case textOnClipboard
     case releaseKeys
+    case cancelled
     case waitingForModel(String)
     case failed(String)
 
@@ -20,7 +21,7 @@ public enum DictationCue: Equatable, Sendable {
             self = .failed(String(localized: "No microphone found", bundle: Localization.bundle))
         case .transcriptionFailed:
             self = .failed(String(localized: "Couldn't transcribe the recording", bundle: Localization.bundle))
-        case .accessibilityAccessNeeded:
+        case .accessibilityAccessNeeded, .appReplaced:
             self = .textOnClipboard
         case .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
             return nil
@@ -34,6 +35,7 @@ public enum DictationCue: Equatable, Sendable {
         case .noText: return "minus"
         case .textOnClipboard: return "doc.on.clipboard"
         case .releaseKeys: return "keyboard"
+        case .cancelled: return "xmark"
         case .waitingForModel: return "hourglass"
         case .failed: return "exclamationmark.triangle"
         }
@@ -56,6 +58,8 @@ public enum DictationCue: Equatable, Sendable {
                 return String(localized: "Let go of the keys and try again", bundle: Localization.bundle)
             }
             return String(localized: "Let go of the keys and press \(pasteShortcut) again", bundle: Localization.bundle)
+        case .cancelled:
+            return String(localized: "Recording cancelled", bundle: Localization.bundle)
         case .waitingForModel(let message), .failed(let message):
             return message
         }
@@ -66,7 +70,7 @@ public enum DictationCue: Equatable, Sendable {
         switch self {
         case .microphoneMuted: return .microphoneMuted
         case .textOnClipboard: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText, .releaseKeys, .waitingForModel, .failed: return nil
+        case .nothingHeard, .noText, .releaseKeys, .cancelled, .waitingForModel, .failed: return nil
         }
     }
 }

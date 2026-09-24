@@ -172,3 +172,6 @@
 "Pasting text" = "Klistrar in texten";
 "Keep last transcription" = "Spara senaste transkriberingen";
 "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once." = "Håller din senaste text i minnet i upp till fem minuter så att du kan klistra in den igen med Klistra in senaste transkriberingen. Stänger du av det glöms texten direkt.";
+"Recording cancelled" = "Inspelningen avbröts";
+"Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop." = "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa.";
+"Sorla has been updated — Restart" = "Sorla har uppdaterats – Starta om";

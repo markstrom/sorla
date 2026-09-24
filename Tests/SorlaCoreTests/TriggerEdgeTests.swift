@@ -67,4 +67,17 @@ final class TriggerEdgeTests: XCTestCase {
         _ = TriggerEdge.forModifierEvent(isSynthetic: true, hasTriggerFlag: false) { asked += 1; return true }
         XCTAssertEqual(asked, 0)
     }
+
+    // Sticky Keys may send the flag again, still set, when the latched key goes up.
+    func testAFlagRepeatedDuringAPressWithTheKeyUpIsARelease() {
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true) { false }, .up)
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true) { true }, .down)
+        XCTAssertNil(TriggerEdge.forModifierEvent(isSynthetic: true, hasTriggerFlag: true, isWaitingForRelease: true) { false })
+    }
+
+    func testAReleaseIsOnlyAssumedMissedWhileHoldingToTalkWithTheKeyUp() {
+        XCTAssertTrue(TriggerEdge.releaseMissed(isHoldingToTalk: true) { false })
+        XCTAssertFalse(TriggerEdge.releaseMissed(isHoldingToTalk: true) { true }, "Right ⌘ + C with the key held is a shortcut")
+        XCTAssertFalse(TriggerEdge.releaseMissed(isHoldingToTalk: false) { false })
+    }
 }

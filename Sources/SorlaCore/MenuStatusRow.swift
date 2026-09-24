@@ -8,6 +8,7 @@ public enum MenuStatusAction: Equatable, Sendable {
     case openSettings
     case openSoundSettings
     case pasteLastTranscription
+    case restart
     case dismiss
 }
 
@@ -24,7 +25,8 @@ public struct TransientMenuStatus: Equatable, Sendable {
         case .noInputDevice, .microphoneMuted: action = .openSoundSettings
         case .textOnClipboard: action = .pasteLastTranscription
         case .transcriptionFailed: action = .dismiss
-        case .microphoneAccessNeeded, .accessibilityAccessNeeded, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
+        // A replaced app stays replaced until it restarts, so it has its own row rather than one that expires.
+        case .microphoneAccessNeeded, .accessibilityAccessNeeded, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed, .appReplaced:
             return nil
         }
         self.row = MenuStatusRow(title: issue.menuTitle, action: action)
@@ -57,6 +59,7 @@ public struct MenuStatusRow: Equatable, Sendable {
         model: ModelStatus,
         modelLoadFailed: Bool,
         modelLoading: Bool = false,
+        appReplaced: Bool = false,
         transient: TransientMenuStatus? = nil,
         appUpdate: String? = nil,
         now: Date = Date()
@@ -66,6 +69,10 @@ public struct MenuStatusRow: Equatable, Sendable {
         }
         if accessibilityMissing {
             return MenuStatusRow(title: SorlaIssue.accessibilityAccessNeeded.menuTitle, action: .showWelcome)
+        }
+        // Until Sorla restarts its pastes are dropped, and a restart also retries anything below.
+        if appReplaced {
+            return MenuStatusRow(title: SorlaIssue.appReplaced.menuTitle, action: .restart)
         }
         if modelLoadFailed {
             return .modelLoadFailed

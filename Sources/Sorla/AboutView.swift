@@ -15,7 +15,7 @@ struct AboutView: View {
                     .resizable()
                     .frame(width: 88, height: 88)
                     .accessibilityHidden(true)
-                Text("Sorla").font(.title.bold())
+                Text(verbatim: "Sorla").font(.title.bold())
                 Text("Talk. Release. Done.").font(.title3).foregroundStyle(.secondary)
                 Text(versionString).font(.callout).foregroundStyle(.secondary)
             }

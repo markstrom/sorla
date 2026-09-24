@@ -15,12 +15,24 @@ public enum TriggerEdge: Equatable, Sendable {
     public static func forModifierEvent(
         isSynthetic: Bool,
         hasTriggerFlag: Bool,
+        isWaitingForRelease: Bool = false,
         isKeyPhysicallyDown: () -> Bool
     ) -> TriggerEdge? {
         guard !isSynthetic else { return nil }
-        if hasTriggerFlag { return .down }
+        if hasTriggerFlag {
+            // Sticky Keys can keep the flag after the key goes up, so a repeat during a press is checked against the key.
+            guard isWaitingForRelease else { return .down }
+            return isKeyPhysicallyDown() ? .down : .up
+        }
         return isKeyPhysicallyDown() ? nil : .up
     }
+
+    // A latched modifier (Sticky Keys) may never report its release, so a key or click with the key up ends the hold first.
+    public static func releaseMissed(isHoldingToTalk: Bool, isKeyPhysicallyDown: () -> Bool) -> Bool {
+        isHoldingToTalk && !isKeyPhysicallyDown()
+    }
+
+    public static let escapeKeyCode: UInt16 = 53
 
     public static let releaseRecheckDelay: Duration = .milliseconds(100)
 
@@ -59,17 +71,20 @@ public final class TriggerMonitor {
     private let onStart: () -> Bool
     private let onFinish: () -> Void
     private let onCancel: () -> Void
+    private let onDiscard: () -> Void
 
     public init(
         mode: RecordingMode = .pushToTalk,
         onStart: @escaping @MainActor () -> Bool,
         onFinish: @escaping @MainActor () -> Void,
-        onCancel: @escaping @MainActor () -> Void
+        onCancel: @escaping @MainActor () -> Void,
+        onDiscard: @escaping @MainActor () -> Void
     ) {
         self.gesture = PushToTalkGesture(mode: mode)
         self.onStart = onStart
         self.onFinish = onFinish
         self.onCancel = onCancel
+        self.onDiscard = onDiscard
     }
 
     deinit {
@@ -113,6 +128,7 @@ public final class TriggerMonitor {
         switch trigger {
         case .customShortcut:
             setUpCustomShortcut()
+            setUpEscapeMonitor()
         case .rightCommand, .rightOption, .rightControl, .fn:
             setUpModifierMonitor(for: trigger)
         }
@@ -152,6 +168,28 @@ public final class TriggerMonitor {
         }
     }
 
+    // The shortcut itself comes from KeyboardShortcuts, so only Esc needs watching here.
+    private func setUpEscapeMonitor() {
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            MainActor.assumeIsolated {
+                self?.handleEscapeEvent(event)
+            }
+        }
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            MainActor.assumeIsolated {
+                self?.handleEscapeEvent(event)
+            }
+            return event
+        }
+    }
+
+    private func handleEscapeEvent(_ event: NSEvent) {
+        guard !isSuspended, event.keyCode == TriggerEdge.escapeKeyCode, !event.isARepeat,
+              !Self.isSorlaSyntheticEvent(event)
+        else { return }
+        handle(.escape)
+    }
+
     // KeyboardShortcuts only reports down/up of the registered combo, so there's no "other key while held" signal here.
     private func setUpCustomShortcut() {
         isCustomShortcutActive = true
@@ -174,6 +212,7 @@ public final class TriggerMonitor {
     private func handleModifierEvent(_ event: NSEvent, keyCode: UInt16, deviceMask: UInt) {
         guard !isSuspended else { return }
         let action: PushToTalkGesture.Action?
+        let isTriggerDown = { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
 
         switch event.type {
         case .flagsChanged:
@@ -184,7 +223,8 @@ public final class TriggerMonitor {
             let edge = TriggerEdge.forModifierEvent(
                 isSynthetic: isSynthetic,
                 hasTriggerFlag: hasTriggerFlag,
-                isKeyPhysicallyDown: { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
+                isWaitingForRelease: gesture.isWaitingForRelease,
+                isKeyPhysicallyDown: isTriggerDown
             )
             switch edge {
             case .down:
@@ -204,9 +244,15 @@ public final class TriggerMonitor {
             }
         case .keyDown:
             guard !Self.isSorlaSyntheticEvent(event) else { return }
-            action = gesture.handle(.otherKeyDown)
+            if event.keyCode == TriggerEdge.escapeKeyCode {
+                if !event.isARepeat { handle(.escape) }
+            } else {
+                handle(.otherKeyDown(at: event.timestamp), isTriggerDown: isTriggerDown)
+            }
+            return
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
-            action = gesture.handle(.otherKeyDown)
+            handle(.click(at: event.timestamp), isTriggerDown: isTriggerDown)
+            return
         default:
             return
         }
@@ -231,7 +277,16 @@ public final class TriggerMonitor {
         return PasteService.isSyntheticMarker(marker)
     }
 
-    func handle(_ event: PushToTalkGesture.Event) {
+    func handle(_ event: PushToTalkGesture.Event, isTriggerDown: () -> Bool = { true }) {
+        switch event {
+        case .otherKeyDown(let at), .click(let at):
+            if TriggerEdge.releaseMissed(isHoldingToTalk: gesture.isHoldingToTalk, isKeyPhysicallyDown: isTriggerDown) {
+                Self.logger.info("trigger release missed; ending the hold")
+                dispatch(gesture.handle(.triggerUp(at: at)))
+            }
+        case .triggerDown, .triggerUp, .escape:
+            break
+        }
         dispatch(gesture.handle(event))
     }
 
@@ -250,6 +305,9 @@ public final class TriggerMonitor {
         case .cancel:
             isRecordingActive = false
             onCancel()
+        case .discard:
+            isRecordingActive = false
+            onDiscard()
         case nil:
             break
         }

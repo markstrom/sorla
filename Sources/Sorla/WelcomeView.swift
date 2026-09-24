@@ -75,6 +75,14 @@ struct WelcomeView: View {
             .foregroundStyle(isReady ? .primary : .secondary)
             .multilineTextAlignment(.center)
 
+            if let tip = WelcomeChecklist.toggleModeTip(mode: appSettings.recordingMode) {
+                Text(tip)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if isReady {
                 TextField("Try it here", text: $tryItText, axis: .vertical)
                     .lineLimit(3...6)

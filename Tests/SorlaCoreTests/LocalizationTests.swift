@@ -148,6 +148,15 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång")
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
+            XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
+            XCTAssertEqual(
+                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true)?.title,
+                "Sorla har uppdaterats – Starta om"
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
+                "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa."
+            )
         }
     }
 
@@ -184,6 +193,80 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(try strings("en")["Pasting text"], "Pasting text")
         XCTAssertEqual(try strings("sv")["Pasting text"], "Klistrar in texten")
         XCTAssertNil(try strings("en")["Pasted"])
+    }
+
+    // MARK: - Every key the app's views and SorlaCore use is translated (#14)
+
+    private static let sources = resources.deletingLastPathComponent().appendingPathComponent("Sources")
+
+    private func swiftFiles(_ target: String) throws -> [(name: String, text: String)] {
+        let directory = Self.sources.appendingPathComponent(target)
+        return try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.hasSuffix(".swift") }
+            .sorted()
+            .map { ($0, try String(contentsOf: directory.appendingPathComponent($0), encoding: .utf8)) }
+    }
+
+    func testEveryLocalizedKeyInTheAppsViewsExistsInBothLanguages() throws {
+        let english = try strings("en")
+        let swedish = try strings("sv")
+        var checked = 0
+        for (name, text) in try swiftFiles("Sorla") {
+            for key in try SourceStringKeys.localizedKeys(in: text, includeViews: true) {
+                checked += 1
+                XCTAssertTrue(key.isTranslated(in: english), "\(name): “\(key.pattern)” missing in en.lproj")
+                XCTAssertTrue(key.isTranslated(in: swedish), "\(name): “\(key.pattern)” missing in sv.lproj")
+            }
+        }
+        XCTAssertGreaterThan(checked, 60, "the scan found too few keys to be working")
+    }
+
+    func testEveryLocalizedKeyInSorlaCoreExistsInBothLanguages() throws {
+        let english = try strings("en")
+        let swedish = try strings("sv")
+        var checked = 0
+        for (name, text) in try swiftFiles("SorlaCore") {
+            for key in try SourceStringKeys.localizedKeys(in: text, includeViews: false) {
+                checked += 1
+                XCTAssertTrue(key.isTranslated(in: english), "\(name): “\(key.pattern)” missing in en.lproj")
+                XCTAssertTrue(key.isTranslated(in: swedish), "\(name): “\(key.pattern)” missing in sv.lproj")
+            }
+        }
+        XCTAssertGreaterThan(checked, 50, "the scan found too few keys to be working")
+    }
+
+    func testTheSourceScanReadsInterpolationsEscapesAndLocalizedParameters() throws {
+        let source = #"""
+        func row(symbol: String, title: LocalizedStringKey, note: String) {}
+        Text("Plain \"quoted\"")
+        Text(verbatim: "Not a key")
+        String(localized: "Version \(AppVersion.short ?? "—") (\(build))")
+        row(symbol: "mic", title: "Microphone", note: "Not a key either")
+        Toggle(SettingsRow.playSounds.title, isOn: $on)
+        """#
+        let keys = try SourceStringKeys.localizedKeys(in: source, includeViews: true)
+        XCTAssertEqual(keys.map(\.pattern), [#"Plain "quoted""#, "Version \\(…) (\\(…))", "Microphone"])
+        XCTAssertTrue(keys[1].isTranslated(in: ["Version %@ (%@)": ""]))
+        XCTAssertFalse(keys[1].isTranslated(in: ["Version %@": ""]))
+    }
+
+    func testSettingsRowTitlesAreTranslated() throws {
+        let english = SettingsRow.allCases.map(\.title)
+        let swedishTitles = try Localization.$bundle.withValue(swedish) { SettingsRow.allCases.map(\.title) }
+        for (row, (en, sv)) in zip(SettingsRow.allCases, zip(english, swedishTitles)) {
+            XCTAssertFalse(en.isEmpty, "\(row)")
+            XCTAssertFalse(sv.isEmpty, "\(row)")
+            if row != .appUpdates {
+                XCTAssertNotEqual(en, sv, "\(row) has no Swedish title")
+            }
+        }
+    }
+
+    // VoiceOver reads these names on the two shortcut recorders (#12).
+    func testSwedishShortcutFieldNames() throws {
+        try Localization.$bundle.withValue(swedish) {
+            XCTAssertEqual(SettingsRow.allCases.filter(\.isShortcutField).map(\.title), ["Kortkommando", "Klistra in senaste transkriberingen"])
+        }
     }
 
     func testSwedishDiskSpaceUsesADecimalComma() throws {
