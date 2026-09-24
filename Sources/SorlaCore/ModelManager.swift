@@ -25,9 +25,10 @@ public final class ModelManager: ObservableObject {
     private let reloadModel: @MainActor () async -> Bool
     private let checkInterval: TimeInterval
     private let idlePollInterval: TimeInterval
+    private let sleep: @MainActor (TimeInterval) async -> Void
     private var hasStarted = false
-    private var work: Task<Void, Never>?
-    private var automaticCheckTask: Task<Void, Never>?
+    private(set) var work: Task<Void, Never>?
+    private(set) var automaticCheckTask: Task<Void, Never>?
     private var offered: PublishedModel?
     private var stagingVersion: String?
     private static let logger = Logger(subsystem: "com.sorla.app", category: "ModelManager")
@@ -39,7 +40,8 @@ public final class ModelManager: ObservableObject {
         automaticChecks: Bool,
         automaticDownloads: Bool,
         checkInterval: TimeInterval = 24 * 60 * 60,
-        idlePollInterval: TimeInterval = 0.5
+        idlePollInterval: TimeInterval = 0.5,
+        sleep: @escaping @MainActor (TimeInterval) async -> Void = { try? await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
     ) {
         self.installer = installer
         self.swap = ModelSwap(modelsDirectory: installer.modelsDirectory)
@@ -50,6 +52,7 @@ public final class ModelManager: ObservableObject {
         self.automaticDownloads = automaticDownloads
         self.checkInterval = checkInterval
         self.idlePollInterval = idlePollInterval
+        self.sleep = sleep
     }
 
     public var isInstalled: Bool { PianissimoModel.hasRequiredFiles(at: swap.installed) }
@@ -209,7 +212,7 @@ public final class ModelManager: ObservableObject {
             Self.logger.info("model \(version, privacy: .public) staged; waiting for dictation to finish")
             status = .waitingToInstall(version: version)
             while !isDictationIdle() {
-                try? await Task.sleep(nanoseconds: UInt64(idlePollInterval * 1_000_000_000))
+                await sleep(idlePollInterval)
             }
         }
 
@@ -358,12 +361,13 @@ public final class ModelManager: ObservableObject {
         automaticCheckTask?.cancel()
         automaticCheckTask = nil
         guard automaticChecks else { return }
-        let interval = UInt64(checkInterval * 1_000_000_000)
+        let interval = checkInterval
+        let sleep = self.sleep
         automaticCheckTask = Task { [weak self] in
             var checkNext = checkFirst
             while !Task.isCancelled {
                 if !checkNext {
-                    try? await Task.sleep(nanoseconds: interval)
+                    await sleep(interval)
                 }
                 checkNext = false
                 guard !Task.isCancelled, let self else { return }

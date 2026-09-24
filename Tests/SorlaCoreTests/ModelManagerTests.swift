@@ -12,6 +12,8 @@ final class ModelManagerTests: XCTestCase {
     private var reloads = 0
     private var installs: [Bool] = []
     private var failures: [SorlaIssue] = []
+    private let clock = TestClock()
+    private let day: Duration = .seconds(86_400)
 
     override func setUp() async throws {
         modelsDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("sorla-manager-\(UUID().uuidString)")
@@ -29,7 +31,6 @@ final class ModelManagerTests: XCTestCase {
     private func makeManager(
         autoCheck: Bool = false,
         autoDownload: Bool = false,
-        checkInterval: TimeInterval = 86_400,
         onReload: @escaping @MainActor () -> Void = {}
     ) -> ModelManager {
         let installer = ModelInstaller(
@@ -50,8 +51,7 @@ final class ModelManagerTests: XCTestCase {
             },
             automaticChecks: autoCheck,
             automaticDownloads: autoDownload,
-            checkInterval: checkInterval,
-            idlePollInterval: 0.01
+            sleep: { [clock] in await clock.sleep(for: .seconds($0)) }
         )
         manager.onInstalled = { [unowned self] firstInstall in self.installs.append(firstInstall) }
         manager.onFailure = { [unowned self] issue in self.failures.append(issue) }
@@ -67,12 +67,10 @@ final class ModelManagerTests: XCTestCase {
         try PublishedModelFixture(version: version).manifestData.write(to: directory.appendingPathComponent("manifest.json"))
     }
 
-    private func waitUntil(_ condition: @autoclosure () -> Bool, timeout: TimeInterval = 5, file: StaticString = #filePath, line: UInt = #line) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() {
-            guard Date() < deadline else { return XCTFail("timed out", file: file, line: line) }
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        }
+    // The timer starts each check before it sleeps again, so once it sleeps the check's job exists.
+    private func finishTimerCheck(_ manager: ModelManager, sleeps: Int) async {
+        await clock.waitForSleeps(sleeps)
+        await manager.work?.value
     }
 
     func testDefaultSettingsWithAnInstalledModelMakeNoNetworkRequests() async throws {
@@ -81,8 +79,9 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.start()
-        try await Task.sleep(nanoseconds: 100_000_000)
 
+        XCTAssertNil(manager.work)
+        XCTAssertNil(manager.automaticCheckTask)
         let requests = await network.requests
         XCTAssertEqual(requests, [])
         XCTAssertEqual(manager.status, .installed(version: "1.0.0"))
@@ -94,7 +93,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.start()
-        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
 
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertTrue(PianissimoModel.hasRequiredFiles(at: swap.installed))
@@ -110,7 +110,8 @@ final class ModelManagerTests: XCTestCase {
         manager.start()
 
         XCTAssertEqual(manager.status, .downloading(version: "", fraction: 0, isUpdate: false))
-        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
     }
 
     func testFirstRunOfflineFailsWithARetry() async throws {
@@ -118,7 +119,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.start()
-        await waitUntil(manager.status == .failed(.network, isUpdate: false))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
 
         XCTAssertEqual(failures, [.modelDownloadFailed])
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.installed.path))
@@ -126,7 +128,8 @@ final class ModelManagerTests: XCTestCase {
         await PublishedModelFixture(version: "1.0.0").publish(on: network)
         await network.unfail(PublishedModelFixture.manifestURL)
         manager.downloadModel()
-        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
     }
 
     func testAutomaticCheckAtLaunchFindsTheInstalledVersionUpToDate() async throws {
@@ -135,69 +138,81 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoCheck: true)
 
         manager.start()
-        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+        await finishTimerCheck(manager, sleeps: 1)
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
 
         let requests = await network.requests
         XCTAssertEqual(requests, [PublishedModelFixture.manifestURL])
         XCTAssertEqual(reloads, 0)
+        XCTAssertEqual(clock.sleeps, [day])
     }
 
     func testALaunchSoonAfterTheLastCheckMakesNoRequestUntilTheTimer() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.0.0").publish(on: network)
-        let manager = makeManager(autoCheck: true, checkInterval: 0.3)
+        let manager = makeManager(autoCheck: true)
 
         manager.start(isCheckDue: false)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        await clock.waitForSleeps(1)
+        XCTAssertNil(manager.work)
         let early = await network.requests
         XCTAssertEqual(early, [])
 
-        await waitUntil(manager.status == .upToDate(version: "1.0.0"))
+        await clock.advance(by: day)
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+        let requests = await network.requests
+        XCTAssertEqual(requests, [PublishedModelFixture.manifestURL])
     }
 
     func testAutomaticChecksRepeatOnTheInterval() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.0.0").publish(on: network)
-        let manager = makeManager(autoCheck: true, checkInterval: 0.05)
+        let manager = makeManager(autoCheck: true)
 
         manager.start()
-        let deadline = Date().addingTimeInterval(5)
-        while await network.requests.count < 3, Date() < deadline {
-            try await Task.sleep(nanoseconds: 5_000_000)
+        await finishTimerCheck(manager, sleeps: 1)
+        for _ in 2...3 {
+            await clock.advance(by: day)
+            await manager.work?.value
         }
-        let checks = await network.requests.count
-        XCTAssertGreaterThanOrEqual(checks, 3)
+        let checks = await network.requests
+        XCTAssertEqual(checks, Array(repeating: PublishedModelFixture.manifestURL, count: 3))
 
         manager.automaticChecks = false
-        try await Task.sleep(nanoseconds: 50_000_000)
-        let settled = await network.requests.count
-        try await Task.sleep(nanoseconds: 200_000_000)
-        let later = await network.requests.count
-        XCTAssertEqual(settled, later)
+        XCTAssertNil(manager.automaticCheckTask)
+        await clock.advance(by: day)
+
+        let later = await network.requests
+        XCTAssertEqual(later.count, 3)
+        XCTAssertEqual(clock.sleeps, [day, day, day])
     }
 
     func testTheAppCheckRidesOnEachAutomaticCheck() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.0.0").publish(on: network)
-        let manager = makeManager(autoCheck: true, checkInterval: 0.05)
+        let manager = makeManager(autoCheck: true)
         var ticks = 0
         manager.onAutomaticCheck = { ticks += 1 }
 
         manager.start()
-        await waitUntil(ticks >= 2)
+        await finishTimerCheck(manager, sleeps: 1)
+        XCTAssertEqual(ticks, 1)
 
-        XCTAssertGreaterThanOrEqual(ticks, 2)
+        await clock.advance(by: day)
+        await manager.work?.value
+        XCTAssertEqual(ticks, 2)
     }
 
     func testNoAutomaticCheckMeansNoRideAlongCheck() async throws {
         try installModel(version: "1.0.0")
-        let manager = makeManager(autoCheck: false, checkInterval: 0.01)
+        let manager = makeManager(autoCheck: false)
         var ticks = 0
         manager.onAutomaticCheck = { ticks += 1 }
 
         manager.start()
-        try await Task.sleep(nanoseconds: 100_000_000)
 
+        XCTAssertNil(manager.automaticCheckTask)
         XCTAssertEqual(ticks, 0)
     }
 
@@ -207,7 +222,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.checkNow()
-        await waitUntil(manager.status == .updateAvailable(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .updateAvailable(version: "1.1.0"))
 
         let requests = await network.requests
         XCTAssertEqual(requests, [PublishedModelFixture.manifestURL])
@@ -219,10 +235,12 @@ final class ModelManagerTests: XCTestCase {
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         let manager = makeManager()
         manager.checkNow()
-        await waitUntil(manager.status == .updateAvailable(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .updateAvailable(version: "1.1.0"))
 
         manager.downloadModel()
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
 
         let manifestFetches = await network.requests.filter { $0 == PublishedModelFixture.manifestURL }
         XCTAssertEqual(manifestFetches.count, 1)
@@ -237,7 +255,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
 
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.1.0")
         XCTAssertEqual(reloads, 1)
@@ -250,7 +269,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .failed(.selfTestFailed, isUpdate: true))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.selfTestFailed, isUpdate: true))
 
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertEqual(reloads, 0)
@@ -264,12 +284,16 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .waitingToInstall(version: "1.1.0"))
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await clock.waitForSleeps(1)
+        XCTAssertEqual(manager.status, .waitingToInstall(version: "1.1.0"))
+        await clock.advance(by: .seconds(0.5))
+        XCTAssertEqual(clock.sleeps.count, 2)
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
 
         isIdle = true
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await clock.advance(by: .seconds(0.5))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.1.0")
     }
 
@@ -282,12 +306,16 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .waitingToInstall(version: "1.1.0"))
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await clock.waitForSleeps(1)
+        XCTAssertEqual(manager.status, .waitingToInstall(version: "1.1.0"))
+        await clock.advance(by: .seconds(0.5))
+        XCTAssertEqual(clock.sleeps.count, 2)
         XCTAssertEqual(reloads, 0)
 
         phases.finish(older)
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await clock.advance(by: .seconds(0.5))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
         XCTAssertEqual(reloads, 1)
     }
 
@@ -298,7 +326,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .failed(.installFailed, isUpdate: true))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.installFailed, isUpdate: true))
 
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.previous.path))
@@ -314,11 +343,13 @@ final class ModelManagerTests: XCTestCase {
         reloadResults = [false, true]
         let manager = makeManager(autoDownload: true)
         manager.checkNow()
-        await waitUntil(manager.status == .failed(.installFailed, isUpdate: true))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.installFailed, isUpdate: true))
         let downloadsBefore = await network.requests.filter { $0 != PublishedModelFixture.manifestURL }.count
 
         manager.downloadModel()
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
 
         let downloadsAfter = await network.requests.filter { $0 != PublishedModelFixture.manifestURL }.count
         XCTAssertEqual(downloadsBefore, published.files.count)
@@ -334,7 +365,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .failed(.installFailed, isUpdate: true))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.installFailed, isUpdate: true))
 
         XCTAssertEqual(failures, [.modelNotLoaded])
     }
@@ -347,7 +379,8 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertFalse(manager.isInstalled)
 
         manager.downloadModel()
-        await waitUntil(manager.status == .failed(.installFailed, isUpdate: true))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.installFailed, isUpdate: true))
 
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.previous.path))
@@ -361,7 +394,8 @@ final class ModelManagerTests: XCTestCase {
         reloadResults = [false, true]
         let failedRun = makeManager(autoDownload: true)
         failedRun.checkNow()
-        await waitUntil(failedRun.status == .failed(.installFailed, isUpdate: true))
+        await failedRun.work?.value
+        XCTAssertEqual(failedRun.status, .failed(.installFailed, isUpdate: true))
         XCTAssertEqual(FailedModelUpdate(modelsDirectory: modelsDirectory).version, "1.1.0")
         let staging = ModelStaging(modelsDirectory: modelsDirectory, version: "1.1.0")
         XCTAssertTrue(FileManager.default.fileExists(atPath: staging.directory.path))
@@ -369,11 +403,13 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoCheck: true, autoDownload: true)
         manager.start()
         XCTAssertFalse(FileManager.default.fileExists(atPath: staging.directory.path))
-        await waitUntil(manager.status == .updateAvailable(version: "1.1.0"))
+        await finishTimerCheck(manager, sleeps: 1)
+        XCTAssertEqual(manager.status, .updateAvailable(version: "1.1.0"))
         XCTAssertEqual(reloads, 2)
 
         manager.checkNow()
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
         XCTAssertEqual(reloads, 3)
         XCTAssertNil(FailedModelUpdate(modelsDirectory: modelsDirectory).version)
     }
@@ -386,7 +422,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager(autoDownload: true)
 
         manager.checkNow()
-        await waitUntil(manager.status == .failed(.network, isUpdate: true))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.network, isUpdate: true))
 
         XCTAssertNil(FailedModelUpdate(modelsDirectory: modelsDirectory).version)
     }
@@ -409,10 +446,12 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.retryLoadingModel()
-        await waitUntil(failures == [.modelNotLoaded])
+        await manager.work?.value
+        XCTAssertEqual(failures, [.modelNotLoaded])
         manager.retryLoadingModel()
-        await waitUntil(reloads == 2)
+        await manager.work?.value
 
+        XCTAssertEqual(reloads, 2)
         XCTAssertEqual(failures, [.modelNotLoaded])
     }
 
@@ -421,8 +460,9 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.retryLoadingModel()
-        await waitUntil(reloads == 1)
+        await manager.work?.value
 
+        XCTAssertEqual(reloads, 1)
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.previous.path))
     }
@@ -431,9 +471,9 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.retryLoadingModel()
-        await waitUntil(manager.status == .notInstalled)
-        try await Task.sleep(nanoseconds: 20_000_000)
+        await manager.work?.value
 
+        XCTAssertEqual(manager.status, .notInstalled)
         XCTAssertEqual(reloads, 0)
     }
 
@@ -443,7 +483,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.start()
-        await waitUntil(manager.status == .installed(version: "1.0.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .installed(version: "1.0.0"))
 
         XCTAssertTrue(PianissimoModel.hasRequiredFiles(at: swap.installed))
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.failed.path))
@@ -468,7 +509,8 @@ final class ModelManagerTests: XCTestCase {
 
         XCTAssertEqual(manager.status, .downloading(version: "1.1.0", fraction: 0, isUpdate: true))
         await network.releaseDownloads()
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
         let manifestFetches = await network.requests.filter { $0 == PublishedModelFixture.manifestURL }
         XCTAssertEqual(manifestFetches.count, 1)
     }
@@ -493,7 +535,8 @@ final class ModelManagerTests: XCTestCase {
         let manager = makeManager()
 
         manager.checkNow()
-        await waitUntil(manager.status == .checkFailed(.network))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .checkFailed(.network))
 
         XCTAssertEqual(failures, [])
     }
@@ -524,7 +567,8 @@ final class ModelManagerTests: XCTestCase {
         })
 
         manager.checkNow()
-        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
 
         XCTAssertEqual(stagingExistedDuringReload, true)
         XCTAssertEqual(versionDuringReload, "1.1.0")
@@ -552,7 +596,8 @@ final class ModelManagerTests: XCTestCase {
         manager.start()
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: newer.directory.path))
-        await waitUntil(manager.status == .checkFailed(.network))
+        await finishTimerCheck(manager, sleeps: 1)
+        XCTAssertEqual(manager.status, .checkFailed(.network))
     }
 
     func testStartRemovesAllStagingWhenAutomaticChecksAreOffEvenWithAutomaticDownloadsOn() async throws {
