@@ -59,10 +59,11 @@
     <p>Sorla ber om två: <strong>mikrofon</strong>, för att höra dig, och <strong>hjälpmedel</strong>, för att känna av din tangent och klistra in texten i andra appar. Båda kan dras tillbaka när som helst i Systeminställningar.</p>
 
     <h2>Nätverket</h2>
-    <p>Sorla har inget konto och ingen server. Appen gör bara två slags förfrågningar:</p>
+    <p>Sorla har inget konto och ingen server. Appen gör bara tre slags förfrågningar:</p>
     <ul>
       <li><strong>Talmodellen</strong>, ungefär 700 MB, laddas ner från Hugging Face på <a href="https://huggingface.co"><code>huggingface.co</code></a> en gång när du startar Sorla första gången.</li>
       <li><strong>Sökning efter uppdateringar.</strong> En sökning frågar både GitHub på <code>api.github.com</code> om numret på den senaste versionen av Sorla och Hugging Face om det finns en nyare talmodell. Det sker bara när du väljer <strong>Sök nu</strong> i Inställningar eller <strong>Sök efter uppdateringar…</strong> i menyn, eller ungefär en gång om dagen om du själv har slagit på <strong>Sök efter uppdateringar automatiskt</strong>. Det är avstängt från början.</li>
+      <li><strong>En ny version av Sorla</strong> laddas ner från GitHub på <a href="https://github.com/markstrom/sorla/releases"><code>github.com</code></a> bara när du klickar på <strong>Installera och starta om</strong>, eller av sig själv om du har slagit på både <strong>Sök efter uppdateringar automatiskt</strong> och <strong>Installera uppdateringar automatiskt</strong>. Båda är avstängda från början. Innan den nya versionen installeras frågar macOS Apple om den är notariserad, samma kontroll som när du öppnar en app du har laddat ner.</li>
     </ul>
     <p>Som vid all nedladdning ser GitHub och Hugging Face din IP-adress och att det är Sorla som frågar. GitHub ser också vilken version av Sorla du har, och Hugging Face vilka filer som hämtas. Inget annat skickas: inget om dig, din Mac eller det du säger. Andra förfrågningar gör appen inte. GitHub och Hugging Face hanterar sina serverloggar enligt sina egna integritetspolicyer.</p>
 
