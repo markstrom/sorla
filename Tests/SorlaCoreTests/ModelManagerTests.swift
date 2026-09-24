@@ -7,6 +7,7 @@ final class ModelManagerTests: XCTestCase {
     private var network: FakeModelNetwork!
     private var preparer: FakeModelPreparer!
     private var isIdle = true
+    private var phases = DictationPhaseTracker()
     private var reloadResults: [Bool] = []
     private var reloads = 0
     private var installs: [Bool] = []
@@ -41,7 +42,7 @@ final class ModelManagerTests: XCTestCase {
         )
         let manager = ModelManager(
             installer: installer,
-            isDictationIdle: { [unowned self] in self.isIdle },
+            isDictationIdle: { [unowned self] in self.isIdle && self.phases.phase == .idle },
             reloadModel: { [unowned self] in
                 self.reloads += 1
                 onReload()
@@ -232,6 +233,24 @@ final class ModelManagerTests: XCTestCase {
         isIdle = true
         await waitUntil(manager.status == .upToDate(version: "1.1.0"))
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.1.0")
+    }
+
+    func testTheSwapWaitsForAnOlderTranscriptionAfterANewerRecordingIsCancelled() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        let older = phases.beginRecording()
+        phases.release(older)
+        phases.cancel(phases.beginRecording())
+        let manager = makeManager(autoDownload: true)
+
+        manager.checkNow()
+        await waitUntil(manager.status == .waitingToInstall(version: "1.1.0"))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(reloads, 0)
+
+        phases.finish(older)
+        await waitUntil(manager.status == .upToDate(version: "1.1.0"))
+        XCTAssertEqual(reloads, 1)
     }
 
     func testAReloadFailureRollsBackToTheOldModel() async throws {

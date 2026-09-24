@@ -4,36 +4,47 @@ public enum DictationPhase: Equatable, Sendable {
     case transcribing
 }
 
+// An older dictation can still be transcribing while a newer one records, so each in-flight ID is tracked.
 public struct DictationPhaseTracker {
-    public private(set) var phase: DictationPhase = .idle
-    private var ownerID = 0
+    private var lastID = 0
+    private var recordingID: Int?
+    private var transcribingIDs: Set<Int> = []
 
     public init() {}
 
-    public mutating func beginRecording() -> Int {
-        ownerID += 1
-        phase = .recording
-        return ownerID
+    public var phase: DictationPhase {
+        if recordingID != nil { return .recording }
+        return transcribingIDs.isEmpty ? .idle : .transcribing
     }
 
+    public mutating func beginRecording() -> Int {
+        lastID += 1
+        recordingID = lastID
+        return lastID
+    }
+
+    // Each transition returns whether the phase changed, so observers only hear real changes.
     @discardableResult
     public mutating func release(_ id: Int) -> Bool {
-        transition(id, from: .recording, to: .transcribing)
+        let before = phase
+        guard recordingID == id else { return false }
+        recordingID = nil
+        transcribingIDs.insert(id)
+        return phase != before
     }
 
     @discardableResult
     public mutating func cancel(_ id: Int) -> Bool {
-        transition(id, from: .recording, to: .idle)
+        let before = phase
+        guard recordingID == id else { return false }
+        recordingID = nil
+        return phase != before
     }
 
     @discardableResult
     public mutating func finish(_ id: Int) -> Bool {
-        transition(id, from: .transcribing, to: .idle)
-    }
-
-    private mutating func transition(_ id: Int, from expected: DictationPhase, to next: DictationPhase) -> Bool {
-        guard id == ownerID, phase == expected else { return false }
-        phase = next
-        return true
+        let before = phase
+        guard transcribingIDs.remove(id) != nil else { return false }
+        return phase != before
     }
 }

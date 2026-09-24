@@ -73,4 +73,53 @@ final class DictationPhaseTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.phase, .recording)
         XCTAssertNotEqual(older, newer)
     }
+
+    func testCancellingANewerRecordingKeepsAnOlderTranscriptionPending() {
+        var tracker = DictationPhaseTracker()
+        let a = tracker.beginRecording()
+        tracker.release(a)
+        let b = tracker.beginRecording()
+        XCTAssertEqual(tracker.phase, .recording)
+
+        XCTAssertTrue(tracker.cancel(b))
+        XCTAssertEqual(tracker.phase, .transcribing)
+
+        XCTAssertTrue(tracker.finish(a))
+        XCTAssertEqual(tracker.phase, .idle)
+    }
+
+    func testIdleOnlyOnceEveryTranscriptionHasFinished() {
+        var tracker = DictationPhaseTracker()
+        let a = tracker.beginRecording()
+        tracker.release(a)
+        let b = tracker.beginRecording()
+        tracker.release(b)
+
+        XCTAssertFalse(tracker.finish(a))
+        XCTAssertEqual(tracker.phase, .transcribing)
+        XCTAssertTrue(tracker.finish(b))
+        XCTAssertEqual(tracker.phase, .idle)
+    }
+
+    func testAStaleFinishDoesNotEndANewerTranscription() {
+        var tracker = DictationPhaseTracker()
+        let a = tracker.beginRecording()
+        tracker.cancel(a)
+        let b = tracker.beginRecording()
+        tracker.release(b)
+
+        XCTAssertFalse(tracker.finish(a))
+        XCTAssertEqual(tracker.phase, .transcribing)
+    }
+
+    func testPasteLastWaitsForAnOlderTranscriptionAfterACancel() {
+        var tracker = DictationPhaseTracker()
+        let a = tracker.beginRecording()
+        tracker.release(a)
+        tracker.cancel(tracker.beginRecording())
+
+        XCTAssertFalse(PasteService.shouldPasteLast(hasTranscript: true, phase: tracker.phase, isPasteLastInFlight: false))
+        tracker.finish(a)
+        XCTAssertTrue(PasteService.shouldPasteLast(hasTranscript: true, phase: tracker.phase, isPasteLastInFlight: false))
+    }
 }
