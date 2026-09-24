@@ -70,6 +70,7 @@ public struct MicrophoneMuteDetector: Equatable, Sendable {
 
     public private(set) var isMuted: Bool
     private var silentSince: TimeInterval?
+    private var hasHeardAudio = false
 
     public init(startedAt: TimeInterval, deviceSeemsMuted: Bool = false) {
         isMuted = deviceSeemsMuted
@@ -80,17 +81,19 @@ public struct MicrophoneMuteDetector: Equatable, Sendable {
         peak < silencePeak
     }
 
-    // Returns whether the muted state changed.
+    // Returns whether the muted state changed. Noise gates send exact zeros between words, so once a take has had audio it stays unmuted.
     @discardableResult
     public mutating func observe(peak: Float, at time: TimeInterval) -> Bool {
         let wasMuted = isMuted
         if Self.isDigitalSilence(peak: peak) {
+            guard !hasHeardAudio else { return false }
             let since = silentSince ?? time
             silentSince = since
             if time - since >= Self.silenceDuration {
                 isMuted = true
             }
         } else {
+            hasHeardAudio = true
             silentSince = nil
             isMuted = false
         }

@@ -7,10 +7,15 @@ public enum AudioRecorderError: Error {
     case noInputDevice
 }
 
-public struct AudioBufferSummary: Sendable {
+public struct AudioBufferSummary: Equatable, Sendable {
     public let spectrum: SIMD8<Float>
     public let peak: Float
     public let time: TimeInterval
+
+    // Buffers merged into one main-actor hop keep the newest spectrum but the loudest peak, so no audio is missed.
+    static func coalescing(_ older: AudioBufferSummary, _ newer: AudioBufferSummary) -> AudioBufferSummary {
+        AudioBufferSummary(spectrum: newer.spectrum, peak: max(older.peak, newer.peak), time: newer.time)
+    }
 }
 
 public final class AudioRecorder {

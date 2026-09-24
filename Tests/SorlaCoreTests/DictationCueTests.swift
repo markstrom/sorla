@@ -73,19 +73,32 @@ final class MicrophoneMuteDetectorTests: XCTestCase {
         XCTAssertFalse(detector.observe(peak: 0, at: 10.7))
     }
 
-    func testRealAudioRecoversAndRestartsTheSilenceClock() {
+    func testRealAudioUnmutes() {
         var detector = MicrophoneMuteDetector(startedAt: 0)
         detector.observe(peak: 0, at: 0.6)
         XCTAssertTrue(detector.isMuted)
 
         XCTAssertTrue(detector.observe(peak: 0.01, at: 0.7))
         XCTAssertFalse(detector.isMuted)
+    }
 
-        detector.observe(peak: 0, at: 0.8)
-        detector.observe(peak: 0, at: 1.2)
+    // Krisp, Zoom and Teams virtual mics and gated USB mics send exact zeros between words.
+    func testANoiseGateBetweenWordsNeverMutesATakeThatHadAudio() {
+        var detector = MicrophoneMuteDetector(startedAt: 0)
+        detector.observe(peak: 0.2, at: 0.1)
+        for step in 1...30 {
+            XCTAssertFalse(detector.observe(peak: 0, at: 0.1 + Double(step) * 0.1))
+        }
         XCTAssertFalse(detector.isMuted)
-        detector.observe(peak: 0, at: 1.3)
-        XCTAssertTrue(detector.isMuted)
+    }
+
+    func testCoalescedBuffersKeepTheLoudestPeakAndTheNewestSpectrum() {
+        let loud = AudioBufferSummary(spectrum: SIMD8(repeating: 0.1), peak: 0.3, time: 1)
+        let silent = AudioBufferSummary(spectrum: SIMD8(repeating: 0), peak: 0, time: 2)
+        XCTAssertEqual(
+            AudioBufferSummary.coalescing(loud, silent),
+            AudioBufferSummary(spectrum: SIMD8(repeating: 0), peak: 0.3, time: 2)
+        )
     }
 
     func testQuietAudioIsNotSilence() {

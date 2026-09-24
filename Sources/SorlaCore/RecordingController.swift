@@ -48,7 +48,7 @@ public final class RecordingController {
     }
 
     private func setUpForwarding() {
-        recorder.onBuffer = Self.latestValueForwarder { [weak self] summary in
+        recorder.onBuffer = Self.coalescingForwarder(merge: { AudioBufferSummary.coalescing($0, $1) }) { [weak self] summary in
             self?.onSpectrum?(summary.spectrum)
             self?.observeLevel(peak: summary.peak, at: summary.time)
         }
@@ -64,14 +64,15 @@ public final class RecordingController {
         }
     }
 
-    // Keeps only the newest value so a busy main actor gets one hop per burst, not one per buffer.
-    private static func latestValueForwarder<Value: Sendable>(
+    // Merges values that arrive before the main actor gets to them, so a busy main actor gets one hop per burst.
+    private static func coalescingForwarder<Value: Sendable>(
+        merge: @escaping @Sendable (Value, Value) -> Value,
         _ deliver: @escaping @Sendable @MainActor (Value) -> Void
     ) -> @Sendable (Value) -> Void {
         let pending = OSAllocatedUnfairLock<Value?>(initialState: nil)
         return { value in
             let shouldSchedule = pending.withLock { state -> Bool in
-                defer { state = value }
+                defer { state = state.map { merge($0, value) } ?? value }
                 return state == nil
             }
             guard shouldSchedule else { return }
