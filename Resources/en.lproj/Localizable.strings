@@ -167,6 +167,8 @@
 "Your text is on the clipboard — press %@" = "Your text is on the clipboard — press %@";
 "No microphone found" = "No microphone found";
 "Couldn't transcribe the recording" = "Couldn't transcribe the recording";
+"Let go of the keys and press %@ again" = "Let go of the keys and press %@ again";
+"Let go of the keys and try again" = "Let go of the keys and try again";
 "Pasting text" = "Pasting text";
 "Keep last transcription" = "Keep last transcription";
 "Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once." = "Keeps your latest text in memory for up to five minutes so Paste Last Transcription can insert it again. Turning this off forgets it at once.";

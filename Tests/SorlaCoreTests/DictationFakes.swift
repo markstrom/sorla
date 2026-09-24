@@ -105,6 +105,12 @@ final class FakePasteEnvironment: PasteEnvironment {
         return changeCount
     }
 
+    // The user copying something of their own.
+    func copy(_ text: String) {
+        contents = text
+        changeCount += 1
+    }
+
     func restore(_ snapshot: PasteboardSnapshot) {
         contents = snapshot.items.first?.data[.string].map { String(decoding: $0, as: UTF8.self) }
         events.append("restore")

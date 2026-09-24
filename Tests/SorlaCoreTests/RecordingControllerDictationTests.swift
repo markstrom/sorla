@@ -305,19 +305,40 @@ final class RecordingControllerDictationTests: XCTestCase {
         await controller.deliveries?.value
     }
 
-    func testPasteLastHeldPastTheDeadlineLeavesTheTextOnTheClipboard() async {
-        await deliverOneDictation("A")
-        await pasteLastWithTheShortcut()
-
+    private func holdTheKeysPastTheDeadline() async {
         for poll in 0..<50 {
             await clock.waitForSleeps(3 + poll)
             await clock.advance(by: ModifierRelease.pollInterval)
         }
         await controller.deliveries?.value
+    }
 
-        XCTAssertEqual(paste.pastes, ["A"])
-        XCTAssertEqual(paste.contents, "A")
-        XCTAssertEqual(events, ["cue \(DictationCue.textOnClipboard.symbolName)"])
+    func testPasteLastHeldPastTheDeadlineLeavesTheClipboardAlone() async {
+        await deliverOneDictation("A")
+        paste.copy("mine")
+        let writesBefore = paste.writes
+        await pasteLastWithTheShortcut()
+
+        await holdTheKeysPastTheDeadline()
+
+        XCTAssertEqual(paste.writes, writesBefore)
+        XCTAssertEqual(paste.contents, "mine")
+        XCTAssertEqual(events, ["cue \(DictationCue.releaseKeys.symbolName)"])
+        XCTAssertEqual(controller.lastTranscript(), "A")
+    }
+
+    func testWithoutKeepingTheClipboardPasteLastHeldPastTheDeadlineLeavesItAloneToo() async {
+        controller.keepClipboardContent = false
+        await deliverOneDictation("A")
+        paste.copy("mine")
+        let writesBefore = paste.writes
+        await pasteLastWithTheShortcut()
+
+        await holdTheKeysPastTheDeadline()
+
+        XCTAssertEqual(paste.writes, writesBefore)
+        XCTAssertEqual(paste.contents, "mine")
+        XCTAssertEqual(events, ["cue \(DictationCue.releaseKeys.symbolName)"])
         XCTAssertEqual(controller.lastTranscript(), "A")
     }
 

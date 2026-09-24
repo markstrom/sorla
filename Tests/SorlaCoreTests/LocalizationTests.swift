@@ -143,6 +143,8 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue.noText.announcement(pasteShortcut: nil), "Ingen text")
             XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteShortcut: nil), "Mikrofonen verkar vara avstängd")
             XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: "⌃⌥V"), "Texten ligger i urklippet – tryck ⌃⌥V")
+            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: "⌃⌥V"), "Släpp tangenterna och tryck ⌃⌥V igen")
+            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: nil), "Släpp tangenterna och försök igen")
             XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång")
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")

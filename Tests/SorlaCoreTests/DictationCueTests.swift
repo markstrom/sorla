@@ -3,8 +3,8 @@ import XCTest
 
 final class DictationCueTests: XCTestCase {
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .waitingForModel(""), .failed("")]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "hourglass", "exclamationmark.triangle"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
@@ -16,6 +16,12 @@ final class DictationCueTests: XCTestCase {
     func testTheClipboardCueNamesThePasteLastShortcutOrFallsBackToCommandV() {
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: "⌃⌥V"), "Your text is on the clipboard — press ⌃⌥V")
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V")
+    }
+
+    func testTheHeldKeysCueAsksForTheShortcutAgain() {
+        XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: "⌃⌥V"), "Let go of the keys and press ⌃⌥V again")
+        XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: nil), "Let go of the keys and try again")
+        XCTAssertNil(DictationCue.releaseKeys.issue(pasteShortcut: "⌃⌥V"))
     }
 
     func testOnlyCuesTheUserMustActOnLeaveAMenuExplanation() {

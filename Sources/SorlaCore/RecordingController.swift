@@ -428,10 +428,10 @@ public final class RecordingController {
                     self.logger.info("paste-last skipped (dictation started)")
                     return
                 }
+                // The clipboard is the user's, so the text stays with Paste Last for another try.
                 guard preparation == .ready else {
-                    self.pasteEnvironment.write(text, transient: false)
-                    self.logger.info("paste-last left on the clipboard (shortcut keys still held)")
-                    self.onCue?(.textOnClipboard)
+                    self.logger.info("paste-last not pasted (shortcut keys still held)")
+                    self.onCue?(.releaseKeys)
                     return
                 }
                 let outcome = self.issuePaste(text)

@@ -1,7 +1,7 @@
 // What stands between a Paste Last request and its ⌘V.
 public enum PasteLastPreparation: Equatable, Sendable {
     case ready
-    // The shortcut's keys were never let go, so the text goes on the clipboard instead of being pasted.
+    // The shortcut's keys were never let go, so nothing is pasted and the user is asked to press it again.
     case keysStillHeld
     case abandoned
 }
