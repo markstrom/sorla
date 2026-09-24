@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- When Sorla.app has been replaced on disk while Sorla runs, pressing the trigger no longer records words that can't be pasted. The indicator shows a restart arrow in place of the red dot, VoiceOver says "Sorla has been updated — restarting", and Sorla restarts into the new version by itself (after any earlier dictation has landed), so the next press works. The menu bar icon gets a small restart badge as soon as Sorla notices the new copy, without waiting for a press. A Sorla that can't reopen itself (App Translocation) records as before and keeps the menu row and clipboard fallback.
+
 ## 1.0.3 — 2026-09-24
 
 - Settings are grouped under Dictation, Pasting, General and Updates. "Keep clipboard content" is now "Put back what you had copied", with a line explaining what it does, and the window never grows taller than the screen (it scrolls instead).

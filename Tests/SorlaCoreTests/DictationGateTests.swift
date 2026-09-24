@@ -81,4 +81,11 @@ final class DictationGateTests: XCTestCase {
         XCTAssertTrue(DictationGate.waitsForRelease(mode: .pushToTalk))
         XCTAssertFalse(DictationGate.waitsForRelease(mode: .toggle))
     }
+
+    // A replaced Sorla can't paste, so a press restarts it; one that can't reopen itself falls back to the clipboard (#43).
+    func testAReplacedAppRestartsInsteadOfRecording() {
+        XCTAssertEqual(DictationGate.restartRefusal(isAppReplaced: true, canRestart: true), .restarting)
+        XCTAssertNil(DictationGate.restartRefusal(isAppReplaced: true, canRestart: false))
+        XCTAssertNil(DictationGate.restartRefusal(isAppReplaced: false, canRestart: true))
+    }
 }

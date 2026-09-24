@@ -182,3 +182,5 @@
 "General" = "General";
 "Put back what you had copied" = "Put back what you had copied";
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla borrows the clipboard to paste, then puts back what was there.";
+"Sorla has been updated — restarting" = "Sorla has been updated — restarting";
+"Sorla (needs a restart)" = "Sorla (needs a restart)";

@@ -182,3 +182,5 @@
 "General" = "Allmänt";
 "Put back what you had copied" = "Lägg tillbaka det du hade kopierat";
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla lånar urklippet för att klistra in och lägger sedan tillbaka det som låg där.";
+"Sorla has been updated — restarting" = "Sorla har uppdaterats – startar om";
+"Sorla (needs a restart)" = "Sorla (behöver startas om)";
