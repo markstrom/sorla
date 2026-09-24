@@ -177,3 +177,8 @@
 "Sorla has been updated — Restart" = "Sorla har uppdaterats – Starta om";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla har uppdaterats – Avsluta och öppna den från Program";
 "Restart Sorla to paste again" = "Starta om Sorla för att klistra in igen";
+"Dictation" = "Diktering";
+"Pasting" = "Inklistring";
+"General" = "Allmänt";
+"Put back what you had copied" = "Lägg tillbaka det du hade kopierat";
+"Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla lånar urklippet för att klistra in och lägger sedan tillbaka det som låg där.";

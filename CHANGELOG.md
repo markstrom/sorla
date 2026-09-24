@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Settings are grouped under Dictation, Pasting, General and Updates. "Keep clipboard content" is now "Put back what you had copied", with a line explaining what it does, and the window never grows taller than the screen (it scrolls instead).
 - Install and update with Homebrew: `brew install --cask markstrom/tap/sorla`.
 - Sorla lets go of the recorded audio as soon as the recording stops, instead of holding it until the next one. A cancelled recording, or one cut short by locking the Mac, is dropped without being converted or transcribed.
 - When you start a new dictation while the previous one is still being transcribed, the texts arrive in the order you spoke them, and Paste Last holds the newer one. A dictation that fails or gives no text doesn't hold up the next, and each text is only written to the clipboard once the previous paste has had time to land. Only that write waits: a cue, a failure or the first paste is never held up by it. A transcription that never finishes is given up as failed after a generous limit (three times the recording's length, at least 30 seconds), so it can't hold back the dictations after it.

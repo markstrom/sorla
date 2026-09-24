@@ -177,3 +177,8 @@
 "Sorla has been updated — Restart" = "Sorla has been updated — Restart";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla has been updated — Quit and open it from Applications";
 "Restart Sorla to paste again" = "Restart Sorla to paste again";
+"Dictation" = "Dictation";
+"Pasting" = "Pasting";
+"General" = "General";
+"Put back what you had copied" = "Put back what you had copied";
+"Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla borrows the clipboard to paste, then puts back what was there.";

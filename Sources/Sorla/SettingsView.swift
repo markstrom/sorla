@@ -29,6 +29,7 @@ struct SettingsView: View {
 
     // The recorder's own 130 pt is too narrow for longer translations such as "Spela in kortkommando".
     private static let recorderWidth: CGFloat = 200
+    private static var maxHeight: CGFloat { max(360, (NSScreen.main?.visibleFrame.height ?? 800) - 80) }
 
     private static let updatesSectionID = "updates"
 
@@ -44,7 +45,13 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
-            Section {
+            Section("Dictation") {
+                dictation
+            }
+            Section("Pasting") {
+                pasting
+            }
+            Section("General") {
                 general
             }
             Section("Updates") {
@@ -54,6 +61,8 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 460)
+        // Never taller than the screen: the form scrolls instead of pushing rows off the bottom.
+        .frame(maxHeight: Self.maxHeight)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear(perform: refreshLoginItemStatus)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
@@ -75,7 +84,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private var general: some View {
+    private var dictation: some View {
         Picker(SettingsRow.trigger.title, selection: $appSettings.triggerKey) {
             ForEach(TriggerKey.allCases, id: \.self) { trigger in
                 Text(trigger.displayName).tag(trigger)
@@ -114,17 +123,14 @@ struct SettingsView: View {
         LabeledContent(SettingsRow.model.title) {
             Text(LocalizedStringKey(PianissimoModel.displayName))
         }
+    }
 
+    @ViewBuilder
+    private var pasting: some View {
         Toggle(SettingsRow.keepClipboardContent.title, isOn: $appSettings.keepClipboardContent)
-
-        Toggle(SettingsRow.playSounds.title, isOn: $appSettings.playSounds)
-
-        // Without sight of the indicator, the sounds are how a VoiceOver user knows the microphone is on.
-        if isVoiceOverEnabled {
-            Text("The sounds tell you when recording starts and stops.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
+        Text("Sorla borrows the clipboard to paste, then puts back what was there.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
         Toggle(SettingsRow.keepLastTranscription.title, isOn: $appSettings.keepLastTranscription)
             .help(Text(Self.keepLastTranscriptionDescription))
@@ -135,6 +141,18 @@ struct SettingsView: View {
                 .frame(width: Self.recorderWidth)
         }
         .disabled(!appSettings.keepLastTranscription)
+    }
+
+    @ViewBuilder
+    private var general: some View {
+        Toggle(SettingsRow.playSounds.title, isOn: $appSettings.playSounds)
+
+        // Without sight of the indicator, the sounds are how a VoiceOver user knows the microphone is on.
+        if isVoiceOverEnabled {
+            Text("The sounds tell you when recording starts and stops.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
 
         Toggle(SettingsRow.launchAtLogin.title, isOn: launchAtLoginBinding)
 

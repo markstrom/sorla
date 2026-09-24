@@ -22,7 +22,7 @@ public enum SettingsRow: CaseIterable, Sendable {
         case .customShortcut: return String(localized: "Shortcut", bundle: Localization.bundle)
         case .mode: return String(localized: "Mode", bundle: Localization.bundle)
         case .model: return String(localized: "Model", bundle: Localization.bundle)
-        case .keepClipboardContent: return String(localized: "Keep clipboard content", bundle: Localization.bundle)
+        case .keepClipboardContent: return String(localized: "Put back what you had copied", bundle: Localization.bundle)
         case .playSounds: return String(localized: "Play sounds", bundle: Localization.bundle)
         case .keepLastTranscription: return String(localized: "Keep last transcription", bundle: Localization.bundle)
         case .pasteLastShortcut: return String(localized: "Paste last transcription", bundle: Localization.bundle)
