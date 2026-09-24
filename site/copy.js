@@ -15,14 +15,13 @@ function icon(name) {
   }
   return svg;
 }
-document.querySelectorAll('.command').forEach((row) => {
-  const code = row.querySelector('code');
-  if (!code) return;
-  const command = code.textContent.trim();
+function copyButton(text, label, selectTarget) {
+  const command = text;
+  const code = selectTarget;
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'copy';
-  button.setAttribute('aria-label', 'Kopiera kommandot ' + command);
+  button.setAttribute('aria-label', label);
   button.append(icon('copy'));
   const status = document.createElement('span');
   status.className = 'visually-hidden';
@@ -36,20 +35,34 @@ document.querySelectorAll('.command').forEach((row) => {
   button.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(command);
-      show('done', 'Kommandot är kopierat.');
+      show('done', 'Kopierat.');
     } catch {
       const range = document.createRange();
       range.selectNodeContents(code);
       const selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      show('copy', 'Kommandot är markerat. Tryck Kommando C för att kopiera.');
+      show('copy', 'Markerat. Tryck Kommando C för att kopiera.');
     }
     clearTimeout(reset);
     reset = setTimeout(() => show('copy', ''), 1800);
   });
+  return [button, status];
+}
+
+document.querySelectorAll('.command').forEach((row) => {
+  const code = row.querySelector('code');
+  if (!code) return;
+  const command = code.textContent.trim();
   const wrap = document.createElement('div');
   wrap.className = 'cmd';
   row.before(wrap);
-  wrap.append(row, button, status);
+  wrap.append(row, ...copyButton(command, 'Kopiera kommandot ' + command, code));
+});
+
+document.querySelectorAll('[data-copy]').forEach((item) => {
+  const text = item.dataset.copy;
+  const [button, status] = copyButton(text, 'Kopiera ' + text, item.querySelector('code') || item);
+  button.classList.add('inline');
+  item.after(button, status);
 });

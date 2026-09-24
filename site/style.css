@@ -283,6 +283,8 @@ h2[id] { scroll-margin-top: 16px; }
 .copy.is-done { color: var(--accent); }
 .copy.is-done svg { animation: copy-pop 0.32s ease-out; }
 .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.copy.inline { display: inline-grid; width: 24px; height: 24px; margin-left: 2px; vertical-align: -0.35em; border-radius: 6px; }
+.copy.inline svg { width: 15px; height: 15px; }
 @keyframes copy-pop { 0% { transform: scale(0.6); opacity: 0.4; } 60% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .copy svg, .copy { transition: none; }
