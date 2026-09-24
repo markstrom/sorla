@@ -61,7 +61,7 @@ struct WelcomeView: View {
                 row(symbol: "mic.fill", title: "Microphone", description: "So Sorla can hear you.", status: microphone)
                 row(symbol: "accessibility", title: "Accessibility", description: "So Sorla can paste where you type.", status: accessibility)
                 if !accessibility.isDone {
-                    Text("If the switch is on but this doesn't turn green, quit and reopen Sorla.")
+                    Text("If the switch is on but this doesn't show a checkmark, quit and reopen Sorla.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 36)
