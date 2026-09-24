@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     private var didNotifyModelNotReady = false
     private var isRefusedDictationHeld = false
+    private var pendingAnnouncement: String?
 
     private static func waitForModifierRelease(timeout: Duration = .seconds(1)) async -> Bool {
         let deadline = ContinuousClock.now + timeout
@@ -119,11 +120,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.updateIcon(isRecording: isRecording)
         }
         recordingController.onPhaseChange = { [weak self] phase in
-            guard let indicator = self?.recordingIndicator else { return }
+            guard let self, let indicator = self.recordingIndicator else { return }
             switch phase {
             case .recording: indicator.showRecording()
             case .transcribing: indicator.showTranscribing()
-            case .idle: indicator.hide()
+            case .idle:
+                indicator.hide()
+                self.postPendingAnnouncement()
             }
         }
         recordingController.onSpectrum = { [weak self] spectrum in
@@ -407,8 +410,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             issueNotifier.notify(issue)
         }
         // A newer recording owns the indicator, and speech now would be picked up by the microphone.
-        guard !recordingController.isRecording else { return }
+        guard !recordingController.isRecording else {
+            pendingAnnouncement = text
+            return
+        }
         recordingIndicator.showCue(symbolName: cue.symbolName, label: text)
+        AccessibilityNotification.Announcement(text).post()
+    }
+
+    private func postPendingAnnouncement() {
+        guard let text = pendingAnnouncement else { return }
+        pendingAnnouncement = nil
         AccessibilityNotification.Announcement(text).post()
     }
 
