@@ -20,7 +20,8 @@ final class RecordingControllerDictationTests: XCTestCase {
             recorder: AudioRecorder(input: input, resampler: resampler),
             pasteEnvironment: paste,
             isMicrophoneAccessDenied: { false },
-            sleep: { await clock.sleep(for: $0) }
+            sleep: { await clock.sleep(for: $0) },
+            now: { clock.now }
         )
         controller.onCue = { [unowned self] in events.append("cue \($0.symbolName)") }
         controller.onIssue = { [unowned self] in events.append("issue \($0.menuTitle)") }
@@ -129,18 +130,19 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         await engine.finish(0, with: "A")
         await first.value
-        await clock.waitForSleeps(3)
+        // Sleep 3 restores A's clipboard, sleep 4 is B waiting for A's ⌘V to land.
+        await clock.waitForSleeps(4)
         XCTAssertEqual(paste.pastes, ["A"])
-        // B isn't written while A's ⌘V may still be waiting to be handled.
         XCTAssertEqual(paste.writes, ["A"])
         XCTAssertEqual(controller.lastTranscript(), "A")
 
         await clock.advance(by: settle)
-        await clock.waitForSleeps(4)
+        await clock.waitForSleeps(5)
         XCTAssertEqual(paste.pastes, ["A", "B"])
         XCTAssertEqual(controller.lastTranscript(), "B")
 
         await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
         await controller.deliveries?.value
         XCTAssertEqual(paste.events, ["write A", "paste A", "restore", "write B", "paste B", "restore"])
         XCTAssertEqual(controller.phase, .idle)
@@ -186,7 +188,6 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         await engine.finish(0, with: "A")
         await first.value
-        await clock.advance(by: settle)
         await controller.deliveries?.value
         XCTAssertEqual(paste.writes, ["B"])
         XCTAssertEqual(controller.lastTranscript(), "B")
@@ -227,22 +228,60 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(controller.lastTranscript(), "B")
     }
 
-    func testPasteLastWaitsUntilTheDictationsPasteHasLanded() async {
+    // MARK: - Only a pasteboard write waits for the previous ⌘V (#37)
+
+    func testTheFirstPasteDoesNotWaitAfterTheTail() async {
+        var pastedAt: ContinuousClock.Instant?
+        controller.onPaste = { [unowned self] in pastedAt = clock.now }
+        let released = clock.now
+
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertEqual(pastedAt.map { $0 - released }, tail)
+    }
+
+    func testACueOrFailureAfterAPasteIsNotHeldBack() async {
         let first = await dictate(call: 0)
+        let second = await dictate(call: 1)
+        let third = await dictate(call: 2)
+
         await engine.finish(0, with: "A")
         await first.value
+        await engine.finish(1, with: "")
+        await second.value
+        await engine.fail(2)
+        await third.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(events, ["pasted A", "cue \(DictationCue.noText.symbolName)", "issue \(SorlaIssue.transcriptionFailed.menuTitle)"])
+        XCTAssertEqual(controller.phase, .idle)
+    }
+
+    func testASecondPasteWaitsOnlyForWhatIsLeftOfTheGap() async {
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
         await clock.waitForSleeps(2)
         XCTAssertEqual(controller.phase, .idle)
 
+        await clock.advance(by: .milliseconds(200))
+        let sleepsBefore = clock.sleeps.count
         controller.pasteLastTranscript()
-        // Lets the request run as far as it can on the main actor before the clock moves.
-        for _ in 0..<5 { await Task.yield() }
+        await clock.waitForSleeps(sleepsBefore + 1)
+        XCTAssertEqual(clock.sleeps.last, settle - .milliseconds(200))
         XCTAssertEqual(paste.writes, ["A"])
-        await clock.advance(by: settle)
-        await clock.waitForSleeps(3)
-        await clock.advance(by: settle)
-        await controller.deliveries?.value
 
+        await clock.advance(by: settle - .milliseconds(200))
+        await controller.deliveries?.value
+        XCTAssertEqual(paste.pastes, ["A", "A"])
+
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
         XCTAssertEqual(paste.events, ["write A", "paste A", "restore", "write A", "paste A", "restore"])
     }
 
@@ -256,9 +295,8 @@ final class RecordingControllerDictationTests: XCTestCase {
         await second.value
 
         await clock.waitForSleeps(3)
+        XCTAssertEqual(clock.sleeps.last, settle)
         XCTAssertEqual(paste.writes, ["A"])
-        await clock.advance(by: settle)
-        await clock.waitForSleeps(4)
         await clock.advance(by: settle)
         await controller.deliveries?.value
 
@@ -269,19 +307,25 @@ final class RecordingControllerDictationTests: XCTestCase {
 
     private var modifiersHeld = true
 
+    private var firstPoll = 0
+
     private func deliverOneDictation(_ text: String) async {
         let job = await dictate(call: 0)
         await engine.finish(0, with: text)
         await job.value
-        await clock.waitForSleeps(2)
-        await clock.advance(by: settle)
         await controller.deliveries?.value
+        // Sleep 1 was the tail; sleep 2 puts back the clipboard, when there is one to put back.
+        if controller.keepClipboardContent {
+            await clock.waitForSleeps(2)
+        }
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
         events = []
     }
 
-    // Sleeps 1 and 2 were the dictation's tail and settle; the first poll for the keys is sleep 3.
     private func pasteLastWithTheShortcut() async {
         let clock = self.clock
+        firstPoll = clock.sleeps.count + 1
         controller.pasteLastTranscript(after: {
             await ModifierRelease.wait(
                 isHeld: { [unowned self] in self.modifiersHeld },
@@ -289,7 +333,7 @@ final class RecordingControllerDictationTests: XCTestCase {
                 sleep: { await clock.sleep(for: $0) }
             )
         })
-        await clock.waitForSleeps(3)
+        await clock.waitForSleeps(firstPoll)
     }
 
     func testPasteLastPastesOnceTheShortcutsKeysAreLetGo() async {
@@ -298,16 +342,17 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         modifiersHeld = false
         await clock.advance(by: ModifierRelease.pollInterval)
-        await clock.waitForSleeps(4)
+        await clock.waitForSleeps(firstPoll + 1)
         XCTAssertEqual(paste.pastes, ["A", "A"])
 
         await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
         await controller.deliveries?.value
     }
 
     private func holdTheKeysPastTheDeadline() async {
         for poll in 0..<50 {
-            await clock.waitForSleeps(3 + poll)
+            await clock.waitForSleeps(firstPoll + poll)
             await clock.advance(by: ModifierRelease.pollInterval)
         }
         await controller.deliveries?.value

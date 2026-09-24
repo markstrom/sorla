@@ -8,6 +8,7 @@ public final class RecordingController {
     private let inputDeviceState: InputDeviceStateReading
     private let isMicrophoneAccessDenied: @MainActor () -> Bool
     private let sleep: @MainActor (Duration) async -> Void
+    private let now: @MainActor () -> ContinuousClock.Instant
     private let modelName: String
     public let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.sorla.app", category: "RecordingController")
@@ -57,6 +58,8 @@ public final class RecordingController {
     private var deliveryOrder = DeliveryOrder<FinishedDictation>()
     private(set) var dictationJobs: [Int: Task<Void, Never>] = [:]
     private(set) var deliveries: Task<Void, Never>?
+    private var lastPasteAt: ContinuousClock.Instant?
+    private(set) var clipboardRestore: Task<Void, Never>?
 
     public init(
         engine: TranscriptionEngine,
@@ -66,7 +69,8 @@ public final class RecordingController {
         recorder: AudioRecorder = AudioRecorder(),
         pasteEnvironment: PasteEnvironment = SystemPasteEnvironment(),
         isMicrophoneAccessDenied: @escaping @MainActor () -> Bool = { PermissionsManager.isMicrophoneAccessDenied() },
-        sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+        sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        now: @escaping @MainActor () -> ContinuousClock.Instant = { .now }
     ) {
         self.engine = engine
         self.inputDeviceState = inputDeviceState
@@ -74,6 +78,7 @@ public final class RecordingController {
         self.pasteEnvironment = pasteEnvironment
         self.isMicrophoneAccessDenied = isMicrophoneAccessDenied
         self.sleep = sleep
+        self.now = now
         self.modelName = modelName
         self.tailDuration = tailDuration
         setUpForwarding()
@@ -325,7 +330,7 @@ public final class RecordingController {
         }
     }
 
-    // Everything that touches the pasteboard runs one after another, each ⌘V given time to land before the next write.
+    // Results and Paste Last are handled one after another, in order; only a pasteboard write waits for the last ⌘V.
     @discardableResult
     private func enqueueDelivery(_ work: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
         let previous = deliveries
@@ -341,6 +346,9 @@ public final class RecordingController {
     private func deliver(_ finished: FinishedDictation) async {
         let dictationID = finished.id
         defer { updatePhase { $0.finish(dictationID) } }
+        if case .text = finished.result {
+            await waitForThePreviousPasteToLand()
+        }
         guard recentTranscript.accepts(from: finished.generation) else {
             logger.info("transcription dropped (the Mac locked, slept or switched user)")
             return
@@ -367,7 +375,7 @@ public final class RecordingController {
             let outcome = issuePaste(text)
             updatePhase { $0.finish(dictationID) }
             logger.info("\(self.modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(finished.released)), privacy: .public) pasted=\(outcome.pasted, privacy: .public): \(text, privacy: .private)")
-            await settleClipboard(outcome)
+            restoreClipboard(after: outcome)
         }
     }
 
@@ -420,6 +428,9 @@ public final class RecordingController {
                 return
             }
             await self.enqueueDelivery {
+                if preparation == .ready {
+                    await self.waitForThePreviousPasteToLand()
+                }
                 guard self.recentTranscript.accepts(from: generation), token == self.pasteLastToken else {
                     self.logger.info("paste-last skipped (the text was forgotten)")
                     return
@@ -436,7 +447,7 @@ public final class RecordingController {
                 }
                 let outcome = self.issuePaste(text)
                 self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
-                await self.settleClipboard(outcome)
+                self.restoreClipboard(after: outcome)
             }.value
         }
     }
@@ -466,6 +477,7 @@ public final class RecordingController {
         }
         let pasted = pasteEnvironment.paste()
         if pasted {
+            lastPasteAt = now()
             onPaste?()
         } else {
             onIssue?(.accessibilityAccessNeeded)
@@ -473,32 +485,42 @@ public final class RecordingController {
         return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)
     }
 
-    // Waits until the paste has had time to land, then restores the user's clipboard unless it was superseded or changed.
-    private func settleClipboard(_ outcome: PasteOutcome) async {
-        guard outcome.pasted else {
-            if let generation = outcome.generation {
-                clipboardOwnership.cancel(generation: generation)
-                logger.info("clipboard kept (not pasted)")
+    // The app reads the pasteboard only when it handles the ⌘V, so nothing may be written before then.
+    private func waitForThePreviousPasteToLand() async {
+        if let lastPasteAt {
+            let remaining = Self.pasteSettleTime - (now() - lastPasteAt)
+            if remaining > .zero {
+                await sleep(remaining)
             }
+        }
+        await clipboardRestore?.value
+    }
+
+    // Once the paste has had time to land, puts back the user's clipboard unless it was superseded or changed.
+    private func restoreClipboard(after outcome: PasteOutcome) {
+        guard let generation = outcome.generation else { return }
+        guard outcome.pasted else {
+            clipboardOwnership.cancel(generation: generation)
+            logger.info("clipboard kept (not pasted)")
             return
         }
-        // The app reads the pasteboard only when it handles the ⌘V, so nothing may be written before then.
-        await sleep(Self.pasteSettleTime)
-        guard let generation = outcome.generation else { return }
-        switch clipboardOwnership.finish(generation: generation) {
-        case .skip:
-            logger.info("clipboard kept (superseded)")
-        case .evaluate(let original):
-            if PasteService.shouldRestoreClipboard(
-                keepSetting: outcome.keepClipboardContent,
-                pasteDelivered: outcome.pasted,
-                changeCountAfterWrite: outcome.changeCountAfterWrite,
-                currentChangeCount: pasteEnvironment.changeCount
-            ) {
-                pasteEnvironment.restore(original)
-                logger.info("clipboard restored")
-            } else {
-                logger.info("clipboard kept (clipboard changed)")
+        clipboardRestore = Task { @MainActor in
+            await self.sleep(Self.pasteSettleTime)
+            switch self.clipboardOwnership.finish(generation: generation) {
+            case .skip:
+                self.logger.info("clipboard kept (superseded)")
+            case .evaluate(let original):
+                if PasteService.shouldRestoreClipboard(
+                    keepSetting: outcome.keepClipboardContent,
+                    pasteDelivered: outcome.pasted,
+                    changeCountAfterWrite: outcome.changeCountAfterWrite,
+                    currentChangeCount: self.pasteEnvironment.changeCount
+                ) {
+                    self.pasteEnvironment.restore(original)
+                    self.logger.info("clipboard restored")
+                } else {
+                    self.logger.info("clipboard kept (clipboard changed)")
+                }
             }
         }
     }
