@@ -458,19 +458,20 @@ final class RecordingControllerDictationTests: XCTestCase {
 
     // MARK: - VoiceOver waits for the microphone (#17)
 
+    private var voiceOver = true
+    private var announced: [(text: String, microphoneRunning: Bool)] = []
+
+    // Wired the way the app wires it, posting to a list instead of to VoiceOver.
+    private func makeAnnouncer() -> DictationAnnouncer {
+        DictationAnnouncer(
+            controller: controller,
+            isVoiceOverEnabled: { [unowned self] in voiceOver },
+            post: { [unowned self] in announced.append(($0, input.isRunning)) }
+        )
+    }
+
     func testAResultArrivingDuringTheNextRecordingsTailIsAnnouncedOnlyOnceTheMicrophoneHasClosed() async {
-        var gate = AnnouncementGate()
-        var announced: [(text: String, microphoneRunning: Bool)] = []
-        controller.onPaste = { [unowned self] in
-            if let text = gate.request("Pasting text", isMicrophoneOpen: self.controller.isMicrophoneOpen) {
-                announced.append((text, self.input.isRunning))
-            }
-        }
-        controller.onMicrophoneClosed = { [unowned self] in
-            if let text = gate.microphoneClosed() {
-                announced.append((text, self.input.isRunning))
-            }
-        }
+        let announcer = makeAnnouncer()
         let first = await dictate(call: 0)
         record()
         controller.stopRecordingAndTranscribe()
@@ -480,7 +481,7 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         await engine.finish(0, with: "A")
         await first.value
-        await clock.waitForSleeps(3)
+        await controller.deliveries?.value
         XCTAssertEqual(paste.pastes, ["A"])
         XCTAssertTrue(announced.isEmpty)
 
@@ -488,6 +489,29 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertFalse(controller.isMicrophoneOpen)
         XCTAssertEqual(announced.map(\.text), ["Pasting text"])
         XCTAssertEqual(announced.map(\.microphoneRunning), [false])
+        withExtendedLifetime(announcer) {}
+    }
+
+    func testACueWhileTheMicrophoneIsClosedIsAnnouncedAtOnce() {
+        let announcer = makeAnnouncer()
+
+        announcer.announce("Nothing heard")
+
+        XCTAssertEqual(announced.map(\.text), ["Nothing heard"])
+    }
+
+    func testWithoutVoiceOverAPasteIsNotAnnounced() async {
+        voiceOver = false
+        let announcer = makeAnnouncer()
+
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertTrue(announced.isEmpty)
+        withExtendedLifetime(announcer) {}
     }
 
     // MARK: - Keep last transcription (#40)

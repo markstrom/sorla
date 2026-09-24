@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isRefusedDictationHeld = false
     private var isStartingRecording = false
     private var startFailure: DictationCue?
-    private var announcements = AnnouncementGate()
+    private var announcer: DictationAnnouncer!
     private let recordingLimit = RecordingLimitWatch()
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
@@ -152,14 +152,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onCue = { [weak self] cue in
             self?.presentCue(cue)
         }
-        recordingController.onPaste = { [weak self] in
-            // Only VoiceOver needs telling, and only that ⌘V was sent: that doesn't prove the text landed.
-            guard NSWorkspace.shared.isVoiceOverEnabled else { return }
-            self?.announce(String(localized: "Pasting text"))
-        }
-        recordingController.onMicrophoneClosed = { [weak self] in
-            self?.postPendingAnnouncement()
-        }
+        announcer = DictationAnnouncer(
+            controller: recordingController,
+            isVoiceOverEnabled: { NSWorkspace.shared.isVoiceOverEnabled },
+            post: { AccessibilityNotification.Announcement($0).post() }
+        )
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
@@ -629,13 +626,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func announce(_ text: String) {
-        guard let text = announcements.request(text, isMicrophoneOpen: recordingController.isMicrophoneOpen) else { return }
-        AccessibilityNotification.Announcement(text).post()
-    }
-
-    private func postPendingAnnouncement() {
-        guard let text = announcements.microphoneClosed() else { return }
-        AccessibilityNotification.Announcement(text).post()
+        announcer.announce(text)
     }
 
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
