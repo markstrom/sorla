@@ -42,7 +42,7 @@ public final class AppSettings: ObservableObject {
         didSet { defaults.set(autoCheckUpdates, forKey: Keys.autoCheckUpdates) }
     }
 
-    // Applies to the model only until the app can install its own updates (#29).
+    // Covers both the app and the model; the app installs itself only when checks are automatic too.
     @Published public var autoInstallUpdates: Bool {
         didSet { defaults.set(autoInstallUpdates, forKey: Keys.autoInstallUpdates) }
     }

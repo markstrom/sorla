@@ -4,6 +4,8 @@ public enum MenuStatusAction: Equatable, Sendable {
     case showWelcome
     case downloadModel
     case downloadApp
+    case installApp
+    case showUpdates
     case reloadModel
     case openSettings
     case openSoundSettings
@@ -31,6 +33,12 @@ public struct TransientMenuStatus: Equatable, Sendable {
             return nil
         }
         self.row = MenuStatusRow(title: issue.menuTitle, action: action)
+        self.shownAt = shownAt
+    }
+
+    // Said once after Sorla relaunched into a version it installed itself.
+    public init(updatedTo version: String, at shownAt: Date) {
+        self.row = MenuStatusRow(title: String(localized: "Sorla was updated to \(version)", bundle: Localization.bundle), action: .dismiss)
         self.shownAt = shownAt
     }
 
@@ -63,7 +71,7 @@ public struct MenuStatusRow: Equatable, Sendable {
         appReplaced: Bool = false,
         canRestart: Bool = true,
         transient: TransientMenuStatus? = nil,
-        appUpdate: String? = nil,
+        appUpdate: AppUpdateOffer? = nil,
         now: Date = Date()
     ) -> MenuStatusRow? {
         if microphoneDenied {
@@ -104,7 +112,7 @@ public struct MenuStatusRow: Equatable, Sendable {
             return retry(.modelUpdateFailed)
         }
         if let appUpdate {
-            return MenuStatusRow(title: String(localized: "Sorla \(appUpdate) is available — Download", bundle: Localization.bundle), action: .downloadApp)
+            return appUpdate.menuRow
         }
         if case .updateAvailable(let version) = model {
             return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)

@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recordingController: RecordingController!
     private var modelManager: ModelManager!
     private var updateChecker: UpdateChecker!
+    private var appUpdater: AppUpdater!
+    private let relauncher = SystemAppRelauncher()
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
     private var settingsWindowController: SettingsWindowController?
@@ -90,6 +92,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         )
 
+        let bundleURL = Bundle.main.bundleURL
+        appUpdater = AppUpdater(
+            installer: AppInstaller(
+                bundleURL: bundleURL,
+                runningVersion: AppVersion.short,
+                downloader: URLSessionAppUpdateDownloader(),
+                mounter: HdiutilDiskImageMounter(),
+                signatures: SecurityAppSignatureChecker(),
+                files: SystemAppFileOperations()
+            ),
+            location: AppInstallLocation.current(bundleURL: bundleURL),
+            relauncher: relauncher,
+            journal: AppInstallJournal(),
+            automaticChecks: appSettings.autoCheckUpdates,
+            automaticInstalls: appSettings.autoInstallUpdates,
+            activity: { [weak self] in self?.recordingController.activity ?? .quiet },
+            terminate: {
+                NSApp.terminate(nil)
+                return false
+            }
+        )
+
         NSApp.mainMenu = MainMenu.make(target: self, about: #selector(showAbout), settings: #selector(showSettings))
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -147,6 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .idle:
                 indicator.hide()
             }
+            self.appUpdater.dictationActivityChanged()
             self.updateIcon()
             self.updateStatusMenuItem()
         }
@@ -294,12 +319,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
+        updateChecker.onAppCheckFinished = { [weak self] automatic in
+            guard let self else { return }
+            self.appUpdater.updateFound(self.updateChecker.pinnedRelease, automatic: automatic)
+        }
+        appUpdater.$state
+            .removeDuplicates()
+            .sink { [weak self] state in
+                self?.updateStatusMenuItem(install: state)
+            }
+            .store(in: &cancellables)
+        appUpdater.onUpdated = { [weak self] version in
+            // Same path and signature, so Accessibility should carry over; if not, the menu and Welcome ask for it.
+            Self.logger.info("updated to \(version, privacy: .public); accessibility trusted: \(PermissionsManager.isAccessibilityTrusted(), privacy: .public)")
+            self?.transientStatus = TransientMenuStatus(updatedTo: version, at: Date())
+            self?.updateStatusMenuItem()
+        }
+        appUpdater.start()
+
         appSettings.$autoCheckUpdates
             .dropFirst()
             .removeDuplicates()
             .sink { [weak self] enabled in
                 self?.updateChecker.automaticChecks = enabled
                 self?.modelManager.automaticChecks = enabled
+                self?.appUpdater.automaticChecks = enabled
             }
             .store(in: &cancellables)
 
@@ -308,6 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .removeDuplicates()
             .sink { [weak self] enabled in
                 self?.modelManager.automaticDownloads = enabled
+                self?.appUpdater.automaticInstalls = enabled
             }
             .store(in: &cancellables)
 
@@ -344,6 +389,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 appSettings: appSettings,
                 modelManager: modelManager,
                 updateChecker: updateChecker,
+                appUpdater: appUpdater,
                 announce: { [weak self] text in self?.announce(text) }
             )
             controller.onKeyStateChange = { [weak self] isKey in
@@ -450,6 +496,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelManager.downloadModel()
         case .downloadApp:
             NSWorkspace.shared.open(AppUpdateCheck.downloadPageURL)
+        case .installApp:
+            if let pin = updateChecker.pinnedRelease { appUpdater.install(pin) }
+        case .showUpdates:
+            showSettings()
+            settingsWindowController?.revealUpdates()
         case .reloadModel:
             modelManager.retryLoadingModel()
         case .openSettings:
@@ -516,22 +567,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    // The helper waits for this process to exit before opening the new copy.
+    // The helper waits for this process to exit before opening the new copy; if quitting is called off, so is the helper.
     private func restart() {
-        Self.logger.info("restart requested for \(Bundle.main.bundleURL.path, privacy: .public)")
-        let helper = Process()
-        helper.executableURL = AppRelaunch.shell
-        helper.arguments = AppRelaunch.arguments(
-            waitingFor: ProcessInfo.processInfo.processIdentifier,
-            thenOpen: Bundle.main.bundleURL
-        )
+        Self.logger.info("restart requested")
         do {
-            try helper.run()
+            try relauncher.start(waitingFor: ProcessInfo.processInfo.processIdentifier, thenOpen: Bundle.main.bundleURL, expectedVersion: nil)
         } catch {
-            Self.logger.error("restart failed: \(error.localizedDescription, privacy: .public)")
+            Self.logger.error("restart failed: \(ErrorSummary.of(error), privacy: .public)")
             return
         }
         NSApp.terminate(nil)
+        relauncher.cancel()
     }
 
     private func endDictationAndForget() {
@@ -625,7 +671,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // @Published fires before the property changes, so the status sinks pass the new value in.
-    private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil) {
+    private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil, install: AppInstallState? = nil) {
         let now = Date()
         if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
         let row = MenuStatusRow.current(
@@ -637,7 +683,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appReplaced: appReplacement.isReplaced,
             canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL),
             transient: transientStatus,
-            appUpdate: (appStatus ?? updateChecker.appStatus).availableVersion,
+            appUpdate: AppUpdateOffer.make(
+                status: appStatus ?? updateChecker.appStatus,
+                pin: updateChecker.pinnedRelease,
+                install: install ?? appUpdater.state,
+                location: appUpdater.location
+            ),
             now: now
         )
         statusMenuAction = row?.action

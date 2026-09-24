@@ -175,8 +175,25 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(UpdateRow.model(.updateAvailable(version: "1.1.0")).text, "1.1.0 finns")
             XCTAssertEqual(UpdateRow.app(.checking).text, "Söker…")
             XCTAssertEqual(
-                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appUpdate: "1.2.0")?.title,
+                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appUpdate: .download(version: "1.2.0"))?.title,
                 "Sorla 1.2.0 finns – Ladda ner"
+            )
+        }
+        try Localization.$bundle.withValue(swedish) {
+            let menu = { (offer: AppUpdateOffer) in
+                MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appUpdate: offer)?.title
+            }
+            XCTAssertEqual(menu(.install(version: "1.2.0")), "Sorla 1.2.0 finns – Installera och starta om")
+            XCTAssertEqual(menu(.homebrew(version: "1.2.0")), "Sorla 1.2.0 finns – Uppdatera med Homebrew")
+            XCTAssertEqual(menu(.installing(version: "1.2.0")), "Installerar Sorla 1.2.0…")
+            XCTAssertEqual(menu(.failed(version: "1.2.0", .download)), "Kunde inte installera Sorla 1.2.0 – Ladda ner")
+            XCTAssertEqual(TransientMenuStatus(updatedTo: "1.2.0", at: Date()).row.title, "Sorla uppdaterades till 1.2.0")
+            XCTAssertEqual(UpdateRow.app(.available(version: "1.2.0"), offer: .homebrew(version: "1.2.0")).note, "Uppdatera med Homebrew: brew upgrade --cask sorla")
+            XCTAssertEqual(UpdateRow.app(.available(version: "1.2.0"), offer: .installing(version: "1.2.0")).text, "Installerar…")
+            XCTAssertEqual(AppInstallFailure.verification.message, "Uppdateringen kunde inte kontrolleras, så Sorla har inte ändrats. Ladda ner den från GitHub i stället.")
+            XCTAssertEqual(
+                AppUpdateOffer.make(status: .available(version: "1.2.0"), pin: nil, install: .idle, location: .translocated),
+                .download(version: "1.2.0", note: "Avsluta Sorla och öppna den från Program för att kunna installera uppdateringar inifrån Sorla.")
             )
         }
         let swedishStrings = try strings("sv")
@@ -187,6 +204,7 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(swedishStrings["Try downloading the model again"], "Försök ladda ner modellen igen")
         XCTAssertEqual(swedishStrings["Check for updates automatically"], "Sök efter uppdateringar automatiskt")
         XCTAssertEqual(swedishStrings["Install updates automatically"], "Installera uppdateringar automatiskt")
+        XCTAssertEqual(swedishStrings["Install and Relaunch"], "Installera och starta om")
     }
 
     // Sorla only knows it sent ⌘V, so VoiceOver hears the attempt, not a confirmed paste.

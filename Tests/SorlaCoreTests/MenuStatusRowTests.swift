@@ -11,7 +11,7 @@ final class MenuStatusRowTests: XCTestCase {
         appReplaced: Bool = false,
         canRestart: Bool = true,
         transient: TransientMenuStatus? = nil,
-        appUpdate: String? = nil,
+        appUpdate: AppUpdateOffer? = nil,
         now: Date = MenuStatusRowTests.shownAt
     ) -> MenuStatusRow? {
         MenuStatusRow.current(
@@ -165,21 +165,36 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     func testANewerAppVersionOffersTheDownload() {
-        XCTAssertEqual(row(appUpdate: "1.1.0"), MenuStatusRow(title: "Sorla 1.1.0 is available — Download", action: .downloadApp))
+        XCTAssertEqual(row(appUpdate: .download(version: "1.1.0")), MenuStatusRow(title: "Sorla 1.1.0 is available — Download", action: .downloadApp))
     }
 
     func testTheAppUpdateComesJustBeforeTheModelUpdate() {
-        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), appUpdate: "1.2.0")?.action, .downloadApp)
-        XCTAssertEqual(row(model: .failed(.network, isUpdate: true), appUpdate: "1.2.0")?.action, .downloadModel)
-        XCTAssertEqual(row(transient: muted, appUpdate: "1.2.0"), muted?.row)
-        XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), appUpdate: "1.2.0")?.action, .openSettings)
-        XCTAssertEqual(row(modelLoading: true, appUpdate: "1.2.0")?.action, .openSettings)
-        XCTAssertEqual(row(accessibilityMissing: true, appUpdate: "1.2.0")?.action, .showWelcome)
-        XCTAssertEqual(row(modelLoadFailed: true, appUpdate: "1.2.0"), .modelLoadFailed)
+        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), appUpdate: .download(version: "1.2.0"))?.action, .downloadApp)
+        XCTAssertEqual(row(model: .failed(.network, isUpdate: true), appUpdate: .download(version: "1.2.0"))?.action, .downloadModel)
+        XCTAssertEqual(row(transient: muted, appUpdate: .download(version: "1.2.0")), muted?.row)
+        XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), appUpdate: .download(version: "1.2.0"))?.action, .openSettings)
+        XCTAssertEqual(row(modelLoading: true, appUpdate: .download(version: "1.2.0"))?.action, .openSettings)
+        XCTAssertEqual(row(accessibilityMissing: true, appUpdate: .download(version: "1.2.0"))?.action, .showWelcome)
+        XCTAssertEqual(row(modelLoadFailed: true, appUpdate: .download(version: "1.2.0")), .modelLoadFailed)
     }
 
     func testAnExpiredExplanationMakesWayForTheAppUpdate() {
-        XCTAssertEqual(row(transient: muted, appUpdate: "1.2.0", now: Self.shownAt.addingTimeInterval(TransientMenuStatus.lifetime))?.action, .downloadApp)
+        XCTAssertEqual(row(transient: muted, appUpdate: .download(version: "1.2.0"), now: Self.shownAt.addingTimeInterval(TransientMenuStatus.lifetime))?.action, .downloadApp)
+    }
+
+    // MARK: - Install and Relaunch (#29)
+
+    func testTheMenuOffersInstallAndRelaunch() {
+        XCTAssertEqual(row(appUpdate: .install(version: "1.1.0")), MenuStatusRow(title: "Sorla 1.1.0 is available — Install and Relaunch", action: .installApp))
+        XCTAssertEqual(row(appUpdate: .homebrew(version: "1.1.0")), MenuStatusRow(title: "Sorla 1.1.0 is available — Update with Homebrew", action: .showUpdates))
+        XCTAssertEqual(row(appUpdate: .installing(version: "1.1.0")), MenuStatusRow(title: "Installing Sorla 1.1.0…", action: .showUpdates))
+        XCTAssertEqual(row(appUpdate: .failed(version: "1.1.0", .verification)), MenuStatusRow(title: "Couldn't install Sorla 1.1.0 — Download", action: .downloadApp))
+    }
+
+    func testAfterAnUpdateTheMenuSaysSoForAWhile() {
+        let updated = TransientMenuStatus(updatedTo: "1.1.0", at: Self.shownAt)
+        XCTAssertEqual(row(transient: updated), MenuStatusRow(title: "Sorla was updated to 1.1.0", action: .dismiss))
+        XCTAssertNil(row(transient: updated, now: Self.shownAt.addingTimeInterval(TransientMenuStatus.lifetime)))
     }
 
     // MARK: - Replaced on disk (#7)
@@ -203,7 +218,7 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(row(appReplaced: true, transient: clipboard)?.action, .restart)
         XCTAssertEqual(row(modelLoadFailed: true, appReplaced: true)?.action, .restart)
         XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), appReplaced: true)?.action, .restart)
-        XCTAssertEqual(row(appReplaced: true, appUpdate: "1.2.0")?.action, .restart)
+        XCTAssertEqual(row(appReplaced: true, appUpdate: .download(version: "1.2.0"))?.action, .restart)
         XCTAssertEqual(row(microphoneDenied: true, appReplaced: true)?.action, .showWelcome)
         XCTAssertEqual(row(accessibilityMissing: true, appReplaced: true)?.action, .showWelcome)
     }
