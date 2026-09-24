@@ -89,4 +89,22 @@ final class TriggerEdgeTests: XCTestCase {
         XCTAssertFalse(TriggerKey.fn.hasReliableKeyState)
         XCTAssertTrue(TriggerKey.rightCommand.hasReliableKeyState)
     }
+
+    func testAClickCarryingTheTriggerFlagCountsAsHeldEvenIfTheKeyStateSaysUp() {
+        // Seen on real hardware: a click during a Right ⌘ hold with the key state reporting "up".
+        XCTAssertTrue(TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: true))
+        XCTAssertFalse(TriggerEdge.releaseMissed(
+            isWaitingForRelease: true,
+            isKeyPhysicallyDown: { TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: true) }
+        ))
+    }
+
+    func testAReleaseIsMissedOnlyWhenBothSourcesSayUp() {
+        XCTAssertTrue(TriggerEdge.releaseMissed(
+            isWaitingForRelease: true,
+            isKeyPhysicallyDown: { TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: false) }
+        ))
+        XCTAssertFalse(TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: false))
+        XCTAssertTrue(TriggerEdge.isTriggerDown(keyState: true, eventHasTriggerFlag: false))
+    }
 }

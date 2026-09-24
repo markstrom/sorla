@@ -33,6 +33,11 @@ public enum TriggerEdge: Equatable, Sendable {
         isWaitingForRelease && trustsKeyState && !isKeyPhysicallyDown()
     }
 
+    // Down if either source says so: a missed release is delivered only when both agree the key is up.
+    public static func isTriggerDown(keyState: Bool, eventHasTriggerFlag: Bool) -> Bool {
+        keyState || eventHasTriggerFlag
+    }
+
     public static let escapeKeyCode: UInt16 = 53
 
     public static let releaseRecheckDelay: Duration = .milliseconds(100)
@@ -252,7 +257,9 @@ public final class TriggerMonitor {
             if event.keyCode == TriggerEdge.escapeKeyCode, !event.isARepeat { handle(.escape) }
             return
         }
-        let isTriggerDown = { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
+        // The key state alone can report Right ⌘ as up while it is held, so the event's own modifier flags count as well.
+        let eventHasTriggerFlag = trigger.deviceMask.map { event.modifierFlags.rawValue & $0 != 0 } ?? false
+        let isTriggerDown = { TriggerEdge.isTriggerDown(keyState: CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)), eventHasTriggerFlag: eventHasTriggerFlag) }
         switch event.type {
         case .keyDown:
             if event.keyCode == TriggerEdge.escapeKeyCode {
