@@ -141,3 +141,10 @@
 "Runs the model with Core ML. Apache License 2.0." = "Runs the model with Core ML. Apache License 2.0.";
 "Custom keyboard shortcuts. MIT License." = "Custom keyboard shortcuts. MIT License.";
 "Check for Updates" = "Check for Updates";
+
+/* Dictation cues */
+"Nothing heard" = "Nothing heard";
+"No text" = "No text";
+"Microphone seems to be muted" = "Microphone seems to be muted";
+"Your text is on the clipboard — press %@" = "Your text is on the clipboard — press %@";
+"The microphone seems to be muted. Check System Settings › Sound › Input." = "The microphone seems to be muted. Check System Settings › Sound › Input.";

@@ -1,3 +1,4 @@
+import Accessibility
 import AppKit
 import Combine
 import KeyboardShortcuts
@@ -127,6 +128,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         recordingController.onSpectrum = { [weak self] spectrum in
             self?.recordingIndicator.updateSpectrum(spectrum)
+        }
+        recordingController.onMicrophoneMutedChange = { [weak self] isMuted in
+            self?.recordingIndicator.setMicrophoneMuted(isMuted)
+        }
+        recordingController.onCue = { [weak self] cue in
+            self?.presentCue(cue)
         }
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
@@ -391,6 +398,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         updateStatusMenuItem()
         issueNotifier.notify(issue)
+    }
+
+    private func presentCue(_ cue: DictationCue) {
+        let pasteShortcut = KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
+        let text = cue.announcement(pasteShortcut: pasteShortcut)
+        if let issue = cue.issue(pasteShortcut: pasteShortcut) {
+            issueNotifier.notify(issue)
+        }
+        // A newer recording owns the indicator, and speech now would be picked up by the microphone.
+        guard !recordingController.isRecording else { return }
+        recordingIndicator.showCue(symbolName: cue.symbolName, label: text)
+        AccessibilityNotification.Announcement(text).post()
     }
 
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {

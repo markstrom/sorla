@@ -67,15 +67,17 @@ struct IslandLayout: Equatable {
     }
 }
 
-enum IndicatorMode {
+enum IndicatorMode: Equatable {
     case recording
     case transcribing
+    case cue(symbolName: String, label: String)
 }
 
 @MainActor
 final class RecordingIndicatorViewModel: ObservableObject {
     @Published private(set) var bands = SIMD8<Float>(repeating: 0)
     @Published private(set) var mode = IndicatorMode.recording
+    @Published private(set) var isMicrophoneMuted = false
     @Published private(set) var isVisible = false
     @Published private(set) var isExpanded = false
     @Published private(set) var isShapeVisible = false
@@ -91,6 +93,10 @@ final class RecordingIndicatorViewModel: ObservableObject {
 
     func setMode(_ mode: IndicatorMode) {
         self.mode = mode
+    }
+
+    func setMicrophoneMuted(_ muted: Bool) {
+        isMicrophoneMuted = muted
     }
 
     func setVisible(_ visible: Bool) {
@@ -120,6 +126,7 @@ final class RecordingIndicatorViewModel: ObservableObject {
     func reset() {
         smoother = BandSmoother()
         bands = SIMD8(repeating: 0)
+        isMicrophoneMuted = false
     }
 }
 
@@ -170,7 +177,20 @@ struct RecordingIndicatorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(viewModel.mode == .transcribing ? Text("Transcribing") : Text("Recording"))
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: Text {
+        switch viewModel.mode {
+        case .transcribing:
+            return Text("Transcribing")
+        case .cue(_, let label):
+            return Text(verbatim: label)
+        case .recording:
+            return viewModel.isMicrophoneMuted
+                ? Text(verbatim: DictationCue.microphoneMuted.announcement(pasteShortcut: nil))
+                : Text("Recording")
+        }
     }
 
     @ViewBuilder
@@ -180,33 +200,57 @@ struct RecordingIndicatorView: View {
                 statusIndicator(time: time)
                     .frame(width: layout.sideWidth, alignment: .center)
                 Color.clear.frame(width: layout.notchWidth)
-                bars(time: time, barCount: IslandLayout.notchBarCount, maxHeight: layout.maxBarHeight)
+                barsOrCue(time: time, barCount: IslandLayout.notchBarCount, maxHeight: layout.maxBarHeight)
                     .frame(width: layout.sideWidth, alignment: .center)
             }
         } else {
             HStack(spacing: 0) {
                 statusIndicator(time: time)
                 Spacer(minLength: 0)
-                bars(time: time, barCount: compactBarCount, maxHeight: layout.maxBarHeight)
+                barsOrCue(time: time, barCount: compactBarCount, maxHeight: layout.maxBarHeight)
             }
             .padding(.horizontal, edgePadding)
         }
     }
 
-    // Pulsing red dot while recording; transcribing swaps it for a spinner in the same spot.
+    // Pulsing red dot while recording, a muted mic if the input is silent; transcribing swaps in a spinner.
     private func statusIndicator(time: TimeInterval) -> some View {
         ZStack {
-            if viewModel.mode == .transcribing {
+            switch viewModel.mode {
+            case .transcribing:
                 ProgressView()
                     .progressViewStyle(.circular)
                     .controlSize(.small)
                     .tint(.white)
                     .environment(\.colorScheme, .dark)
-            } else {
+            case .recording where viewModel.isMicrophoneMuted:
+                symbol("mic.slash", color: .red)
+            case .recording:
                 recordDot(time: time)
+            case .cue:
+                Color.clear
             }
         }
         .frame(width: IslandLayout.notchStatusSize, height: IslandLayout.notchStatusSize)
+        .animation(viewModel.reduceMotion ? nil : .easeInOut(duration: 0.2), value: viewModel.isMicrophoneMuted)
+    }
+
+    private func symbol(_ name: String, color: Color) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(color)
+            .frame(width: IslandLayout.notchStatusSize, height: IslandLayout.notchStatusSize)
+    }
+
+    // A cue replaces the bars with one symbol, so it fits the narrow notch side as well as the pill.
+    @ViewBuilder
+    private func barsOrCue(time: TimeInterval, barCount: Int, maxHeight: CGFloat) -> some View {
+        if case .cue(let symbolName, _) = viewModel.mode {
+            symbol(symbolName, color: .white)
+                .frame(height: maxHeight)
+        } else {
+            bars(time: time, barCount: barCount, maxHeight: maxHeight)
+        }
     }
 
     private func recordDot(time: TimeInterval) -> some View {
@@ -250,6 +294,9 @@ final class RecordingIndicatorPanel: NSPanel {
     private let viewModel = RecordingIndicatorViewModel()
     private var presentationID = 0
     private var isPresented = false
+    private var cueID = 0
+    private var isShowingCue = false
+    private var modeAfterCue: IndicatorMode?
 
     private static let expandAnimation = Animation.spring(response: 0.35, dampingFraction: 0.75)
     private static let contentFadeIn = Animation.easeOut(duration: 0.18).delay(0.15)
@@ -260,6 +307,7 @@ final class RecordingIndicatorPanel: NSPanel {
     private static let reduceMotionFade = Animation.easeInOut(duration: 0.15)
     private static let collapseDuration: TimeInterval = 0.42
     private static let reduceMotionFadeDuration: TimeInterval = 0.17
+    private static let cueDuration: TimeInterval = 1.5
 
     init() {
         super.init(
@@ -287,7 +335,13 @@ final class RecordingIndicatorPanel: NSPanel {
         viewModel.push(spectrum)
     }
 
+    func setMicrophoneMuted(_ muted: Bool) {
+        viewModel.setMicrophoneMuted(muted)
+    }
+
     func showRecording() {
+        cueID += 1
+        isShowingCue = false
         viewModel.reset()
         guard !isPresented else {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -300,6 +354,10 @@ final class RecordingIndicatorPanel: NSPanel {
 
     func showTranscribing() {
         guard isPresented else { return }
+        guard !isShowingCue else {
+            modeAfterCue = .transcribing
+            return
+        }
         withAnimation(.easeInOut(duration: 0.2)) {
             viewModel.setMode(.transcribing)
         }
@@ -340,7 +398,36 @@ final class RecordingIndicatorPanel: NSPanel {
         }
     }
 
+    // Holds the symbol for a moment, then goes back to what the dictation phase asked for meanwhile.
+    func showCue(symbolName: String, label: String) {
+        guard isPresented else { return }
+        if !isShowingCue {
+            modeAfterCue = viewModel.mode
+        }
+        isShowingCue = true
+        cueID += 1
+        let id = cueID
+        withAnimation(viewModel.reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+            viewModel.setMode(.cue(symbolName: symbolName, label: label))
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.cueDuration) { [weak self] in
+            guard let self, self.cueID == id else { return }
+            self.isShowingCue = false
+            if let mode = self.modeAfterCue {
+                withAnimation(self.viewModel.reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    self.viewModel.setMode(mode)
+                }
+            } else {
+                self.hide()
+            }
+        }
+    }
+
     func hide() {
+        guard !isShowingCue else {
+            modeAfterCue = nil
+            return
+        }
         presentationID += 1
         isPresented = false
         let id = presentationID

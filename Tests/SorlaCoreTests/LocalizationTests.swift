@@ -124,6 +124,19 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    func testSwedishDictationCues() throws {
+        try Localization.$bundle.withValue(swedish) {
+            XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteShortcut: nil), "Inget hördes")
+            XCTAssertEqual(DictationCue.noText.announcement(pasteShortcut: nil), "Ingen text")
+            XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteShortcut: nil), "Mikrofonen verkar vara avstängd")
+            XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: "⌃⌥V"), "Texten ligger i urklippet – tryck ⌃⌥V")
+            XCTAssertEqual(
+                SorlaIssue.microphoneMuted.notificationBody,
+                "Mikrofonen verkar vara avstängd. Kontrollera Systeminställningar › Ljud › Ingång."
+            )
+        }
+    }
+
     func testSwedishDiskSpaceUsesADecimalComma() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(

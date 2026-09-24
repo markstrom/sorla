@@ -141,3 +141,10 @@
 "Runs the model with Core ML. Apache License 2.0." = "Kör modellen med Core ML. Apache License 2.0.";
 "Custom keyboard shortcuts. MIT License." = "Egna kortkommandon. MIT-licens.";
 "Check for Updates" = "Sök efter uppdateringar";
+
+/* Dictation cues */
+"Nothing heard" = "Inget hördes";
+"No text" = "Ingen text";
+"Microphone seems to be muted" = "Mikrofonen verkar vara avstängd";
+"Your text is on the clipboard — press %@" = "Texten ligger i urklippet – tryck %@";
+"The microphone seems to be muted. Check System Settings › Sound › Input." = "Mikrofonen verkar vara avstängd. Kontrollera Systeminställningar › Ljud › Ingång.";

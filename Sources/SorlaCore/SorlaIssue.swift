@@ -9,6 +9,8 @@ public enum SorlaIssue: Hashable, Sendable {
     case transcriptionFailed
     case modelDownloadFailed
     case modelUpdateFailed
+    case microphoneMuted
+    case textOnClipboard(pasteShortcut: String)
 
     public var menuTitle: String? {
         switch self {
@@ -17,7 +19,7 @@ public enum SorlaIssue: Hashable, Sendable {
         case .modelNotLoaded: return String(localized: "Model couldn't be loaded", bundle: Localization.bundle)
         case .modelDownloadFailed: return String(localized: "Model download failed", bundle: Localization.bundle)
         case .modelUpdateFailed: return String(localized: "Model update failed", bundle: Localization.bundle)
-        case .noInputDevice, .transcriptionFailed: return nil
+        case .noInputDevice, .transcriptionFailed, .microphoneMuted, .textOnClipboard: return nil
         }
     }
 
@@ -37,6 +39,10 @@ public enum SorlaIssue: Hashable, Sendable {
             return String(localized: "Couldn't download the model. Open the Sorla menu to try again.", bundle: Localization.bundle)
         case .modelUpdateFailed:
             return String(localized: "Couldn't install the model update. Sorla keeps using the current model.", bundle: Localization.bundle)
+        case .microphoneMuted:
+            return String(localized: "The microphone seems to be muted. Check System Settings › Sound › Input.", bundle: Localization.bundle)
+        case .textOnClipboard(let pasteShortcut):
+            return String(localized: "Your text is on the clipboard — press \(pasteShortcut)", bundle: Localization.bundle)
         }
     }
 
@@ -46,7 +52,7 @@ public enum SorlaIssue: Hashable, Sendable {
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
         case .accessibilityAccessNeeded:
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-        case .modelNotLoaded, .noInputDevice, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed:
+        case .modelNotLoaded, .noInputDevice, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed, .microphoneMuted, .textOnClipboard:
             return nil
         }
     }

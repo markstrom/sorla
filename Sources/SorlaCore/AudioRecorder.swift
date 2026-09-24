@@ -1,9 +1,16 @@
+import Accelerate
 import AVFoundation
 import FluidAudio
 
 public enum AudioRecorderError: Error {
     case bufferAllocationFailed
     case noInputDevice
+}
+
+public struct AudioBufferSummary: Sendable {
+    public let spectrum: SIMD8<Float>
+    public let peak: Float
+    public let time: TimeInterval
 }
 
 public final class AudioRecorder {
@@ -13,7 +20,7 @@ public final class AudioRecorder {
     private let lock = NSLock()
     private var analyzer: SpectrumAnalyzer?
 
-    public var onSpectrum: (@Sendable (SIMD8<Float>) -> Void)?
+    public var onBuffer: (@Sendable (AudioBufferSummary) -> Void)?
 
     public init() {}
 
@@ -69,8 +76,14 @@ public final class AudioRecorder {
         samples.append(contentsOf: channel0)
         lock.unlock()
 
-        if let onSpectrum, let analyzer {
-            onSpectrum(analyzer.analyze(channel0))
+        if let onBuffer, let analyzer, let base = channel0.baseAddress, frameLength > 0 {
+            var peak: Float = 0
+            vDSP_maxmgv(base, 1, &peak, vDSP_Length(frameLength))
+            onBuffer(AudioBufferSummary(
+                spectrum: analyzer.analyze(channel0),
+                peak: peak,
+                time: ProcessInfo.processInfo.systemUptime
+            ))
         }
     }
 
