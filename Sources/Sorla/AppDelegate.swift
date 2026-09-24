@@ -92,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.mainMenu = MainMenu.make(target: self, about: #selector(showAbout), settings: #selector(showSettings))
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        updateIcon(isRecording: false)
+        updateIcon()
 
         let menu = NSMenu()
         menu.delegate = self
@@ -131,8 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingIndicator = RecordingIndicatorPanel()
         feedbackSounds = FeedbackSoundPlayer()
 
-        recordingController.onStateChange = { [weak self] isRecording in
-            self?.updateIcon(isRecording: isRecording)
+        recordingController.onStateChange = { [weak self] _ in
             self?.updateTriggerHintMenuItem()
         }
         recordingController.onPhaseChange = { [weak self] phase in
@@ -146,6 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 indicator.hide()
                 self.postPendingAnnouncement()
             }
+            self.updateIcon()
             self.updateStatusMenuItem()
         }
         recordingController.onSpectrum = { [weak self] spectrum in
@@ -165,7 +165,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
-            self.updateIcon(isRecording: self.recordingController.isRecording)
+            self.updateIcon()
             self.updateStatusMenuItem()
         }
         recordingController.onIssue = { [weak self] issue in
@@ -446,7 +446,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func modelStatusDidChange(_ status: ModelStatus) {
         if status.isBusy, !modelManager.isInstalled, modelLoadingStatus != .loading {
             modelLoadingStatus = .loading
-            updateIcon(isRecording: recordingController.isRecording)
+            updateIcon()
         }
         updateStatusMenuItem(model: status)
     }
@@ -478,7 +478,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func handleIssue(_ issue: SorlaIssue) {
         if issue == .modelNotLoaded || (issue == .modelDownloadFailed && !modelManager.isInstalled) {
             modelLoadingStatus = .failed
-            updateIcon(isRecording: recordingController.isRecording)
+            updateIcon()
         }
         if let transient = TransientMenuStatus(issue: issue, at: Date()) {
             transientStatus = transient
@@ -561,8 +561,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func updateIcon(isRecording: Bool) {
-        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, isRecording: isRecording)
+    private func updateIcon() {
+        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, phase: recordingController.phase)
         statusItem.button?.image = icon.glyph.image(accessibilityDescription: icon.accessibilityDescription)
     }
 

@@ -15,6 +15,7 @@
 - The first menu item starts and stops dictation (Start Dictation (Hold Right ⌘) / Stop Dictation), so Voice Control, Switch Control and head-pointer users can dictate without the trigger key. The text lands in the app you were working in, and the key can stop a dictation started from the menu.
 - With VoiceOver on, Sorla says "Pasted" once the text has been pasted, after the recording has ended, so the microphone never hears it.
 - Welcome window with VoiceOver: the app icon and row symbols are no longer read out, a finished row says "Done", a busy one "In progress", each row is read as one group, and VoiceOver announces when Sorla is ready.
+- The menu bar icon shows an exclamation mark in place of the dot when the model couldn't be loaded, and VoiceOver reads it as "Sorla (model couldn't be loaded)"; while transcribing it reads "Sorla (transcribing)".
 
 ## 1.0.1 — 2026-09-24
 

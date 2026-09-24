@@ -18,6 +18,8 @@
 "Copy" = "Kopiera";
 "Paste" = "Klistra in";
 "Select All" = "Markera allt";
+"Sorla (transcribing)" = "Sorla (transkriberar)";
+"Sorla (model couldn't be loaded)" = "Sorla (modellen kunde inte läsas in)";
 
 /* Status row */
 "Downloading model… %lld%%" = "Laddar ner modellen… %lld %%";

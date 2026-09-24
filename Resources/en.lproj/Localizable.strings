@@ -18,6 +18,8 @@
 "Copy" = "Copy";
 "Paste" = "Paste";
 "Select All" = "Select All";
+"Sorla (transcribing)" = "Sorla (transcribing)";
+"Sorla (model couldn't be loaded)" = "Sorla (model couldn't be loaded)";
 
 /* Status row */
 "Downloading model… %lld%%" = "Downloading model… %lld%%";
