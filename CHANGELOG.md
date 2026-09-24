@@ -6,6 +6,7 @@
 - About window: calmer layout with the Klang Pianissimo credit up front, links to the website, GitHub and privacy page, and a Check for Updates button; other credits and the license texts are in Credits and Licenses….
 - When the model couldn't be loaded, dictation is refused up front with a pointer to Try Again in the menu.
 - Cancelling a recording while an earlier one is still being transcribed no longer hides the indicator early or lets a model update swap in mid-transcription.
+- Something you copy between two quick dictations is kept instead of being replaced by the older clipboard content.
 
 ## 1.0.1 — 2026-09-24
 

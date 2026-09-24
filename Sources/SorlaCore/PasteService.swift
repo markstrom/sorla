@@ -29,18 +29,33 @@ public struct ClipboardOwnershipTracker {
 
     public private(set) var pendingOriginal: PasteboardSnapshot?
     public private(set) var generation = 0
+    private var changeCountAfterOwnWrite: Int?
 
     public init() {}
 
-    public mutating func begin(capture: () -> PasteboardSnapshot) -> Begin {
-        let original = pendingOriginal ?? capture()
+    // The pending original is only reused while the pasteboard still holds Sorla's own last write.
+    public mutating func begin(changeCount: Int, capture: () -> PasteboardSnapshot) -> Begin {
+        let original: PasteboardSnapshot
+        if let pendingOriginal, changeCount == changeCountAfterOwnWrite {
+            original = pendingOriginal
+        } else {
+            original = capture()
+        }
         pendingOriginal = original
+        changeCountAfterOwnWrite = nil
         generation += 1
         return Begin(original: original, generation: generation)
     }
 
-    public mutating func cancel() {
+    public mutating func didWrite(changeCount: Int, generation: Int) {
+        guard generation == self.generation else { return }
+        changeCountAfterOwnWrite = changeCount
+    }
+
+    public mutating func cancel(generation: Int) {
+        guard generation == self.generation else { return }
         pendingOriginal = nil
+        changeCountAfterOwnWrite = nil
     }
 
     public mutating func finish(generation: Int) -> FinishAction {
@@ -48,6 +63,7 @@ public struct ClipboardOwnershipTracker {
             return .skip
         }
         pendingOriginal = nil
+        changeCountAfterOwnWrite = nil
         return .evaluate(original: original)
     }
 }

@@ -165,7 +165,6 @@ public final class RecordingController {
                     frontmostPIDAtRelease: frontmostPIDAtRelease,
                     frontmostPIDAtDelivery: frontmostPIDAtDelivery
                 ) else {
-                    self.clipboardOwnership.cancel()
                     PasteService.writeToPasteboard(text)
                     self.logger.info("paste skipped (frontmost app changed)")
                     return
@@ -221,12 +220,12 @@ public final class RecordingController {
     private func issuePaste(_ text: String) -> PasteOutcome {
         let keepClipboardContent = self.keepClipboardContent
         let generation: Int? = keepClipboardContent
-            ? clipboardOwnership.begin { PasteService.snapshot() }.generation
+            ? clipboardOwnership.begin(changeCount: NSPasteboard.general.changeCount) { PasteService.snapshot() }.generation
             : nil
-        if !keepClipboardContent {
-            clipboardOwnership.cancel()
-        }
         let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
+        if let generation {
+            clipboardOwnership.didWrite(changeCount: changeCountAfterWrite, generation: generation)
+        }
         PasteService.paste()
         let pasted = AXIsProcessTrusted()
         if !pasted {
@@ -239,7 +238,7 @@ public final class RecordingController {
     private func settleClipboard(_ outcome: PasteOutcome) async {
         guard let generation = outcome.generation else { return }
         guard outcome.pasted else {
-            clipboardOwnership.cancel()
+            clipboardOwnership.cancel(generation: generation)
             logger.info("clipboard kept (not pasted)")
             return
         }
