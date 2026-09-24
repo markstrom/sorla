@@ -38,6 +38,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             window.orderFrontRegardless()
             NSApp.activate()
             window.makeKeyAndOrderFront(nil)
+            // A focused shortcut field would swallow the first Esc and could record the next key press.
+            window.makeFirstResponder(nil)
+            DispatchQueue.main.async { window.makeFirstResponder(nil) }
         }
     }
 
