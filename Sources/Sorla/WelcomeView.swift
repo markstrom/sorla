@@ -42,11 +42,18 @@ struct WelcomeView: View {
             model: modelManager.status
         )
         let isReady = WelcomeChecklist.isReady(microphone: microphone, accessibility: accessibility, model: model)
+        let readinessLine = WelcomeChecklist.readinessLine(
+            isReady: isReady,
+            trigger: appSettings.triggerKey,
+            mode: appSettings.recordingMode,
+            customShortcut: KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
+        )
 
         VStack(spacing: 16) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 64, height: 64)
+                .accessibilityHidden(true)
 
             Text("Talk. Release. Done.").font(.headline)
 
@@ -64,12 +71,7 @@ struct WelcomeView: View {
 
             Divider()
 
-            Text(WelcomeChecklist.readinessLine(
-                isReady: isReady,
-                trigger: appSettings.triggerKey,
-                mode: appSettings.recordingMode,
-                customShortcut: KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
-            ))
+            Text(readinessLine)
             .font(isReady ? .headline : .callout)
             .foregroundStyle(isReady ? .primary : .secondary)
             .multilineTextAlignment(.center)
@@ -91,6 +93,11 @@ struct WelcomeView: View {
         .padding(24)
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
+        .onChange(of: isReady) { _, isReady in
+            // The user may be in System Settings granting access, so the change is spoken rather than only shown.
+            guard isReady else { return }
+            AccessibilityNotification.Announcement(readinessLine).post()
+        }
     }
 
     @ViewBuilder
@@ -100,6 +107,7 @@ struct WelcomeView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .frame(width: 24)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.bold())
@@ -119,11 +127,15 @@ struct WelcomeView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
                     .foregroundStyle(.green)
+                    .accessibilityLabel(Text("Done"))
             case .inProgress:
-                ProgressView().controlSize(.small)
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel(Text("In progress"))
             case .needsAction(let action, let buttonTitle, _):
                 Button(buttonTitle) { perform(action) }
             }
         }
+        .accessibilityElement(children: .contain)
     }
 }
