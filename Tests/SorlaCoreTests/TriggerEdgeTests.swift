@@ -67,4 +67,44 @@ final class TriggerEdgeTests: XCTestCase {
         _ = TriggerEdge.forModifierEvent(isSynthetic: true, hasTriggerFlag: false) { asked += 1; return true }
         XCTAssertEqual(asked, 0)
     }
+
+    // Sticky Keys may send the flag again, still set, when the latched key goes up.
+    func testAFlagRepeatedDuringAPressWithTheKeyUpIsARelease() {
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true) { false }, .up)
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true) { true }, .down)
+        XCTAssertNil(TriggerEdge.forModifierEvent(isSynthetic: true, hasTriggerFlag: true, isWaitingForRelease: true) { false })
+    }
+
+    func testAReleaseIsOnlyAssumedMissedWhileWaitingForItWithTheKeyUp() {
+        XCTAssertTrue(TriggerEdge.releaseMissed(isWaitingForRelease: true) { false })
+        XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: true) { true }, "Right ⌘ + C with the key held is a shortcut")
+        XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: false) { false })
+    }
+
+    // A stale "up" for Fn/Globe must not end a real hold, so its key state alone never releases it.
+    func testAnUntrustedKeyStateNeverEndsAPress() {
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true, trustsKeyState: false) { false }, .down)
+        XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: true, trustsKeyState: false) { false })
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: false, trustsKeyState: false) { false }, .up, "a missing flag with the key up still releases")
+        XCTAssertFalse(TriggerKey.fn.hasReliableKeyState)
+        XCTAssertTrue(TriggerKey.rightCommand.hasReliableKeyState)
+    }
+
+    func testAClickCarryingTheTriggerFlagCountsAsHeldEvenIfTheKeyStateSaysUp() {
+        // Seen on real hardware: a click during a Right ⌘ hold with the key state reporting "up".
+        XCTAssertTrue(TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: true))
+        XCTAssertFalse(TriggerEdge.releaseMissed(
+            isWaitingForRelease: true,
+            isKeyPhysicallyDown: { TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: true) }
+        ))
+    }
+
+    func testAReleaseIsMissedOnlyWhenBothSourcesSayUp() {
+        XCTAssertTrue(TriggerEdge.releaseMissed(
+            isWaitingForRelease: true,
+            isKeyPhysicallyDown: { TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: false) }
+        ))
+        XCTAssertFalse(TriggerEdge.isTriggerDown(keyState: false, eventHasTriggerFlag: false))
+        XCTAssertTrue(TriggerEdge.isTriggerDown(keyState: true, eventHasTriggerFlag: false))
+    }
 }

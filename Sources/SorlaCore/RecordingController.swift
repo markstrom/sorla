@@ -1,19 +1,24 @@
-import AppKit
-import ApplicationServices
 import Foundation
 import os
 
 @MainActor
 public final class RecordingController {
-    private let recorder = AudioRecorder()
+    let recorder: AudioRecorder
     private let engine: TranscriptionEngine
     private let inputDeviceState: InputDeviceStateReading
+    private let isMicrophoneAccessDenied: @MainActor () -> Bool
+    private let sleep: @MainActor (Duration) async -> Void
+    private let now: @MainActor () -> ContinuousClock.Instant
+    private let waitForTimeLimit: @MainActor (Duration) async -> Void
     private let modelName: String
     public let tailDuration: TimeInterval
     private let logger = Logger(subsystem: "com.sorla.app", category: "RecordingController")
 
     public private(set) var isRecording = false
     private var isCapturingTail = false
+    // The microphone stays open for the tail after release, so this outlasts isRecording.
+    public var isMicrophoneOpen: Bool { isRecording || isCapturingTail }
+    public var onMicrophoneClosed: (() -> Void)?
     public var onStateChange: ((Bool) -> Void)?
     public var onSpectrum: ((SIMD8<Float>) -> Void)?
     public var onPhaseChange: ((DictationPhase) -> Void)?
@@ -31,19 +36,56 @@ public final class RecordingController {
     public private(set) var isModelReady = false
     public var onModelReadyChange: ((Bool) -> Void)?
     public var onIssue: ((SorlaIssue) -> Void)?
+    // Asked just before each ⌘V: a replaced app's paste would be dropped without a word.
+    public var isAppReplaced: () -> Bool = { false }
 
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
     private var isPasteLastInFlight = false
+    private var pasteLastRequest: Task<Void, Never>?
+    // Bumped when a waiting Paste Last is called off, since it may already be queued behind a delivery.
+    private var pasteLastToken = 0
+
+    // Off, Paste Last has nothing to recover: no text is kept, and turning it off forgets what was.
+    public var keepsLastTranscript = true {
+        didSet {
+            guard !keepsLastTranscript else { return }
+            transcriptExpiry?.cancel()
+            transcriptExpiry = nil
+            cancelPasteLast()
+            recentTranscript.clear()
+        }
+    }
+
+    private let pasteEnvironment: PasteEnvironment
+    private var deliveryOrder = DeliveryOrder<FinishedDictation>()
+    private(set) var dictationJobs: [Int: Task<Void, Never>] = [:]
+    private(set) var deliveries: Task<Void, Never>?
+    private var lastPasteAt: ContinuousClock.Instant?
+    private(set) var clipboardRestore: Task<Void, Never>?
+    // Lets tests wait until a request has taken its place in line.
+    var didEnqueueDelivery: (() -> Void)?
 
     public init(
         engine: TranscriptionEngine,
         modelName: String,
         tailDuration: TimeInterval = 0.15,
-        inputDeviceState: InputDeviceStateReading = CoreAudioInputDeviceState()
+        inputDeviceState: InputDeviceStateReading = CoreAudioInputDeviceState(),
+        recorder: AudioRecorder = AudioRecorder(),
+        pasteEnvironment: PasteEnvironment = SystemPasteEnvironment(),
+        isMicrophoneAccessDenied: @escaping @MainActor () -> Bool = { PermissionsManager.isMicrophoneAccessDenied() },
+        sleep: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) },
+        now: @escaping @MainActor () -> ContinuousClock.Instant = { .now },
+        waitForTimeLimit: @escaping @MainActor (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.engine = engine
         self.inputDeviceState = inputDeviceState
+        self.recorder = recorder
+        self.pasteEnvironment = pasteEnvironment
+        self.isMicrophoneAccessDenied = isMicrophoneAccessDenied
+        self.sleep = sleep
+        self.now = now
+        self.waitForTimeLimit = waitForTimeLimit
         self.modelName = modelName
         self.tailDuration = tailDuration
         setUpForwarding()
@@ -145,13 +187,15 @@ public final class RecordingController {
     @discardableResult
     public func startRecording() -> Bool {
         guard !isRecording, !isCapturingTail else { return false }
-        guard !PermissionsManager.isMicrophoneAccessDenied() else {
+        guard !isMicrophoneAccessDenied() else {
             logger.error("recording refused: microphone access denied")
             onIssue?(.microphoneAccessNeeded)
             return false
         }
         do {
             try recorder.start()
+            // The new dictation owns the cursor now.
+            cancelPasteLast()
             isRecording = true
             recordingID = phaseTracker.beginRecording()
             deviceSeemedMuted = false
@@ -180,84 +224,217 @@ public final class RecordingController {
         let dictationID = recordingID
         let generation = recentTranscript.generation
         updatePhase { $0.release(dictationID) }
+        deliveryOrder.expect(dictationID)
 
         let released = Date()
-        let frontmostPIDAtRelease = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        let tailDuration = self.tailDuration
-        let engine = self.engine
-        let modelName = self.modelName
+        let frontmostPIDAtRelease = pasteEnvironment.frontmostProcessID
 
-        Task { @MainActor in
-            defer { self.updatePhase { $0.finish(dictationID) } }
-            try? await Task.sleep(nanoseconds: UInt64(tailDuration * 1_000_000_000))
-            self.isCapturingTail = false
-
-            let samples: [Float]
-            do {
-                samples = try self.recorder.stop()
-            } catch {
-                self.logger.error("failed to stop recording: \(String(describing: error), privacy: .public)")
-                return
-            }
-
-            let audioSeconds = Double(samples.count) / 16_000
-            let peakAmplitude = samples.reduce(into: Float(0)) { peak, sample in peak = max(peak, abs(sample)) }
-            switch RecordingCheck.assess(
-                sampleCount: samples.count,
-                peak: peakAmplitude,
-                deviceSeemsMuted: deviceSeemedMuted,
+        dictationJobs[dictationID] = Task { @MainActor in
+            let result = await self.transcribe(
+                generation: generation,
+                deviceSeemedMuted: deviceSeemedMuted,
                 minimumSilence: minimumSilence
-            ) {
-            case .empty:
-                self.logger.info("no audio captured")
-                self.onCue?(.nothingHeard)
-                return
-            case .tooShort:
-                self.logger.info("recording too short: \(Self.format(audioSeconds), privacy: .public)")
-                self.onCue?(.nothingHeard)
-                return
-            case .digitalSilence:
-                self.logger.info("recording was digital silence: \(Self.format(audioSeconds), privacy: .public), device muted=\(deviceSeemedMuted, privacy: .public)")
-                self.onCue?(.microphoneMuted)
-                return
-            case .transcribable:
-                break
-            }
-
-            do {
-                let text = try await engine.transcribe(samples)
-                guard self.recentTranscript.accepts(from: generation) else {
-                    self.logger.info("transcription dropped (the Mac locked, slept or switched user)")
-                    return
-                }
-                guard !text.isEmpty else {
-                    self.logger.info("\(modelName, privacy: .public): empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
-                    self.onCue?(.noText)
-                    return
-                }
-                self.keepLastTranscript(text)
-
-                let frontmostPIDAtDelivery = NSWorkspace.shared.frontmostApplication?.processIdentifier
-                guard PasteService.shouldAutoPaste(
-                    frontmostPIDAtRelease: frontmostPIDAtRelease,
-                    frontmostPIDAtDelivery: frontmostPIDAtDelivery
-                ) else {
-                    PasteService.writeToPasteboard(text)
-                    self.logger.info("paste skipped (frontmost app changed)")
-                    self.onCue?(.textOnClipboard)
-                    return
-                }
-
-                let outcome = self.issuePaste(text)
-                self.updatePhase { $0.finish(dictationID) }
-                self.logger.info("\(modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(released)), privacy: .public) pasted=\(outcome.pasted, privacy: .public): \(text, privacy: .private)")
-                await self.settleClipboard(outcome)
-            } catch {
-                self.logger.error("\(modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
-                self.onIssue?(.transcriptionFailed)
-            }
+            )
+            self.dictationJobs[dictationID] = nil
+            self.finishDictation(FinishedDictation(
+                id: dictationID,
+                generation: generation,
+                result: result,
+                frontmostPIDAtRelease: frontmostPIDAtRelease,
+                released: released
+            ))
         }
         return true
+    }
+
+    private enum DictationResult {
+        case dropped
+        case cue(DictationCue)
+        case failed
+        case text(String, audioSeconds: Double)
+    }
+
+    private struct FinishedDictation {
+        let id: Int
+        let generation: Int
+        let result: DictationResult
+        let frontmostPIDAtRelease: pid_t?
+        let released: Date
+    }
+
+    // The audio lives only in here, so it is let go as soon as the transcription is done.
+    private func transcribe(generation: Int, deviceSeemedMuted: Bool, minimumSilence: TimeInterval) async -> DictationResult {
+        await sleep(.seconds(tailDuration))
+        // Locked during the tail: the audio would only be transcribed to be thrown away.
+        let isForgotten = !recentTranscript.accepts(from: generation)
+        let samples: [Float]
+        do {
+            samples = try endTail(keepingAudio: !isForgotten)
+        } catch {
+            logger.error("failed to stop recording: \(String(describing: error), privacy: .public)")
+            return .dropped
+        }
+        guard !isForgotten else {
+            logger.info("recording dropped (the Mac locked, slept or switched user)")
+            return .dropped
+        }
+
+        let audioSeconds = Double(samples.count) / 16_000
+        let peakAmplitude = samples.reduce(into: Float(0)) { peak, sample in peak = max(peak, abs(sample)) }
+        switch RecordingCheck.assess(
+            sampleCount: samples.count,
+            peak: peakAmplitude,
+            deviceSeemsMuted: deviceSeemedMuted,
+            minimumSilence: minimumSilence
+        ) {
+        case .empty:
+            logger.info("no audio captured")
+            return .cue(.nothingHeard)
+        case .tooShort:
+            logger.info("recording too short: \(Self.format(audioSeconds), privacy: .public)")
+            return .cue(.nothingHeard)
+        case .digitalSilence:
+            logger.info("recording was digital silence: \(Self.format(audioSeconds), privacy: .public), device muted=\(deviceSeemedMuted, privacy: .public)")
+            return .cue(.microphoneMuted)
+        case .transcribable:
+            break
+        }
+
+        switch await transcribe(samples, within: Self.transcriptionTimeLimit(audioSeconds: audioSeconds)) {
+        case .text(let text):
+            guard !text.isEmpty else {
+                logger.info("\(self.modelName, privacy: .public): empty transcription: \(Self.format(audioSeconds), privacy: .public) audio, peak=\(peakAmplitude, privacy: .public)")
+                return .cue(.noText)
+            }
+            return .text(text, audioSeconds: audioSeconds)
+        case .failed(let error):
+            logger.error("\(self.modelName, privacy: .public): transcription failed: \(String(describing: error), privacy: .public)")
+            return .failed
+        case .timedOut:
+            logger.error("\(self.modelName, privacy: .public): transcription timed out: \(Self.format(audioSeconds), privacy: .public) audio")
+            return .failed
+        }
+    }
+
+    // Generous, since a slow Mac is not a hung one; it only has to end a wait that would never end.
+    public static func transcriptionTimeLimit(audioSeconds: Double) -> Duration {
+        .seconds(max(30, 3 * audioSeconds))
+    }
+
+    private enum Transcription {
+        case text(String)
+        case failed(Error)
+        case timedOut
+    }
+
+    // A hung engine call is left behind, so the recordings after it are not held up.
+    private func transcribe(_ samples: [Float], within limit: Duration) async -> Transcription {
+        let engine = self.engine
+        let waitForTimeLimit = self.waitForTimeLimit
+        return await withCheckedContinuation { continuation in
+            let outcome = FirstOutcome(continuation)
+            let timer = Task { @MainActor in
+                await waitForTimeLimit(limit)
+                outcome.resolve(.timedOut)
+            }
+            Task { @MainActor in
+                do {
+                    outcome.resolve(.text(try await engine.transcribe(samples)))
+                } catch {
+                    outcome.resolve(.failed(error))
+                }
+                timer.cancel()
+            }
+        }
+    }
+
+    @MainActor
+    private final class FirstOutcome {
+        private var continuation: CheckedContinuation<Transcription, Never>?
+
+        init(_ continuation: CheckedContinuation<Transcription, Never>) {
+            self.continuation = continuation
+        }
+
+        func resolve(_ transcription: Transcription) {
+            continuation?.resume(returning: transcription)
+            continuation = nil
+        }
+    }
+
+    private func endTail(keepingAudio: Bool) throws -> [Float] {
+        defer {
+            isCapturingTail = false
+            onMicrophoneClosed?()
+        }
+        guard keepingAudio else {
+            recorder.cancel()
+            return []
+        }
+        return try recorder.stop()
+    }
+
+    // A lock empties the delivery order, so a dictation from before it has nothing left to wait for.
+    private func finishDictation(_ finished: FinishedDictation) {
+        guard recentTranscript.accepts(from: finished.generation) else {
+            logger.info("transcription dropped (the Mac locked, slept or switched user)")
+            updatePhase { $0.finish(finished.id) }
+            return
+        }
+        for due in deliveryOrder.finish(finished.id, with: finished) {
+            enqueueDelivery { await self.deliver(due) }
+        }
+    }
+
+    // Results and Paste Last are handled one after another, in order; only a pasteboard write waits for the last ⌘V.
+    @discardableResult
+    private func enqueueDelivery(_ work: @escaping @MainActor () async -> Void) -> Task<Void, Never> {
+        didEnqueueDelivery?()
+        let previous = deliveries
+        let delivery = Task { @MainActor in
+            await previous?.value
+            await work()
+        }
+        deliveries = delivery
+        return delivery
+    }
+
+    // Checked again here, since a lock or a switch of app may have come while this waited its turn.
+    private func deliver(_ finished: FinishedDictation) async {
+        let dictationID = finished.id
+        defer { updatePhase { $0.finish(dictationID) } }
+        if case .text = finished.result {
+            await waitForThePreviousPasteToLand()
+        }
+        guard recentTranscript.accepts(from: finished.generation) else {
+            logger.info("transcription dropped (the Mac locked, slept or switched user)")
+            return
+        }
+        switch finished.result {
+        case .dropped:
+            return
+        case .cue(let cue):
+            onCue?(cue)
+        case .failed:
+            onIssue?(.transcriptionFailed)
+        case .text(let text, let audioSeconds):
+            keepLastTranscript(text)
+            guard PasteService.shouldAutoPaste(
+                frontmostPIDAtRelease: finished.frontmostPIDAtRelease,
+                frontmostPIDAtDelivery: pasteEnvironment.frontmostProcessID
+            ) else {
+                pasteEnvironment.write(text, transient: false)
+                logger.info("paste skipped (frontmost app changed)")
+                onCue?(.textOnClipboard)
+                return
+            }
+            guard !leaveOnClipboardIfReplaced(text) else { return }
+
+            let outcome = issuePaste(text)
+            updatePhase { $0.finish(dictationID) }
+            logger.info("\(self.modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(finished.released)), privacy: .public) pasted=\(outcome.pasted, privacy: .public): \(text, privacy: .private)")
+            restoreClipboard(after: outcome)
+        }
     }
 
     public func lastTranscript(at now: Date = Date()) -> String? {
@@ -266,6 +443,7 @@ public final class RecordingController {
 
     // One one-shot expiry per transcript, replaced by the next one, so nothing runs while idle.
     private func keepLastTranscript(_ text: String) {
+        guard keepsLastTranscript else { return }
         recentTranscript.store(text, at: Date())
         transcriptExpiry?.cancel()
         transcriptExpiry = Task { @MainActor [weak self] in
@@ -279,11 +457,15 @@ public final class RecordingController {
     public func forgetLastTranscript() {
         transcriptExpiry?.cancel()
         transcriptExpiry = nil
+        cancelPasteLast()
         recentTranscript.forget()
+        for dropped in deliveryOrder.dropAll() {
+            updatePhase { $0.finish(dropped.id) }
+        }
     }
 
     // Pastes the most recent successful transcript at the current cursor, same path as a dictation.
-    public func pasteLastTranscript(after prepare: @escaping @MainActor () async -> Bool = { true }) {
+    public func pasteLastTranscript(after prepare: @escaping @MainActor () async -> PasteLastPreparation = { .ready }) {
         let lastTranscript = lastTranscript()
         guard PasteService.shouldPasteLast(
             hasTranscript: lastTranscript != nil,
@@ -295,24 +477,51 @@ public final class RecordingController {
         }
         isPasteLastInFlight = true
         let generation = recentTranscript.generation
-        Task { @MainActor in
+        let token = pasteLastToken
+        pasteLastRequest = Task { @MainActor in
             defer { self.isPasteLastInFlight = false }
-            guard await prepare() else {
-                self.logger.info("paste-last skipped (target app never became frontmost)")
+            let preparation = await prepare()
+            guard preparation != .abandoned, !Task.isCancelled else {
+                self.logger.info("paste-last skipped (abandoned before pasting)")
                 return
             }
-            guard self.recentTranscript.accepts(from: generation) else {
-                self.logger.info("paste-last skipped (the text was forgotten)")
-                return
-            }
-            guard self.phase == .idle else {
-                self.logger.info("paste-last skipped (dictation started)")
-                return
-            }
-            let outcome = self.issuePaste(text)
-            self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
-            await self.settleClipboard(outcome)
+            await self.enqueueDelivery {
+                if preparation == .ready {
+                    await self.waitForThePreviousPasteToLand()
+                }
+                guard self.recentTranscript.accepts(from: generation), token == self.pasteLastToken else {
+                    self.logger.info("paste-last skipped (the text was forgotten)")
+                    return
+                }
+                guard self.phase == .idle else {
+                    self.logger.info("paste-last skipped (dictation started)")
+                    return
+                }
+                // The clipboard is the user's, so the text stays with Paste Last for another try.
+                guard preparation == .ready else {
+                    self.logger.info("paste-last not pasted (shortcut keys still held)")
+                    self.onCue?(.releaseKeys)
+                    return
+                }
+                guard !self.leaveOnClipboardIfReplaced(text) else { return }
+                let outcome = self.issuePaste(text)
+                self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
+                self.restoreClipboard(after: outcome)
+            }.value
         }
+    }
+
+    private func leaveOnClipboardIfReplaced(_ text: String) -> Bool {
+        guard isAppReplaced() else { return false }
+        pasteEnvironment.write(text, transient: false)
+        logger.info("paste skipped (Sorla was replaced on disk)")
+        onIssue?(.appReplaced)
+        return true
+    }
+
+    private func cancelPasteLast() {
+        pasteLastRequest?.cancel()
+        pasteLastToken += 1
     }
 
     private struct PasteOutcome {
@@ -325,16 +534,17 @@ public final class RecordingController {
     // Writes the text to the pasteboard, posts the tagged ⌘V, and reports whether it was likely delivered.
     private func issuePaste(_ text: String) -> PasteOutcome {
         let keepClipboardContent = self.keepClipboardContent
+        let pasteEnvironment = self.pasteEnvironment
         let generation: Int? = keepClipboardContent
-            ? clipboardOwnership.begin(changeCount: NSPasteboard.general.changeCount) { PasteService.snapshot() }.generation
+            ? clipboardOwnership.begin(changeCount: pasteEnvironment.changeCount) { pasteEnvironment.snapshot() }.generation
             : nil
-        let changeCountAfterWrite = PasteService.writeToPasteboard(text, transient: keepClipboardContent)
+        let changeCountAfterWrite = pasteEnvironment.write(text, transient: keepClipboardContent)
         if let generation {
             clipboardOwnership.didWrite(changeCount: changeCountAfterWrite, generation: generation)
         }
-        PasteService.paste()
-        let pasted = AXIsProcessTrusted()
+        let pasted = pasteEnvironment.paste()
         if pasted {
+            lastPasteAt = now()
             onPaste?()
         } else {
             onIssue?(.accessibilityAccessNeeded)
@@ -342,44 +552,55 @@ public final class RecordingController {
         return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)
     }
 
-    // Restores the user's original clipboard once the paste has had time to land, unless it was superseded or changed.
-    private func settleClipboard(_ outcome: PasteOutcome) async {
+    // The app reads the pasteboard only when it handles the ⌘V, so nothing may be written before then.
+    private func waitForThePreviousPasteToLand() async {
+        if let lastPasteAt {
+            let remaining = Self.pasteSettleTime - (now() - lastPasteAt)
+            if remaining > .zero {
+                await sleep(remaining)
+            }
+        }
+        await clipboardRestore?.value
+    }
+
+    // Once the paste has had time to land, puts back the user's clipboard unless it was superseded or changed.
+    private func restoreClipboard(after outcome: PasteOutcome) {
         guard let generation = outcome.generation else { return }
         guard outcome.pasted else {
             clipboardOwnership.cancel(generation: generation)
             logger.info("clipboard kept (not pasted)")
             return
         }
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        switch clipboardOwnership.finish(generation: generation) {
-        case .skip:
-            logger.info("clipboard kept (superseded)")
-        case .evaluate(let original):
-            let currentChangeCount = NSPasteboard.general.changeCount
-            if PasteService.shouldRestoreClipboard(
-                keepSetting: outcome.keepClipboardContent,
-                pasteDelivered: outcome.pasted,
-                changeCountAfterWrite: outcome.changeCountAfterWrite,
-                currentChangeCount: currentChangeCount
-            ) {
-                PasteService.restore(original)
-                logger.info("clipboard restored")
-            } else {
-                logger.info("clipboard kept (clipboard changed)")
+        clipboardRestore = Task { @MainActor in
+            await self.sleep(Self.pasteSettleTime)
+            switch self.clipboardOwnership.finish(generation: generation) {
+            case .skip:
+                self.logger.info("clipboard kept (superseded)")
+            case .evaluate(let original):
+                if PasteService.shouldRestoreClipboard(
+                    keepSetting: outcome.keepClipboardContent,
+                    pasteDelivered: outcome.pasted,
+                    changeCountAfterWrite: outcome.changeCountAfterWrite,
+                    currentChangeCount: self.pasteEnvironment.changeCount
+                ) {
+                    self.pasteEnvironment.restore(original)
+                    self.logger.info("clipboard restored")
+                } else {
+                    self.logger.info("clipboard kept (clipboard changed)")
+                }
             }
         }
     }
 
+    static let pasteSettleTime: Duration = .milliseconds(500)
+
     public func cancelRecording() {
         guard isRecording else { return }
-        do {
-            _ = try recorder.stop()
-        } catch {
-            logger.error("failed to stop recording: \(String(describing: error), privacy: .public)")
-        }
+        recorder.cancel()
         isRecording = false
         muteDetector = nil
         onStateChange?(false)
+        onMicrophoneClosed?()
         let dictationID = recordingID
         updatePhase { $0.cancel(dictationID) }
         logger.info("recording cancelled")

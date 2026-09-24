@@ -29,8 +29,11 @@ struct SettingsView: View {
 
     // The recorder's own 130 pt is too narrow for longer translations such as "Spela in kortkommando".
     private static let recorderWidth: CGFloat = 200
+    private static var maxHeight: CGFloat { max(360, (NSScreen.main?.visibleFrame.height ?? 800) - 80) }
 
     private static let updatesSectionID = "updates"
+
+    private static let keepLastTranscriptionDescription = String(localized: "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once.")
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -42,7 +45,13 @@ struct SettingsView: View {
 
     private var form: some View {
         Form {
-            Section {
+            Section("Dictation") {
+                dictation
+            }
+            Section("Pasting") {
+                pasting
+            }
+            Section("General") {
                 general
             }
             Section("Updates") {
@@ -52,6 +61,8 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 460)
+        // Never taller than the screen: the form scrolls instead of pushing rows off the bottom.
+        .frame(maxHeight: Self.maxHeight)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear(perform: refreshLoginItemStatus)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
@@ -65,24 +76,24 @@ struct SettingsView: View {
             isVoiceOverEnabled = enabled
         }
         .onChange(of: updateChecker.appStatus) { old, new in
-            announceResult(of: "Sorla", wasChecking: old == .checking, row: UpdateRow.app(new))
+            announceResult(of: SettingsRow.appUpdates.title, wasChecking: old == .checking, row: UpdateRow.app(new))
         }
         .onChange(of: modelManager.status) { old, new in
-            announceResult(of: String(localized: "Speech model"), wasChecking: old == .checking, row: UpdateRow.model(new))
+            announceResult(of: SettingsRow.speechModel.title, wasChecking: old == .checking, row: UpdateRow.model(new))
         }
     }
 
     @ViewBuilder
-    private var general: some View {
-        Picker("Trigger", selection: $appSettings.triggerKey) {
+    private var dictation: some View {
+        Picker(SettingsRow.trigger.title, selection: $appSettings.triggerKey) {
             ForEach(TriggerKey.allCases, id: \.self) { trigger in
                 Text(trigger.displayName).tag(trigger)
             }
         }
 
         if appSettings.triggerKey == .customShortcut {
-            LabeledContent("Shortcut") {
-                ShortcutField(name: .sorlaCustomTrigger, accessibilityLabel: String(localized: "Shortcut")) { shortcut in
+            LabeledContent(SettingsRow.customShortcut.title) {
+                ShortcutField(name: .sorlaCustomTrigger, row: .customShortcut) { shortcut in
                     MainActor.assumeIsolated {
                         customShortcutDescription = shortcut?.description
                     }
@@ -95,7 +106,7 @@ struct SettingsView: View {
             fnHint
         }
 
-        Picker("Mode", selection: $appSettings.recordingMode) {
+        Picker(SettingsRow.mode.title, selection: $appSettings.recordingMode) {
             ForEach(RecordingMode.allCases, id: \.self) { mode in
                 Text(mode.displayName).tag(mode)
             }
@@ -109,13 +120,32 @@ struct SettingsView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
 
-        LabeledContent("Model") {
+        LabeledContent(SettingsRow.model.title) {
             Text(LocalizedStringKey(PianissimoModel.displayName))
         }
+    }
 
-        Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
+    @ViewBuilder
+    private var pasting: some View {
+        Toggle(SettingsRow.keepClipboardContent.title, isOn: $appSettings.keepClipboardContent)
+        Text("Sorla borrows the clipboard to paste, then puts back what was there.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
-        Toggle("Play sounds", isOn: $appSettings.playSounds)
+        Toggle(SettingsRow.keepLastTranscription.title, isOn: $appSettings.keepLastTranscription)
+            .help(Text(Self.keepLastTranscriptionDescription))
+            .accessibilityHint(Text(Self.keepLastTranscriptionDescription))
+
+        LabeledContent(SettingsRow.pasteLastShortcut.title) {
+            ShortcutField(name: .pasteLastTranscription, row: .pasteLastShortcut)
+                .frame(width: Self.recorderWidth)
+        }
+        .disabled(!appSettings.keepLastTranscription)
+    }
+
+    @ViewBuilder
+    private var general: some View {
+        Toggle(SettingsRow.playSounds.title, isOn: $appSettings.playSounds)
 
         // Without sight of the indicator, the sounds are how a VoiceOver user knows the microphone is on.
         if isVoiceOverEnabled {
@@ -124,12 +154,7 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
         }
 
-        LabeledContent("Paste last transcription") {
-            ShortcutField(name: .pasteLastTranscription, accessibilityLabel: String(localized: "Paste last transcription"))
-                .frame(width: Self.recorderWidth)
-        }
-
-        Toggle("Launch at login", isOn: launchAtLoginBinding)
+        Toggle(SettingsRow.launchAtLogin.title, isOn: launchAtLoginBinding)
 
         if loginItemRequiresApproval {
             loginItemApprovalHint
@@ -173,7 +198,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var updates: some View {
         updateRow(
-            title: Text(verbatim: "Sorla"),
+            .appUpdates,
             version: AppVersion.short,
             row: UpdateRow.app(updateChecker.appStatus),
             downloadLabel: Text("Download the new version of Sorla"),
@@ -182,7 +207,7 @@ struct SettingsView: View {
             openURL(AppUpdateCheck.downloadPageURL)
         }
         updateRow(
-            title: Text("Speech model"),
+            .speechModel,
             version: modelManager.installedVersion,
             row: UpdateRow.model(modelManager.status),
             downloadLabel: Text("Download the speech model"),
@@ -190,8 +215,8 @@ struct SettingsView: View {
         ) {
             modelManager.downloadModel()
         }
-        Toggle("Check for updates automatically", isOn: $appSettings.autoCheckUpdates)
-        Toggle("Install updates automatically", isOn: $appSettings.autoInstallUpdates)
+        Toggle(SettingsRow.autoCheckUpdates.title, isOn: $appSettings.autoCheckUpdates)
+        Toggle(SettingsRow.autoInstallUpdates.title, isOn: $appSettings.autoInstallUpdates)
             .disabled(!appSettings.autoCheckUpdates)
         HStack {
             Spacer()
@@ -203,7 +228,7 @@ struct SettingsView: View {
 
     // "Download" and "Try Again" alone don't say what they act on, so VoiceOver gets the full action.
     private func updateRow(
-        title: Text,
+        _ settingsRow: SettingsRow,
         version: String?,
         row: UpdateRow,
         downloadLabel: Text,
@@ -236,7 +261,7 @@ struct SettingsView: View {
                 }
             }
         } label: {
-            title
+            Text(verbatim: settingsRow.title)
         }
     }
 

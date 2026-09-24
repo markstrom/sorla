@@ -18,11 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var welcomeWindowController: WelcomeWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
-    private var pendingStartSound: Task<Void, Never>?
+    private let startSound = StartSoundSchedule()
     private static let logger = Logger(subsystem: "com.sorla.app", category: "AppDelegate")
     private var statusMenuItem: NSMenuItem!
     private var statusMenuAction: MenuStatusAction?
     private var pasteLastMenuItem: NSMenuItem!
+    private var isSettingsKey = false
     private var triggerHintMenuItem: NSMenuItem!
     private var appBeforeSorlaActivated: NSRunningApplication?
     private var cancellables = Set<AnyCancellable>()
@@ -33,16 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isRefusedDictationHeld = false
     private var isStartingRecording = false
     private var startFailure: DictationCue?
-    private var pendingAnnouncement: String?
+    private var announcer: DictationAnnouncer!
     private let recordingLimit = RecordingLimitWatch()
-
-    private static func waitForModifierRelease(timeout: Duration = .seconds(1)) async -> Bool {
-        let deadline = ContinuousClock.now + timeout
-        while !NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty, ContinuousClock.now < deadline {
-            try? await Task.sleep(for: .milliseconds(20))
-        }
-        return true
-    }
+    private var appReplacement = AppReplacementCheck(executableURL: Bundle.main.executableURL)
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -67,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelName: PianissimoModel.displayName
         )
         recordingController.keepClipboardContent = appSettings.keepClipboardContent
+        recordingController.keepsLastTranscript = appSettings.keepLastTranscription
 
         modelManager = ModelManager(
             installer: ModelInstaller(
@@ -145,7 +140,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .transcribing: indicator.showTranscribing()
             case .idle:
                 indicator.hide()
-                self.postPendingAnnouncement()
             }
             self.updateIcon()
             self.updateStatusMenuItem()
@@ -159,11 +153,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onCue = { [weak self] cue in
             self?.presentCue(cue)
         }
-        recordingController.onPaste = { [weak self] in
-            // Sighted users see the text arrive; only VoiceOver needs to be told.
-            guard NSWorkspace.shared.isVoiceOverEnabled else { return }
-            self?.announce(String(localized: "Pasted"))
-        }
+        announcer = DictationAnnouncer(
+            controller: recordingController,
+            isVoiceOverEnabled: { NSWorkspace.shared.isVoiceOverEnabled },
+            post: { AccessibilityNotification.Announcement($0).post() }
+        )
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
@@ -172,6 +166,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         recordingController.onIssue = { [weak self] issue in
             self?.handleIssue(issue)
+        }
+        recordingController.isAppReplaced = { [weak self] in
+            self?.checkForReplacement() ?? false
         }
 
         let triggerMonitor = TriggerMonitor(
@@ -203,10 +200,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.finishRecording()
             },
             onCancel: { [weak self] in
-                self?.isRefusedDictationHeld = false
-                self?.startFailure = nil
-                self?.pendingStartSound?.cancel()
-                self?.recordingController.cancelRecording()
+                self?.cancelRecording(announce: true)
+            },
+            onDiscard: { [weak self] in
+                self?.cancelRecording(announce: false)
             }
         )
         self.triggerMonitor = triggerMonitor
@@ -215,8 +212,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         KeyboardShortcuts.onKeyDown(for: .pasteLastTranscription) { [weak self] in
             MainActor.assumeIsolated {
                 Self.logger.info("paste-last shortcut pressed")
-                // The shortcut's own modifiers are still held; a ⌘V posted now would reach the app as ⌃⌥⌘V.
-                self?.recordingController.pasteLastTranscript(after: { await Self.waitForModifierRelease() })
+                self?.recordingController.pasteLastTranscript(after: {
+                    await ModifierRelease.wait(isHeld: {
+                        !NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+                    })
+                })
             }
         }
 
@@ -236,6 +236,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.recordingController.keepClipboardContent = keepClipboardContent
             }
             .store(in: &cancellables)
+
+        appSettings.$keepLastTranscription
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] keep in
+                self?.keepLastTranscriptionDidChange(keep)
+            }
+            .store(in: &cancellables)
+        updatePasteLastShortcut(keepLastTranscription: appSettings.keepLastTranscription)
 
         // Someone else at the Mac shouldn't be able to paste what was last dictated, or keep the microphone open.
         Publishers.MergeMany(
@@ -313,6 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
+        checkForReplacement()
         updateStatusMenuItem()
         updateTriggerHintMenuItem()
         pasteLastMenuItem.isEnabled = recordingController.lastTranscript() != nil
@@ -327,12 +337,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 announce: { [weak self] text in self?.announce(text) }
             )
             controller.onKeyStateChange = { [weak self] isKey in
-                self?.triggerMonitor?.isSuspended = isKey
-                if isKey {
-                    KeyboardShortcuts.disable(.pasteLastTranscription)
-                } else {
-                    KeyboardShortcuts.enable(.pasteLastTranscription)
-                }
+                guard let self else { return }
+                self.triggerMonitor?.isSuspended = isKey
+                self.isSettingsKey = isKey
+                self.updatePasteLastShortcut()
             }
             settingsWindowController = controller
         }
@@ -392,8 +400,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         finishRecording()
     }
 
+    // The cue comes once the microphone is closed, so VoiceOver isn't recorded into anything.
+    private func cancelRecording(announce: Bool) {
+        let wasRecording = recordingController.isRecording
+        let wasStartHeard = startSound.stop()
+        isRefusedDictationHeld = false
+        startFailure = nil
+        recordingController.cancelRecording()
+        if announce, wasRecording, wasStartHeard {
+            presentCue(.cancelled)
+        }
+    }
+
     private func finishRecording() {
-        pendingStartSound?.cancel()
+        startSound.stop()
         guard recordingController.stopRecordingAndTranscribe() else { return }
         playStopSoundAfterTail()
     }
@@ -426,8 +446,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             showSettings()
         case .openSoundSettings:
             if let url = SorlaIssue.microphoneMuted.settingsURL { NSWorkspace.shared.open(url) }
-        case .pasteLastTranscription:
+        case .pasteLastTranscription where appSettings.keepLastTranscription:
             pasteLastTranscription()
+        case .pasteLastTranscription:
+            transientStatus = nil
+            updateStatusMenuItem()
+        case .restart:
+            restart()
+        case .quit:
+            quit()
         case .dismiss:
             transientStatus = nil
             updateStatusMenuItem()
@@ -436,8 +463,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @discardableResult
+    private func checkForReplacement() -> Bool {
+        let wasReplaced = appReplacement.isReplaced
+        guard appReplacement.check(), !wasReplaced else { return appReplacement.isReplaced }
+        Self.logger.info("Sorla.app was replaced on disk; pasting needs a restart")
+        updateStatusMenuItem()
+        return true
+    }
+
+    // The helper waits for this process to exit before opening the new copy.
+    private func restart() {
+        Self.logger.info("restart requested for \(Bundle.main.bundleURL.path, privacy: .public)")
+        let helper = Process()
+        helper.executableURL = AppRelaunch.shell
+        helper.arguments = AppRelaunch.arguments(
+            waitingFor: ProcessInfo.processInfo.processIdentifier,
+            thenOpen: Bundle.main.bundleURL
+        )
+        do {
+            try helper.run()
+        } catch {
+            Self.logger.error("restart failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+        NSApp.terminate(nil)
+    }
+
     private func endDictationAndForget() {
-        pendingStartSound?.cancel()
+        startSound.stop()
         isRefusedDictationHeld = false
         startFailure = nil
         triggerMonitor?.recordingDidEndElsewhere()
@@ -447,6 +501,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if transientStatus?.row.action == .pasteLastTranscription {
             transientStatus = nil
             updateStatusMenuItem()
+        }
+    }
+
+    private func keepLastTranscriptionDidChange(_ keep: Bool) {
+        recordingController.keepsLastTranscript = keep
+        updatePasteLastShortcut(keepLastTranscription: keep)
+        guard !keep else { return }
+        pasteLastMenuItem.isEnabled = false
+        if transientStatus?.row.action == .pasteLastTranscription {
+            transientStatus = nil
+            updateStatusMenuItem()
+        }
+    }
+
+    // Off while Settings is key, where it could be recording a new shortcut, and while nothing is kept to paste.
+    // @Published calls its sinks before the value changes, so the setting's sink passes the new value in.
+    private func updatePasteLastShortcut(keepLastTranscription: Bool? = nil) {
+        if keepLastTranscription ?? appSettings.keepLastTranscription, !isSettingsKey {
+            KeyboardShortcuts.enable(.pasteLastTranscription)
+        } else {
+            KeyboardShortcuts.disable(.pasteLastTranscription)
         }
     }
 
@@ -461,7 +536,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         recordingController.pasteLastTranscript {
-            await Self.activate(previousApp, timeout: Self.activationTimeout)
+            await Self.activate(previousApp, timeout: Self.activationTimeout) ? .ready : .abandoned
         }
     }
 
@@ -515,6 +590,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             model: model ?? modelManager.status,
             modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
             modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
+            appReplaced: appReplacement.isReplaced,
+            canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL),
             transient: transientStatus,
             appUpdate: (appStatus ?? updateChecker.appStatus).availableVersion,
             now: now
@@ -568,15 +645,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if isStartingRecording {
                 startFailure = cue
             } else {
-                // Paste Last needs Accessibility too, so without it only ⌘V works.
-                presentCue(cue, pasteShortcut: issue == .accessibilityAccessNeeded ? nil : currentPasteShortcut)
+                // Paste Last posts ⌘V too, so without Accessibility or after a replacement only the user's own ⌘V works.
+                let isPasteBlocked = issue == .accessibilityAccessNeeded || issue == .appReplaced
+                presentCue(cue, pasteShortcut: isPasteBlocked ? nil : currentPasteShortcut)
             }
         }
         updateStatusMenuItem()
     }
 
+    // Without a kept transcription the text on the clipboard is only reachable with ⌘V.
     private var currentPasteShortcut: String? {
-        KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
+        guard appSettings.keepLastTranscription else { return nil }
+        return KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
     }
 
     private func presentCue(_ cue: DictationCue) {
@@ -596,19 +676,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         announce(text)
     }
 
-    // Speech during a recording would be picked up by the microphone, so it waits until the recording ends.
     private func announce(_ text: String) {
-        guard !recordingController.isRecording else {
-            pendingAnnouncement = text
-            return
-        }
-        AccessibilityNotification.Announcement(text).post()
-    }
-
-    private func postPendingAnnouncement() {
-        guard let text = pendingAnnouncement else { return }
-        pendingAnnouncement = nil
-        AccessibilityNotification.Announcement(text).post()
+        announcer.announce(text)
     }
 
     private func updateTriggerHintMenuItem(trigger: TriggerKey? = nil, mode: RecordingMode? = nil) {
@@ -631,13 +700,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func scheduleStartSound(after delay: TimeInterval) {
-        pendingStartSound?.cancel()
-        guard appSettings.playSounds else { return }
-        pendingStartSound = Task { @MainActor [weak self] in
-            if delay > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            }
-            guard let self, !Task.isCancelled, self.recordingController.isRecording else { return }
+        startSound.schedule(after: delay) { [weak self] in
+            guard let self, self.appSettings.playSounds, self.recordingController.isRecording else { return }
             self.feedbackSounds.playStart()
         }
     }

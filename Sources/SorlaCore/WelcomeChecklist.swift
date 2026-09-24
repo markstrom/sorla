@@ -76,6 +76,12 @@ public enum WelcomeChecklist {
         return TriggerHint.readyMessage(trigger: trigger, mode: mode, customShortcut: customShortcut)
     }
 
+    // Holding a key down can be hard, so the easier mode is named where people start.
+    public static func toggleModeTip(mode: RecordingMode) -> String? {
+        guard mode == .pushToTalk else { return nil }
+        return String(localized: "Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop.", bundle: Localization.bundle)
+    }
+
     private static var openSystemSettings: String { String(localized: "Open System Settings", bundle: Localization.bundle) }
     private static var tryAgain: String { String(localized: "Try Again", bundle: Localization.bundle) }
     private static var preparing: String { String(localized: "Preparing model… ~1 min", bundle: Localization.bundle) }

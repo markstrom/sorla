@@ -9,11 +9,11 @@ final class PushToTalkGestureTests: XCTestCase {
         XCTAssertEqual(gesture.handle(.triggerUp(at: 0.5)), .finish)
     }
 
-    func testHoldShorterThanMinimumCancels() {
+    func testHoldShorterThanMinimumIsDiscardedQuietly() {
         var gesture = PushToTalkGesture(minimumHold: 0.3)
 
         XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
-        XCTAssertEqual(gesture.handle(.triggerUp(at: 0.1)), .cancel)
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 0.1)), .discard)
     }
 
     func testHoldExactlyMinimumFinishes() {
@@ -23,13 +23,60 @@ final class PushToTalkGestureTests: XCTestCase {
         XCTAssertEqual(gesture.handle(.triggerUp(at: 0.3)), .finish)
     }
 
-    func testOtherKeyWhileHoldingCancelsThenIgnoresUpUntilNextDown() {
+    // A ⌘-shortcut made with the trigger (Right ⌘ + C) drops the press without a word.
+    func testAShortcutWithTheTriggerDiscardsThenIgnoresUpUntilNextDown() {
         var gesture = PushToTalkGesture(minimumHold: 0.3)
 
         XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
-        XCTAssertEqual(gesture.handle(.otherKeyDown), .cancel)
+        XCTAssertEqual(gesture.handle(.otherKeyDown(at: 0.1)), .discard)
         XCTAssertNil(gesture.handle(.triggerUp(at: 0.5)))
         XCTAssertEqual(gesture.handle(.triggerDown(at: 1)), .start)
+    }
+
+    // Past the minimum hold the dictation was audible, so a key still cancels it but Sorla says so.
+    func testAKeyAfterTheMinimumHoldStillCancelsButOutLoud() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
+        XCTAssertEqual(gesture.handle(.otherKeyDown(at: 2)), .cancel)
+        XCTAssertNil(gesture.handle(.triggerUp(at: 2.5)))
+    }
+
+    // #20: a stray click, or the click that opens the menu, no longer throws the dictation away.
+    func testAClickAfterTheMinimumHoldIsIgnored() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
+        XCTAssertNil(gesture.handle(.click(at: 0.3)))
+        XCTAssertNil(gesture.handle(.click(at: 1)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 2)), .finish)
+    }
+
+    // Within the minimum hold a click with the trigger down is a ⌘-click.
+    func testAClickWithinTheMinimumHoldIsAShortcutClick() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
+        XCTAssertEqual(gesture.handle(.click(at: 0.1)), .discard)
+        XCTAssertNil(gesture.handle(.triggerUp(at: 0.5)))
+    }
+
+    func testEscapeCancelsAHeldDictationAndWaitsForTheRelease() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
+        XCTAssertEqual(gesture.handle(.escape), .cancel)
+        XCTAssertTrue(gesture.isWaitingForRelease)
+        XCTAssertNil(gesture.handle(.escape))
+        XCTAssertNil(gesture.handle(.triggerUp(at: 1)))
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 2)), .start)
+    }
+
+    func testEscapeWhileIdleDoesNothing() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3)
+
+        XCTAssertNil(gesture.handle(.escape))
+        XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
     }
 
     func testDuplicateTriggerDownWhileHoldingIsIgnored() {
@@ -45,10 +92,11 @@ final class PushToTalkGestureTests: XCTestCase {
         XCTAssertNil(gesture.handle(.triggerUp(at: 0)))
     }
 
-    func testOtherKeyDownWhileIdleIsIgnored() {
+    func testOtherKeyDownOrClickWhileIdleIsIgnored() {
         var gesture = PushToTalkGesture(minimumHold: 0.3)
 
-        XCTAssertNil(gesture.handle(.otherKeyDown))
+        XCTAssertNil(gesture.handle(.otherKeyDown(at: 0)))
+        XCTAssertNil(gesture.handle(.click(at: 0)))
     }
 
     func testResetWhileHoldingReturnsToIdle() {
@@ -103,7 +151,7 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
         var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
 
         XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
-        XCTAssertNil(gesture.handle(.otherKeyDown))
+        XCTAssertNil(gesture.handle(.otherKeyDown(at: 1.05)))
         XCTAssertNil(gesture.handle(.triggerUp(at: 0.5)))
 
         XCTAssertNil(gesture.handle(.triggerDown(at: 1)))
@@ -117,7 +165,7 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
         XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
 
         XCTAssertNil(gesture.handle(.triggerDown(at: 1.0)))
-        XCTAssertNil(gesture.handle(.otherKeyDown))
+        XCTAssertNil(gesture.handle(.otherKeyDown(at: 1.05)))
         XCTAssertNil(gesture.handle(.triggerUp(at: 1.1)))
 
         XCTAssertNil(gesture.handle(.triggerDown(at: 2.0)))
@@ -127,7 +175,7 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
     func testOtherKeyWhileIdleNotHoldingIsIgnored() {
         var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
 
-        XCTAssertNil(gesture.handle(.otherKeyDown))
+        XCTAssertNil(gesture.handle(.otherKeyDown(at: 1.05)))
         XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
         XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
     }
@@ -138,7 +186,7 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
         XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
         XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
 
-        XCTAssertNil(gesture.handle(.otherKeyDown))
+        XCTAssertNil(gesture.handle(.otherKeyDown(at: 1.05)))
 
         XCTAssertNil(gesture.handle(.triggerDown(at: 1.0)))
         XCTAssertEqual(gesture.handle(.triggerUp(at: 1.05)), .finish)
@@ -175,7 +223,7 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
             gesture.recordingStartedElsewhere()
 
             XCTAssertEqual(gesture.handle(.triggerDown(at: 10)), nil)
-            XCTAssertEqual(gesture.handle(.otherKeyDown), nil)
+            XCTAssertEqual(gesture.handle(.otherKeyDown(at: 1.05)), nil)
             XCTAssertEqual(gesture.handle(.triggerUp(at: 11)), nil, "\(mode): ⌘Tab or ⌘C must not end it")
             XCTAssertFalse(gesture.isWaitingForRelease)
 
@@ -188,8 +236,88 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
         var gesture = PushToTalkGesture(minimumHold: 0.3)
         gesture.recordingStartedElsewhere()
 
-        XCTAssertEqual(gesture.handle(.otherKeyDown), nil)
+        XCTAssertEqual(gesture.handle(.otherKeyDown(at: 1.05)), nil)
         XCTAssertEqual(gesture.handle(.triggerUp(at: 1)), nil)
         XCTAssertFalse(gesture.isWaitingForRelease)
+    }
+
+    // MARK: - #20: Esc, clicks and feedback, keyboard-started against menu-started
+
+    func testEscapeCancelsAToggleDictationOutLoud() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
+        XCTAssertEqual(gesture.handle(.escape), .cancel)
+        XCTAssertFalse(gesture.isWaitingForRelease)
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 1)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 1.05)), .start, "the next tap starts a new dictation")
+    }
+
+    func testEscapeWhileHoldingTheStopTapCancelsAndSwallowsTheRelease() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
+        XCTAssertNil(gesture.handle(.triggerDown(at: 1)))
+        XCTAssertEqual(gesture.handle(.escape), .cancel)
+        XCTAssertNil(gesture.handle(.triggerUp(at: 1.1)), "the release must not start a new dictation")
+        XCTAssertNil(gesture.handle(.triggerDown(at: 2)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 2.05)), .start)
+    }
+
+    func testEscapeBeforeAToggleDictationStartsOnlySpoilsTheTap() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
+        XCTAssertNil(gesture.handle(.escape))
+        XCTAssertNil(gesture.handle(.triggerUp(at: 0.05)))
+    }
+
+    func testClicksDuringAToggleDictationNeverStopIt() {
+        var gesture = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
+
+        XCTAssertNil(gesture.handle(.triggerDown(at: 0)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 0.05)), .start)
+        XCTAssertNil(gesture.handle(.click(at: 1)))
+        XCTAssertNil(gesture.handle(.triggerDown(at: 2)))
+        XCTAssertNil(gesture.handle(.click(at: 2.1)), "a ⌘-click is not a stop tap")
+        XCTAssertNil(gesture.handle(.triggerUp(at: 2.2)))
+        XCTAssertNil(gesture.handle(.triggerDown(at: 3)))
+        XCTAssertEqual(gesture.handle(.triggerUp(at: 3.05)), .finish)
+    }
+
+    func testEscapeCancelsAMenuStartedDictationInBothModes() {
+        for mode in [RecordingMode.pushToTalk, .toggle] {
+            var gesture = PushToTalkGesture(minimumHold: 0.3, mode: mode)
+            gesture.recordingStartedElsewhere()
+
+            XCTAssertEqual(gesture.handle(.escape), .cancel, "\(mode)")
+            XCTAssertNil(gesture.handle(.escape), "\(mode): nothing left to cancel")
+        }
+    }
+
+    func testEscapeWithTheKeyDownCancelsAMenuStartedDictationAndSwallowsTheRelease() {
+        for mode in [RecordingMode.pushToTalk, .toggle] {
+            var gesture = PushToTalkGesture(minimumHold: 0.3, mode: mode)
+            gesture.recordingStartedElsewhere()
+
+            XCTAssertNil(gesture.handle(.triggerDown(at: 1)))
+            XCTAssertEqual(gesture.handle(.escape), .cancel, "\(mode)")
+            XCTAssertNil(gesture.handle(.triggerUp(at: 2)), "\(mode)")
+        }
+    }
+
+    func testClicksNeverEndAMenuStartedDictation() {
+        for mode in [RecordingMode.pushToTalk, .toggle] {
+            var gesture = PushToTalkGesture(minimumHold: 0.3, mode: mode)
+            gesture.recordingStartedElsewhere()
+
+            XCTAssertNil(gesture.handle(.click(at: 1)), "\(mode)")
+            XCTAssertNil(gesture.handle(.triggerDown(at: 2)))
+            XCTAssertNil(gesture.handle(.click(at: 2.1)), "\(mode): a ⌘-click")
+            XCTAssertNil(gesture.handle(.triggerUp(at: 2.2)), "\(mode)")
+        }
     }
 }

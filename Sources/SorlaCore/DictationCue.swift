@@ -7,6 +7,10 @@ public enum DictationCue: Equatable, Sendable {
     case nothingHeard
     case noText
     case textOnClipboard
+    // Sorla was replaced on disk, so its own pastes won't work again until it restarts.
+    case textOnClipboardUntilRestart
+    case releaseKeys
+    case cancelled
     case waitingForModel(String)
     case failed(String)
 
@@ -21,6 +25,8 @@ public enum DictationCue: Equatable, Sendable {
             self = .failed(String(localized: "Couldn't transcribe the recording", bundle: Localization.bundle))
         case .accessibilityAccessNeeded:
             self = .textOnClipboard
+        case .appReplaced:
+            self = .textOnClipboardUntilRestart
         case .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
             return nil
         }
@@ -31,7 +37,9 @@ public enum DictationCue: Equatable, Sendable {
         case .microphoneMuted: return "mic.slash"
         case .nothingHeard: return "waveform.slash"
         case .noText: return "minus"
-        case .textOnClipboard: return "doc.on.clipboard"
+        case .textOnClipboard, .textOnClipboardUntilRestart: return "doc.on.clipboard"
+        case .releaseKeys: return "keyboard"
+        case .cancelled: return "xmark"
         case .waitingForModel: return "hourglass"
         case .failed: return "exclamationmark.triangle"
         }
@@ -49,6 +57,16 @@ public enum DictationCue: Equatable, Sendable {
         case .textOnClipboard:
             let shortcut = pasteShortcut ?? "⌘V"
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
+        case .textOnClipboardUntilRestart:
+            let onClipboard = DictationCue.textOnClipboard.announcement(pasteShortcut: pasteShortcut)
+            return onClipboard + ". " + String(localized: "Restart Sorla to paste again", bundle: Localization.bundle)
+        case .releaseKeys:
+            guard let pasteShortcut else {
+                return String(localized: "Let go of the keys and try again", bundle: Localization.bundle)
+            }
+            return String(localized: "Let go of the keys and press \(pasteShortcut) again", bundle: Localization.bundle)
+        case .cancelled:
+            return String(localized: "Recording cancelled", bundle: Localization.bundle)
         case .waitingForModel(let message), .failed(let message):
             return message
         }
@@ -58,8 +76,8 @@ public enum DictationCue: Equatable, Sendable {
     public func issue(pasteShortcut: String?) -> SorlaIssue? {
         switch self {
         case .microphoneMuted: return .microphoneMuted
-        case .textOnClipboard: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText, .waitingForModel, .failed: return nil
+        case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
+        case .nothingHeard, .noText, .releaseKeys, .cancelled, .waitingForModel, .failed: return nil
         }
     }
 }

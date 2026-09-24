@@ -32,3 +32,55 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertTrue(resampled.isEmpty)
     }
 }
+
+final class AudioRecorderBufferTests: XCTestCase {
+    private let input = FakeAudioInput()
+    private let resampler = FakeResampler()
+
+    private func recordingRecorder() throws -> AudioRecorder {
+        let recorder = AudioRecorder(input: input, resampler: resampler)
+        try recorder.start()
+        input.feed(count: 1_024)
+        XCTAssertEqual(recorder.heldSampleCount, 1_024)
+        return recorder
+    }
+
+    func testStopHandsTheAudioOverAndKeepsNone() throws {
+        let recorder = try recordingRecorder()
+
+        let samples = try recorder.stop()
+
+        XCTAssertEqual(samples.count, 1_024)
+        XCTAssertEqual(recorder.heldSampleCount, 0)
+        XCTAssertFalse(input.isRunning)
+    }
+
+    func testCancelDropsTheAudioWithoutResampling() throws {
+        let recorder = try recordingRecorder()
+
+        recorder.cancel()
+
+        XCTAssertEqual(recorder.heldSampleCount, 0)
+        XCTAssertEqual(resampler.calls, 0)
+        XCTAssertFalse(input.isRunning)
+    }
+
+    func testAFailedResampleStillLetsGoOfTheAudio() throws {
+        let recorder = try recordingRecorder()
+        resampler.error = AudioRecorderError.bufferAllocationFailed
+
+        XCTAssertThrowsError(try recorder.stop())
+
+        XCTAssertEqual(recorder.heldSampleCount, 0)
+        XCTAssertEqual(resampler.calls, 1)
+    }
+
+    func testFramesAfterStopAreNotKept() throws {
+        let recorder = try recordingRecorder()
+        _ = try recorder.stop()
+
+        input.feed(count: 1_024)
+
+        XCTAssertEqual(recorder.heldSampleCount, 0)
+    }
+}

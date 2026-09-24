@@ -9,18 +9,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     convenience init(appSettings: AppSettings, modelManager: ModelManager, updateChecker: UpdateChecker, announce: @escaping (String) -> Void) {
         let navigation = SettingsNavigation()
-        let window = SorlaWindow(
-            contentRect: .zero,
-            styleMask: [.titled, .closable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = SettingsView.windowTitle
-        window.contentViewController = NSHostingController(
+        let window = Self.makeWindow(content: NSHostingController(
             rootView: SettingsView(appSettings: appSettings, modelManager: modelManager, updateChecker: updateChecker, navigation: navigation, announce: announce)
-        )
-        window.isReleasedWhenClosed = false
-        window.center()
+        ))
 
         self.init(window: window)
         self.navigation = navigation
@@ -31,17 +22,33 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         navigation?.showsUpdates = true
     }
 
-    // Opened from the status menu: wait until it has closed, or macOS may leave the window behind others.
+    static func makeWindow(content: NSViewController) -> SorlaWindow {
+        let window = SorlaWindow(
+            contentRect: .zero,
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = SettingsView.windowTitle
+        window.contentViewController = content
+        window.isReleasedWhenClosed = false
+        window.center()
+        return window
+    }
+
     func show() {
-        DispatchQueue.main.async { [weak self] in
-            guard let window = self?.window else { return }
-            window.orderFrontRegardless()
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
-            // A focused shortcut field would swallow the first Esc and could record the next key press.
-            window.makeFirstResponder(nil)
-            DispatchQueue.main.async { window.makeFirstResponder(nil) }
+        (window as? SorlaWindow)?.present { window in
+            Self.clearInitialFocus(of: window)
         }
+    }
+
+    // A focused shortcut field would swallow the first Esc (#36); SwiftUI focuses a turn later, so clear it then too.
+    static func clearInitialFocus(
+        of window: NSWindow,
+        nextTurn: (@escaping @MainActor () -> Void) -> Void = { work in DispatchQueue.main.async { work() } }
+    ) {
+        window.makeFirstResponder(nil)
+        nextTurn { window.makeFirstResponder(nil) }
     }
 
     func windowDidBecomeKey(_ notification: Notification) {

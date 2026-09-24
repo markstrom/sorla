@@ -7,6 +7,7 @@ public final class AppSettings: ObservableObject {
         static let triggerKey = "triggerKey"
         static let recordingMode = "recordingMode"
         static let keepClipboardContent = "keepClipboardContent"
+        static let keepLastTranscription = "keepLastTranscription"
         static let playSounds = "playSounds"
         static let autoCheckUpdates = "autoCheckUpdates"
         static let autoInstallUpdates = "autoInstallUpdates"
@@ -25,6 +26,11 @@ public final class AppSettings: ObservableObject {
 
     @Published public var keepClipboardContent: Bool {
         didSet { defaults.set(keepClipboardContent, forKey: Keys.keepClipboardContent) }
+    }
+
+    // Off, nothing is kept for Paste Last once a dictation has been delivered.
+    @Published public var keepLastTranscription: Bool {
+        didSet { defaults.set(keepLastTranscription, forKey: Keys.keepLastTranscription) }
     }
 
     @Published public var playSounds: Bool {
@@ -54,6 +60,7 @@ public final class AppSettings: ObservableObject {
         recordingMode = defaults.string(forKey: Keys.recordingMode).flatMap(RecordingMode.init(rawValue:)) ?? .default
 
         keepClipboardContent = defaults.object(forKey: Keys.keepClipboardContent) as? Bool ?? true
+        keepLastTranscription = defaults.object(forKey: Keys.keepLastTranscription) as? Bool ?? true
         playSounds = defaults.object(forKey: Keys.playSounds) as? Bool ?? true
         Self.migrate(from: Keys.legacyAutoCheckModelUpdates, to: Keys.autoCheckUpdates, in: defaults)
         Self.migrate(from: Keys.legacyAutoDownloadModelUpdates, to: Keys.autoInstallUpdates, in: defaults)

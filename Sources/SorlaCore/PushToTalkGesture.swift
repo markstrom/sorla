@@ -4,13 +4,18 @@ public struct PushToTalkGesture {
     public enum Event: Equatable {
         case triggerDown(at: TimeInterval)
         case triggerUp(at: TimeInterval)
-        case otherKeyDown
+        case otherKeyDown(at: TimeInterval)
+        case click(at: TimeInterval)
+        case escape
     }
 
     public enum Action: Equatable {
         case start
         case finish
+        // A dictation the user could see or hear was called off, so Sorla says so.
         case cancel
+        // The press never became a dictation (too short, or a ⌘-shortcut), so it goes quietly.
+        case discard
     }
 
     private enum State {
@@ -46,9 +51,15 @@ public struct PushToTalkGesture {
     }
 
     public mutating func handle(_ event: Event) -> Action? {
+        if event == .escape {
+            return handleEscape()
+        }
         switch state {
         case .external, .externalHeld, .externalHeldDirty:
             return handleExternal(event)
+        case .cancelled:
+            if case .triggerUp = event { state = .idle }
+            return nil
         default:
             break
         }
@@ -60,6 +71,23 @@ public struct PushToTalkGesture {
         }
     }
 
+    // Esc calls off whatever is recording, however it was started; a held key must still be let go first.
+    private mutating func handleEscape() -> Action? {
+        switch state {
+        case .holding where mode == .pushToTalk, .recordingHeld, .recordingHeldDirty, .externalHeld, .externalHeldDirty:
+            state = .cancelled
+            return .cancel
+        case .recording, .external:
+            state = .idle
+            return .cancel
+        case .holding:
+            state = .heldDirty
+            return nil
+        case .idle, .heldDirty, .cancelled:
+            return nil
+        }
+    }
+
     private mutating func handlePushToTalk(_ event: Event) -> Action? {
         switch (state, event) {
         case (.idle, .triggerDown(let at)):
@@ -68,22 +96,25 @@ public struct PushToTalkGesture {
 
         case (.holding(let since), .triggerUp(let at)):
             state = .idle
-            return (at - since) >= minimumHold ? .finish : .cancel
+            return isPastMinimumHold(since: since, at: at) ? .finish : .discard
 
-        case (.holding, .otherKeyDown):
+        // A key with the trigger held is a ⌘-shortcut, not speech.
+        case (.holding(let since), .otherKeyDown(let at)):
             state = .cancelled
-            return .cancel
+            return isPastMinimumHold(since: since, at: at) ? .cancel : .discard
 
-        case (.cancelled, .triggerUp):
-            state = .idle
-            return nil
+        // Past the minimum hold a click is a stray one (or opens the menu to stop), not a ⌘-click.
+        case (.holding(let since), .click(let at)):
+            guard !isPastMinimumHold(since: since, at: at) else { return nil }
+            state = .cancelled
+            return .discard
 
         default:
             return nil
         }
     }
 
-    // A clean tap (down+up, no otherKeyDown between) toggles idle->recording or recording->finished/cancelled.
+    // A clean tap (down+up, no key or click between) toggles idle->recording or recording->finished/cancelled.
     private mutating func handleToggle(_ event: Event) -> Action? {
         switch (state, event) {
         case (.idle, .triggerDown(let at)):
@@ -94,7 +125,7 @@ public struct PushToTalkGesture {
             state = .recording(startedAt: since)
             return .start
 
-        case (.holding, .otherKeyDown):
+        case (.holding, .otherKeyDown), (.holding, .click):
             state = .heldDirty
             return nil
 
@@ -108,9 +139,9 @@ public struct PushToTalkGesture {
 
         case (.recordingHeld(let startedAt), .triggerUp(let at)):
             state = .idle
-            return (at - startedAt) >= minimumHold ? .finish : .cancel
+            return isPastMinimumHold(since: startedAt, at: at) ? .finish : .cancel
 
-        case (.recordingHeld(let startedAt), .otherKeyDown):
+        case (.recordingHeld(let startedAt), .otherKeyDown), (.recordingHeld(let startedAt), .click):
             state = .recordingHeldDirty(startedAt: startedAt)
             return nil
 
@@ -121,6 +152,10 @@ public struct PushToTalkGesture {
         default:
             return nil
         }
+    }
+
+    private func isPastMinimumHold(since: TimeInterval, at: TimeInterval) -> Bool {
+        (at - since) >= minimumHold
     }
 
     // A dictation started from the menu wasn't started by the key, so only a clean press and release stops it.
@@ -135,7 +170,7 @@ public struct PushToTalkGesture {
             state = .externalHeld
             return nil
 
-        case (.externalHeld, .otherKeyDown):
+        case (.externalHeld, .otherKeyDown), (.externalHeld, .click):
             state = .externalHeldDirty
             return nil
 

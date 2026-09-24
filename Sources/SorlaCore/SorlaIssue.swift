@@ -11,6 +11,7 @@ public enum SorlaIssue: Hashable, Sendable {
     case modelUpdateFailed
     case microphoneMuted
     case textOnClipboard(pasteShortcut: String)
+    case appReplaced
 
     public var menuTitle: String {
         switch self {
@@ -23,6 +24,7 @@ public enum SorlaIssue: Hashable, Sendable {
         case .transcriptionFailed: return String(localized: "Couldn't transcribe the last recording", bundle: Localization.bundle)
         case .microphoneMuted: return String(localized: "Microphone seems to be muted — check Sound › Input", bundle: Localization.bundle)
         case .textOnClipboard(let pasteShortcut): return String(localized: "Text is on the clipboard — press \(pasteShortcut)", bundle: Localization.bundle)
+        case .appReplaced: return String(localized: "Sorla has been updated — Restart", bundle: Localization.bundle)
         }
     }
 
@@ -34,7 +36,7 @@ public enum SorlaIssue: Hashable, Sendable {
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         case .noInputDevice, .microphoneMuted:
             return URL(string: "x-apple.systempreferences:com.apple.preference.sound?input")
-        case .modelNotLoaded, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed, .textOnClipboard:
+        case .modelNotLoaded, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed, .textOnClipboard, .appReplaced:
             return nil
         }
     }
