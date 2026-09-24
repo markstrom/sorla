@@ -266,3 +266,16 @@ details p { margin: 8px 0 4px; }
 /* In-page links (e.g. "Mer om nedladdningen") glide unless the reader prefers less motion. */
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 h2[id] { scroll-margin-top: 16px; }
+
+/* Terminal commands: one click selects the whole command; copy.js adds a Copy button beside it. */
+.command code { user-select: all; -webkit-user-select: all; }
+.cmd { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.cmd .command { flex: 1 1 auto; min-width: 0; margin: 0; }
+.copy {
+  flex: none; font: inherit; font-size: 13px; font-weight: 600; line-height: 1;
+  padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  color: var(--accent); background: var(--accent-tint); border: 1px solid transparent;
+}
+.copy:hover { border-color: var(--accent); }
+.copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
