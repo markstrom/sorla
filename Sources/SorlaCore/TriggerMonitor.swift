@@ -27,9 +27,9 @@ public enum TriggerEdge: Equatable, Sendable {
         return isKeyPhysicallyDown() ? nil : .up
     }
 
-    // A latched modifier (Sticky Keys) may never report its release, so a key or click with the key up ends the hold first.
-    public static func releaseMissed(isHoldingToTalk: Bool, isKeyPhysicallyDown: () -> Bool) -> Bool {
-        isHoldingToTalk && !isKeyPhysicallyDown()
+    // A latched modifier (Sticky Keys) may never report its release, so a key or click with the key up ends the press first.
+    public static func releaseMissed(isWaitingForRelease: Bool, isKeyPhysicallyDown: () -> Bool) -> Bool {
+        isWaitingForRelease && !isKeyPhysicallyDown()
     }
 
     public static let escapeKeyCode: UInt16 = 53
@@ -245,7 +245,7 @@ public final class TriggerMonitor {
         case .keyDown:
             guard !Self.isSorlaSyntheticEvent(event) else { return }
             if event.keyCode == TriggerEdge.escapeKeyCode {
-                if !event.isARepeat { handle(.escape) }
+                if !event.isARepeat { handle(.escape, isTriggerDown: isTriggerDown) }
             } else {
                 handle(.otherKeyDown(at: event.timestamp), isTriggerDown: isTriggerDown)
             }
@@ -280,14 +280,21 @@ public final class TriggerMonitor {
     func handle(_ event: PushToTalkGesture.Event, isTriggerDown: () -> Bool = { true }) {
         switch event {
         case .otherKeyDown(let at), .click(let at):
-            if TriggerEdge.releaseMissed(isHoldingToTalk: gesture.isHoldingToTalk, isKeyPhysicallyDown: isTriggerDown) {
-                Self.logger.info("trigger release missed; ending the hold")
-                dispatch(gesture.handle(.triggerUp(at: at)))
-            }
-        case .triggerDown, .triggerUp, .escape:
-            break
+            deliverMissedRelease(at: at, isTriggerDown: isTriggerDown)
+            dispatch(gesture.handle(event))
+        case .escape:
+            // Esc cancels first, so a lost release can't turn it into a finish.
+            dispatch(gesture.handle(event))
+            deliverMissedRelease(at: ProcessInfo.processInfo.systemUptime, isTriggerDown: isTriggerDown)
+        case .triggerDown, .triggerUp:
+            dispatch(gesture.handle(event))
         }
-        dispatch(gesture.handle(event))
+    }
+
+    private func deliverMissedRelease(at time: TimeInterval, isTriggerDown: () -> Bool) {
+        guard TriggerEdge.releaseMissed(isWaitingForRelease: gesture.isWaitingForRelease, isKeyPhysicallyDown: isTriggerDown) else { return }
+        Self.logger.info("trigger release missed; delivering it first")
+        dispatch(gesture.handle(.triggerUp(at: time)))
     }
 
     private func dispatch(_ action: PushToTalkGesture.Action?) {

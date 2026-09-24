@@ -139,17 +139,75 @@ final class TriggerMonitorTests: XCTestCase {
         XCTAssertEqual([starts, finishes, cancels, discards], [1, 1, 0, 0])
     }
 
-    func testAMissedReleaseIsOnlyAssumedDuringAKeyboardStartedHold() {
-        let menu = makeMonitor(mode: .pushToTalk)
-        menu.recordingDidStartElsewhere()
-        menu.handle(.otherKeyDown(at: 1), isTriggerDown: { false })
+    func testAMissedReleaseIsNotAssumedWithoutAPressInProgress() {
+        let monitor = makeMonitor(mode: .pushToTalk)
+        monitor.recordingDidStartElsewhere()
+        monitor.handle(.otherKeyDown(at: 1), isTriggerDown: { false })
+        monitor.handle(.click(at: 2), isTriggerDown: { false })
         XCTAssertEqual([starts, finishes, cancels, discards], [0, 0, 0, 0])
+    }
 
-        let toggle = makeMonitor(mode: .toggle)
-        toggle.handle(.triggerDown(at: 0))
-        toggle.handle(.triggerUp(at: 0.05))
-        toggle.handle(.triggerDown(at: 1))
-        toggle.handle(.otherKeyDown(at: 1.1), isTriggerDown: { false })
-        XCTAssertEqual([starts, finishes, cancels, discards], [1, 0, 0, 0], "a latched ⌘ used for a shortcut doesn't stop a toggle dictation")
+    func testAShortcutWithTheTriggerHeldStillKeepsAToggleDictationGoing() {
+        let monitor = makeMonitor(mode: .toggle)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.triggerUp(at: 0.05))
+        monitor.handle(.triggerDown(at: 1))
+        monitor.handle(.otherKeyDown(at: 1.1), isTriggerDown: { true })
+        monitor.handle(.triggerUp(at: 1.2))
+        XCTAssertEqual([starts, finishes, cancels, discards], [1, 0, 0, 0])
+    }
+
+    func testEscapeWithTheReleaseLostStillLetsTheNextPressStart() {
+        let monitor = makeMonitor(mode: .pushToTalk)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.escape, isTriggerDown: { false })
+        XCTAssertEqual([starts, finishes, cancels, discards], [1, 0, 1, 0], "Esc still cancels rather than finishes")
+
+        monitor.handle(.triggerDown(at: 5))
+        XCTAssertEqual(starts, 2)
+    }
+
+    func testEscapeWithTheKeyHeldThenALostReleaseIsClearedByTheNextKey() {
+        let monitor = makeMonitor(mode: .pushToTalk)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.escape)
+        monitor.handle(.otherKeyDown(at: 3), isTriggerDown: { false })
+
+        monitor.handle(.triggerDown(at: 5))
+        XCTAssertEqual([starts, finishes, cancels, discards], [2, 0, 1, 0])
+    }
+
+    func testARightCommandShortcutWithTheReleaseLostLetsTheNextPressStart() {
+        let monitor = makeMonitor(mode: .pushToTalk)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.otherKeyDown(at: 0.1))
+        monitor.handle(.click(at: 2), isTriggerDown: { false })
+
+        monitor.handle(.triggerDown(at: 5))
+        XCTAssertEqual([starts, finishes, cancels, discards], [2, 0, 0, 1])
+    }
+
+    func testAToggleStartTapWithTheReleaseLostStillStarts() {
+        let monitor = makeMonitor(mode: .toggle)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.otherKeyDown(at: 1), isTriggerDown: { false })
+        XCTAssertEqual([starts, finishes, cancels, discards], [1, 0, 0, 0])
+
+        monitor.handle(.triggerDown(at: 4))
+        monitor.handle(.triggerUp(at: 4.1))
+        XCTAssertEqual([starts, finishes, cancels, discards], [1, 1, 0, 0])
+    }
+
+    func testAToggleStopTapWithTheReleaseLostStillStops() {
+        let monitor = makeMonitor(mode: .toggle)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.triggerUp(at: 0.05))
+        monitor.handle(.triggerDown(at: 2))
+        monitor.handle(.click(at: 3), isTriggerDown: { false })
+        XCTAssertEqual([starts, finishes, cancels, discards], [1, 1, 0, 0])
+
+        monitor.handle(.triggerDown(at: 5))
+        monitor.handle(.triggerUp(at: 5.1))
+        XCTAssertEqual(starts, 2, "the next tap starts a new dictation")
     }
 }

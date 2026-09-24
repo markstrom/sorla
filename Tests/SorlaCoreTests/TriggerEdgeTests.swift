@@ -75,9 +75,9 @@ final class TriggerEdgeTests: XCTestCase {
         XCTAssertNil(TriggerEdge.forModifierEvent(isSynthetic: true, hasTriggerFlag: true, isWaitingForRelease: true) { false })
     }
 
-    func testAReleaseIsOnlyAssumedMissedWhileHoldingToTalkWithTheKeyUp() {
-        XCTAssertTrue(TriggerEdge.releaseMissed(isHoldingToTalk: true) { false })
-        XCTAssertFalse(TriggerEdge.releaseMissed(isHoldingToTalk: true) { true }, "Right ⌘ + C with the key held is a shortcut")
-        XCTAssertFalse(TriggerEdge.releaseMissed(isHoldingToTalk: false) { false })
+    func testAReleaseIsOnlyAssumedMissedWhileWaitingForItWithTheKeyUp() {
+        XCTAssertTrue(TriggerEdge.releaseMissed(isWaitingForRelease: true) { false })
+        XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: true) { true }, "Right ⌘ + C with the key held is a shortcut")
+        XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: false) { false })
     }
 }

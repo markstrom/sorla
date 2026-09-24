@@ -50,12 +50,6 @@ public struct PushToTalkGesture {
         }
     }
 
-    // Only here does the key being up mean the dictation should end.
-    public var isHoldingToTalk: Bool {
-        if case .holding = state, mode == .pushToTalk { return true }
-        return false
-    }
-
     public mutating func handle(_ event: Event) -> Action? {
         if event == .escape {
             return handleEscape()

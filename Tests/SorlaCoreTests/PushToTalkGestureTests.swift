@@ -49,7 +49,6 @@ final class PushToTalkGestureTests: XCTestCase {
         XCTAssertEqual(gesture.handle(.triggerDown(at: 0)), .start)
         XCTAssertNil(gesture.handle(.click(at: 0.3)))
         XCTAssertNil(gesture.handle(.click(at: 1)))
-        XCTAssertTrue(gesture.isHoldingToTalk)
         XCTAssertEqual(gesture.handle(.triggerUp(at: 2)), .finish)
     }
 
@@ -319,23 +318,6 @@ final class PushToTalkGestureToggleModeTests: XCTestCase {
             XCTAssertNil(gesture.handle(.triggerDown(at: 2)))
             XCTAssertNil(gesture.handle(.click(at: 2.1)), "\(mode): a ⌘-click")
             XCTAssertNil(gesture.handle(.triggerUp(at: 2.2)), "\(mode)")
-            XCTAssertFalse(gesture.isHoldingToTalk)
         }
-    }
-
-    // Only a keyboard-started push-to-talk hold ends when the key goes up.
-    func testOnlyAKeyboardStartedPushToTalkPressIsHoldingToTalk() {
-        var pushToTalk = PushToTalkGesture(minimumHold: 0.3)
-        _ = pushToTalk.handle(.triggerDown(at: 0))
-        XCTAssertTrue(pushToTalk.isHoldingToTalk)
-
-        var toggle = PushToTalkGesture(minimumHold: 0.3, mode: .toggle)
-        _ = toggle.handle(.triggerDown(at: 0))
-        XCTAssertFalse(toggle.isHoldingToTalk)
-
-        var menu = PushToTalkGesture(minimumHold: 0.3)
-        menu.recordingStartedElsewhere()
-        _ = menu.handle(.triggerDown(at: 0))
-        XCTAssertFalse(menu.isHoldingToTalk)
     }
 }
