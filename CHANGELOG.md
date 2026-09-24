@@ -7,6 +7,7 @@
 - When the model couldn't be loaded, dictation is refused up front with a pointer to Try Again in the menu.
 - Cancelling a recording while an earlier one is still being transcribed no longer hides the indicator early or lets a model update swap in mid-transcription.
 - Something you copy between two quick dictations is kept instead of being replaced by the older clipboard content.
+- A modifier trigger only stops recording once the key is really up, and Sorla's own paste can't read as a release.
 
 ## 1.0.1 — 2026-09-24
 

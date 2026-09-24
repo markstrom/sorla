@@ -1,13 +1,31 @@
 import AppKit
 import KeyboardShortcuts
+import os
 
 public extension KeyboardShortcuts.Name {
     static let sorlaCustomTrigger = Self("sorlaCustomTrigger")
     static let pasteLastTranscription = Self("pasteLastTranscription", initial: .init(.v, modifiers: [.control, .option]))
 }
 
+public enum TriggerEdge: Equatable, Sendable {
+    case down
+    case up
+
+    // Sorla's own ⌘V can arrive as modifier changes, so a release only counts once the key is physically up.
+    public static func forModifierEvent(
+        isSynthetic: Bool,
+        hasTriggerFlag: Bool,
+        isKeyPhysicallyDown: () -> Bool
+    ) -> TriggerEdge? {
+        guard !isSynthetic else { return nil }
+        if hasTriggerFlag { return .down }
+        return isKeyPhysicallyDown() ? nil : .up
+    }
+}
+
 @MainActor
 public final class TriggerMonitor {
+    private static let logger = Logger(subsystem: "com.sorla.app", category: "TriggerMonitor")
     private var gesture = PushToTalkGesture()
     private var globalMonitor: Any?
     private var localMonitor: Any?
@@ -130,8 +148,22 @@ public final class TriggerMonitor {
         switch event.type {
         case .flagsChanged:
             guard event.keyCode == keyCode else { return }
-            let isDown = event.modifierFlags.rawValue & deviceMask != 0
-            action = gesture.handle(isDown ? .triggerDown(at: event.timestamp) : .triggerUp(at: event.timestamp))
+            let isSynthetic = Self.isSorlaSyntheticEvent(event)
+            let hasTriggerFlag = event.modifierFlags.rawValue & deviceMask != 0
+            let edge = TriggerEdge.forModifierEvent(
+                isSynthetic: isSynthetic,
+                hasTriggerFlag: hasTriggerFlag,
+                isKeyPhysicallyDown: { CGEventSource.keyState(.hidSystemState, key: CGKeyCode(keyCode)) }
+            )
+            switch edge {
+            case .down:
+                action = gesture.handle(.triggerDown(at: event.timestamp))
+            case .up:
+                action = gesture.handle(.triggerUp(at: event.timestamp))
+            case nil:
+                Self.logger.info("trigger flagsChanged ignored: synthetic=\(isSynthetic, privacy: .public) flag=\(hasTriggerFlag, privacy: .public)")
+                return
+            }
         case .keyDown:
             guard !Self.isSorlaSyntheticEvent(event) else { return }
             action = gesture.handle(.otherKeyDown)
@@ -144,7 +176,7 @@ public final class TriggerMonitor {
         dispatch(action)
     }
 
-    // Sorla's own ⌘V paste posts a keyDown that this monitor would otherwise see as "other key" and cancel on.
+    // Sorla's own ⌘V paste posts events this monitor would otherwise read as another key or a trigger release.
     private static func isSorlaSyntheticEvent(_ event: NSEvent) -> Bool {
         guard let marker = event.cgEvent?.getIntegerValueField(.eventSourceUserData) else { return false }
         return PasteService.isSyntheticMarker(marker)
