@@ -80,3 +80,4 @@ echo
 echo "DMG:     $DMG_PATH"
 echo "Size:    $(du -h "$DMG_PATH" | cut -f1)"
 echo "SHA-256: $(shasum -a 256 "$DMG_PATH" | cut -d' ' -f1)"
+echo "After the GitHub release is published, run Scripts/update-cask.sh to update the Homebrew cask."
