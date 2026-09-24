@@ -249,6 +249,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         .store(in: &cancellables)
 
+        // Runs after the close, once the window is no longer visible.
+        NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)
+            .filter { $0.object is SorlaWindow }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.leaveIfNoWindowsAreLeft()
+            }
+            .store(in: &cancellables)
+
         modelManager.onFailure = { [weak self] issue in
             self?.handleIssue(issue)
         }
@@ -484,6 +493,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               app.processIdentifier != NSRunningApplication.current.processIdentifier
         else { return }
         appBeforeSorlaActivated = app
+    }
+
+    // With no window left Sorla shouldn't stay active, or a ⌘Q meant for the next app would quit Sorla.
+    private func leaveIfNoWindowsAreLeft() {
+        guard NSApp.isActive, !NSApp.windows.contains(where: { $0 is SorlaWindow && $0.isVisible }) else { return }
+        if let previousApp {
+            previousApp.activate()
+        } else {
+            NSApp.deactivate()
+        }
     }
 
     private static func activate(_ app: NSRunningApplication, timeout: TimeInterval) async -> Bool {
