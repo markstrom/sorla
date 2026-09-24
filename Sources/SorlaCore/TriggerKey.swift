@@ -29,6 +29,11 @@ public enum TriggerKey: String, CaseIterable, Sendable {
         }
     }
 
+    // Fn/Globe's key state can lag or stick, so it alone never ends a press of that key.
+    public var hasReliableKeyState: Bool {
+        self != .fn
+    }
+
     public var displayName: String {
         switch self {
         case .rightCommand: return String(localized: "Right ⌘", bundle: Localization.bundle)

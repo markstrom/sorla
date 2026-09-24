@@ -16,20 +16,21 @@ public enum TriggerEdge: Equatable, Sendable {
         isSynthetic: Bool,
         hasTriggerFlag: Bool,
         isWaitingForRelease: Bool = false,
+        trustsKeyState: Bool = true,
         isKeyPhysicallyDown: () -> Bool
     ) -> TriggerEdge? {
         guard !isSynthetic else { return nil }
         if hasTriggerFlag {
             // Sticky Keys can keep the flag after the key goes up, so a repeat during a press is checked against the key.
-            guard isWaitingForRelease else { return .down }
+            guard isWaitingForRelease, trustsKeyState else { return .down }
             return isKeyPhysicallyDown() ? .down : .up
         }
         return isKeyPhysicallyDown() ? nil : .up
     }
 
     // A latched modifier (Sticky Keys) may never report its release, so a key or click with the key up ends the press first.
-    public static func releaseMissed(isWaitingForRelease: Bool, isKeyPhysicallyDown: () -> Bool) -> Bool {
-        isWaitingForRelease && !isKeyPhysicallyDown()
+    public static func releaseMissed(isWaitingForRelease: Bool, trustsKeyState: Bool = true, isKeyPhysicallyDown: () -> Bool) -> Bool {
+        isWaitingForRelease && trustsKeyState && !isKeyPhysicallyDown()
     }
 
     public static let escapeKeyCode: UInt16 = 53
@@ -50,6 +51,7 @@ public enum TriggerEdge: Equatable, Sendable {
 public final class TriggerMonitor {
     private static let logger = Logger(subsystem: "com.sorla.app", category: "TriggerMonitor")
     private var gesture = PushToTalkGesture()
+    private var trigger: TriggerKey
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private var isCustomShortcutActive = false
@@ -74,12 +76,14 @@ public final class TriggerMonitor {
     private let onDiscard: () -> Void
 
     public init(
+        trigger: TriggerKey = .default,
         mode: RecordingMode = .pushToTalk,
         onStart: @escaping @MainActor () -> Bool,
         onFinish: @escaping @MainActor () -> Void,
         onCancel: @escaping @MainActor () -> Void,
         onDiscard: @escaping @MainActor () -> Void
     ) {
+        self.trigger = trigger
         self.gesture = PushToTalkGesture(mode: mode)
         self.onStart = onStart
         self.onFinish = onFinish
@@ -123,6 +127,7 @@ public final class TriggerMonitor {
         }
 
         tearDown()
+        self.trigger = trigger
         gesture = PushToTalkGesture(mode: mode)
 
         switch trigger {
@@ -224,6 +229,7 @@ public final class TriggerMonitor {
                 isSynthetic: isSynthetic,
                 hasTriggerFlag: hasTriggerFlag,
                 isWaitingForRelease: gesture.isWaitingForRelease,
+                trustsKeyState: trigger.hasReliableKeyState,
                 isKeyPhysicallyDown: isTriggerDown
             )
             switch edge {
@@ -292,7 +298,11 @@ public final class TriggerMonitor {
     }
 
     private func deliverMissedRelease(at time: TimeInterval, isTriggerDown: () -> Bool) {
-        guard TriggerEdge.releaseMissed(isWaitingForRelease: gesture.isWaitingForRelease, isKeyPhysicallyDown: isTriggerDown) else { return }
+        guard TriggerEdge.releaseMissed(
+            isWaitingForRelease: gesture.isWaitingForRelease,
+            trustsKeyState: trigger.hasReliableKeyState,
+            isKeyPhysicallyDown: isTriggerDown
+        ) else { return }
         Self.logger.info("trigger release missed; delivering it first")
         dispatch(gesture.handle(.triggerUp(at: time)))
     }

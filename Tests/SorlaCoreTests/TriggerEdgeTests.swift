@@ -80,4 +80,13 @@ final class TriggerEdgeTests: XCTestCase {
         XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: true) { true }, "Right ⌘ + C with the key held is a shortcut")
         XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: false) { false })
     }
+
+    // A stale "up" for Fn/Globe must not end a real hold, so its key state alone never releases it.
+    func testAnUntrustedKeyStateNeverEndsAPress() {
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: true, isWaitingForRelease: true, trustsKeyState: false) { false }, .down)
+        XCTAssertFalse(TriggerEdge.releaseMissed(isWaitingForRelease: true, trustsKeyState: false) { false })
+        XCTAssertEqual(TriggerEdge.forModifierEvent(isSynthetic: false, hasTriggerFlag: false, trustsKeyState: false) { false }, .up, "a missing flag with the key up still releases")
+        XCTAssertFalse(TriggerKey.fn.hasReliableKeyState)
+        XCTAssertTrue(TriggerKey.rightCommand.hasReliableKeyState)
+    }
 }

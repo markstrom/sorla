@@ -8,8 +8,9 @@ final class TriggerMonitorTests: XCTestCase {
     private var cancels = 0
     private var discards = 0
 
-    private func makeMonitor(mode: RecordingMode) -> TriggerMonitor {
+    private func makeMonitor(trigger: TriggerKey = .rightCommand, mode: RecordingMode) -> TriggerMonitor {
         TriggerMonitor(
+            trigger: trigger,
             mode: mode,
             onStart: { [unowned self] in
                 self.starts += 1
@@ -209,5 +210,22 @@ final class TriggerMonitorTests: XCTestCase {
         monitor.handle(.triggerDown(at: 5))
         monitor.handle(.triggerUp(at: 5.1))
         XCTAssertEqual(starts, 2, "the next tap starts a new dictation")
+    }
+
+    func testAStaleUpDuringARealFnHoldDoesNotFinishTheRecording() {
+        let monitor = makeMonitor(trigger: .fn, mode: .pushToTalk)
+        monitor.handle(.triggerDown(at: 0))
+        monitor.handle(.click(at: 3), isTriggerDown: { false })
+        monitor.handle(.escape, isTriggerDown: { false })
+        XCTAssertEqual([starts, finishes, cancels, discards], [1, 0, 1, 0], "the click is ignored and Esc still cancels")
+
+        let toggle = makeMonitor(trigger: .fn, mode: .toggle)
+        toggle.handle(.triggerDown(at: 10))
+        toggle.handle(.triggerUp(at: 10.05))
+        toggle.handle(.triggerDown(at: 12))
+        toggle.handle(.click(at: 13), isTriggerDown: { false })
+        XCTAssertEqual([starts, finishes], [2, 0])
+        toggle.handle(.triggerUp(at: 14))
+        XCTAssertEqual([starts, finishes], [2, 0], "a ⌘-click-like press is not a stop tap")
     }
 }
