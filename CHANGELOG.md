@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Sorla no longer uses notifications, so macOS never asks for a third permission. Problems show in the indicator (an hourglass while the model gets ready, a warning when something failed), VoiceOver announces them, and the menu's status row explains the last dictation (muted microphone, text on the clipboard, no microphone, failed transcription) until the next one starts or for five minutes.
 - The update check tells "offline", "GitHub rate limit" and "bad response" apart and never shows a failure as "up to date".
 - About window: calmer layout with the Klang Pianissimo credit up front, links to the website, GitHub and privacy page, and a Check for Updates button; other credits and the license texts are in Credits and Licenses….
 - When the model couldn't be loaded, dictation is refused up front with a pointer to Try Again in the menu.

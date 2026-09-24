@@ -17,7 +17,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var welcomeWindowController: WelcomeWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
-    private var issueNotifier = IssueNotifier()
     private var pendingStartSound: Task<Void, Never>?
     private static let logger = Logger(subsystem: "com.sorla.app", category: "AppDelegate")
     private var statusMenuItem: NSMenuItem!
@@ -29,8 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var modelLoadingStatus: ModelLoadingStatus = .loading {
         didSet { welcomeWindowController?.state.modelLoadingStatus = modelLoadingStatus }
     }
-    private var didNotifyModelNotReady = false
+    private var transientStatus: TransientMenuStatus?
     private var isRefusedDictationHeld = false
+    private var isStartingRecording = false
+    private var startFailure: DictationCue?
     private var pendingAnnouncement: String?
 
     private static func waitForModifierRelease(timeout: Duration = .seconds(1)) async -> Bool {
@@ -122,12 +123,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onPhaseChange = { [weak self] phase in
             guard let self, let indicator = self.recordingIndicator else { return }
             switch phase {
-            case .recording: indicator.showRecording()
+            case .recording:
+                self.transientStatus = nil
+                indicator.showRecording()
             case .transcribing: indicator.showTranscribing()
             case .idle:
                 indicator.hide()
                 self.postPendingAnnouncement()
             }
+            self.updateStatusMenuItem()
         }
         recordingController.onSpectrum = { [weak self] spectrum in
             self?.recordingIndicator.updateSpectrum(spectrum)
@@ -141,7 +145,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
-            if isReady { self.didNotifyModelNotReady = false }
             self.updateIcon(isRecording: self.recordingController.isRecording)
             self.updateStatusMenuItem()
         }
@@ -152,15 +155,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in
                 guard let self else { return false }
-                if let message = self.modelNotReadyMessage() {
-                    guard DictationGate.waitsForRelease(mode: self.appSettings.recordingMode) else {
-                        self.refuseDictation(message)
-                        return false
-                    }
-                    self.isRefusedDictationHeld = true
-                    return true
+                self.startFailure = nil
+                if let refusal = self.modelRefusal() {
+                    return self.refuse(refusal)
                 }
-                guard self.recordingController.startRecording() else { return false }
+                self.isStartingRecording = true
+                let started = self.recordingController.startRecording()
+                self.isStartingRecording = false
+                guard started else {
+                    guard let failure = self.startFailure else { return false }
+                    return self.refuse(failure)
+                }
                 self.scheduleStartSound()
                 return true
             },
@@ -168,7 +173,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self else { return }
                 if self.isRefusedDictationHeld {
                     self.isRefusedDictationHeld = false
-                    if let message = self.modelNotReadyMessage() { self.refuseDictation(message) }
+                    if let refusal = self.modelRefusal() ?? self.startFailure { self.refuseDictation(refusal) }
+                    self.startFailure = nil
                     return
                 }
                 self.pendingStartSound?.cancel()
@@ -177,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             },
             onCancel: { [weak self] in
                 self?.isRefusedDictationHeld = false
+                self?.startFailure = nil
                 self?.pendingStartSound?.cancel()
                 self?.recordingController.cancelRecording()
             }
@@ -209,14 +216,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
 
-        modelManager.onInstalled = { [weak self] wasFirstInstall in
-            guard let self, wasFirstInstall else { return }
-            self.issueNotifier.post(TriggerHint.readyMessage(
-                trigger: self.appSettings.triggerKey,
-                mode: self.appSettings.recordingMode,
-                customShortcut: KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
-            ))
-        }
         modelManager.onFailure = { [weak self] issue in
             self?.handleIssue(issue)
         }
@@ -257,7 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    func menuWillOpen(_ menu: NSMenu) {
+    func menuNeedsUpdate(_ menu: NSMenu) {
         updateStatusMenuItem()
         updateTriggerHintMenuItem()
         pasteLastMenuItem.isEnabled = recordingController.lastTranscript != nil
@@ -315,6 +314,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             modelManager.retryLoadingModel()
         case .openSettings:
             showSettings()
+        case .openSoundSettings:
+            if let url = SorlaIssue.microphoneMuted.settingsURL { NSWorkspace.shared.open(url) }
+        case .pasteLastTranscription:
+            pasteLastTranscription()
+        case .dismiss:
+            transientStatus = nil
+            updateStatusMenuItem()
         case nil:
             break
         }
@@ -355,12 +361,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // @Published fires before the property changes, so the status sink passes the new value in.
     private func updateStatusMenuItem(model: ModelStatus? = nil) {
+        let now = Date()
+        if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
         let row = MenuStatusRow.current(
             microphoneDenied: PermissionsManager.isMicrophoneAccessDenied(),
             accessibilityMissing: !PermissionsManager.isAccessibilityTrusted(),
             model: model ?? modelManager.status,
             modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
-            modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading
+            modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
+            transient: transientStatus,
+            now: now
         )
         statusMenuAction = row?.action
         statusMenuItem.title = row?.title ?? ""
@@ -375,8 +385,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateStatusMenuItem(model: status)
     }
 
-    private func modelNotReadyMessage() -> String? {
-        DictationGate.blockedMessage(
+    private func modelRefusal() -> DictationCue? {
+        DictationGate.refusal(
             isModelInstalled: modelManager.isInstalled,
             isModelLoading: modelLoadingStatus == .loading,
             didModelFailToLoad: modelLoadingStatus == .failed,
@@ -384,30 +394,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
-    // The status row already shows the progress; the notification is only for the first refused attempt.
-    private func refuseDictation(_ message: String) {
-        Self.logger.info("dictation refused: model not ready yet")
-        guard !didNotifyModelNotReady else { return }
-        didNotifyModelNotReady = true
-        issueNotifier.post(message)
+    // A push-to-talk press may still become a ⌘-shortcut, so its refusal waits for the release.
+    private func refuse(_ refusal: DictationCue) -> Bool {
+        guard DictationGate.waitsForRelease(mode: appSettings.recordingMode) else {
+            refuseDictation(refusal)
+            return false
+        }
+        isRefusedDictationHeld = true
+        return true
+    }
+
+    private func refuseDictation(_ refusal: DictationCue) {
+        Self.logger.info("dictation refused: \(refusal.symbolName, privacy: .public)")
+        presentCue(refusal)
     }
 
     private func handleIssue(_ issue: SorlaIssue) {
         if issue == .modelNotLoaded || (issue == .modelDownloadFailed && !modelManager.isInstalled) {
             modelLoadingStatus = .failed
-            // A refusal seen while loading must not silence the one that says how to recover.
-            didNotifyModelNotReady = false
             updateIcon(isRecording: recordingController.isRecording)
         }
+        if let transient = TransientMenuStatus(issue: issue, at: Date()) {
+            transientStatus = transient
+        }
+        if let cue = DictationCue(issue: issue) {
+            if isStartingRecording {
+                startFailure = cue
+            } else {
+                // Paste Last needs Accessibility too, so without it only ⌘V works.
+                presentCue(cue, pasteShortcut: issue == .accessibilityAccessNeeded ? nil : currentPasteShortcut)
+            }
+        }
         updateStatusMenuItem()
-        issueNotifier.notify(issue)
+    }
+
+    private var currentPasteShortcut: String? {
+        KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
     }
 
     private func presentCue(_ cue: DictationCue) {
-        let pasteShortcut = KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
+        presentCue(cue, pasteShortcut: currentPasteShortcut)
+    }
+
+    private func presentCue(_ cue: DictationCue, pasteShortcut: String?) {
         let text = cue.announcement(pasteShortcut: pasteShortcut)
-        if let issue = cue.issue(pasteShortcut: pasteShortcut) {
-            issueNotifier.notify(issue)
+        if let issue = cue.issue(pasteShortcut: pasteShortcut), let transient = TransientMenuStatus(issue: issue, at: Date()) {
+            transientStatus = transient
+            updateStatusMenuItem()
         }
         // A newer recording owns the indicator, and speech now would be picked up by the microphone.
         guard !recordingController.isRecording else {

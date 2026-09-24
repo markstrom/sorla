@@ -6,13 +6,6 @@ final class SorlaIssueTests: XCTestCase {
         XCTAssertEqual(SorlaIssue.microphoneAccessNeeded.menuTitle, "Microphone access needed")
     }
 
-    func testMicrophoneAccessNeededNotificationBody() {
-        XCTAssertEqual(
-            SorlaIssue.microphoneAccessNeeded.notificationBody,
-            "Couldn't record — grant Sorla access to the microphone in System Settings."
-        )
-    }
-
     func testMicrophoneAccessNeededSettingsURL() {
         XCTAssertEqual(
             SorlaIssue.microphoneAccessNeeded.settingsURL,
@@ -22,13 +15,6 @@ final class SorlaIssueTests: XCTestCase {
 
     func testAccessibilityAccessNeededMenuTitle() {
         XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Accessibility access needed to paste")
-    }
-
-    func testAccessibilityAccessNeededNotificationBody() {
-        XCTAssertEqual(
-            SorlaIssue.accessibilityAccessNeeded.notificationBody,
-            "Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you."
-        )
     }
 
     func testAccessibilityAccessNeededSettingsURL() {
@@ -42,35 +28,17 @@ final class SorlaIssueTests: XCTestCase {
         XCTAssertEqual(SorlaIssue.modelNotLoaded.menuTitle, "Model couldn't be loaded")
     }
 
-    func testModelNotLoadedNotificationBody() {
-        XCTAssertEqual(
-            SorlaIssue.modelNotLoaded.notificationBody,
-            "The model couldn't be loaded. Dictation won't work until this is fixed."
-        )
-    }
-
     func testModelNotLoadedHasNoSettingsURL() {
         XCTAssertNil(SorlaIssue.modelNotLoaded.settingsURL)
     }
 
-    func testNoInputDeviceHasNoMenuTitle() {
-        XCTAssertNil(SorlaIssue.noInputDevice.menuTitle)
+    func testNoInputDeviceMenuTitlePointsToSoundInput() {
+        XCTAssertEqual(SorlaIssue.noInputDevice.menuTitle, "No microphone found — check Sound › Input")
+        XCTAssertEqual(SorlaIssue.noInputDevice.settingsURL, URL(string: "x-apple.systempreferences:com.apple.preference.sound?input"))
     }
 
-    func testNoInputDeviceNotificationBody() {
-        XCTAssertEqual(SorlaIssue.noInputDevice.notificationBody, "Couldn't start recording: no microphone found.")
-    }
-
-    func testNoInputDeviceHasNoSettingsURL() {
-        XCTAssertNil(SorlaIssue.noInputDevice.settingsURL)
-    }
-
-    func testTranscriptionFailedHasNoMenuTitle() {
-        XCTAssertNil(SorlaIssue.transcriptionFailed.menuTitle)
-    }
-
-    func testTranscriptionFailedNotificationBody() {
-        XCTAssertEqual(SorlaIssue.transcriptionFailed.notificationBody, "Couldn't transcribe that recording.")
+    func testTranscriptionFailedMenuTitle() {
+        XCTAssertEqual(SorlaIssue.transcriptionFailed.menuTitle, "Couldn't transcribe the last recording")
     }
 
     func testTranscriptionFailedHasNoSettingsURL() {
@@ -79,19 +47,11 @@ final class SorlaIssueTests: XCTestCase {
 
     func testModelDownloadFailedWording() {
         XCTAssertEqual(SorlaIssue.modelDownloadFailed.menuTitle, "Model download failed")
-        XCTAssertEqual(
-            SorlaIssue.modelDownloadFailed.notificationBody,
-            "Couldn't download the model. Open the Sorla menu to try again."
-        )
         XCTAssertNil(SorlaIssue.modelDownloadFailed.settingsURL)
     }
 
     func testModelUpdateFailedWording() {
         XCTAssertEqual(SorlaIssue.modelUpdateFailed.menuTitle, "Model update failed")
-        XCTAssertEqual(
-            SorlaIssue.modelUpdateFailed.notificationBody,
-            "Couldn't install the model update. Sorla keeps using the current model."
-        )
         XCTAssertNil(SorlaIssue.modelUpdateFailed.settingsURL)
     }
 }

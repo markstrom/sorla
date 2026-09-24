@@ -3,8 +3,8 @@ import XCTest
 
 final class DictationCueTests: XCTestCase {
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
@@ -18,20 +18,43 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V")
     }
 
-    func testOnlyCuesTheUserMustActOnBecomeNotifications() {
+    func testOnlyCuesTheUserMustActOnLeaveAMenuExplanation() {
         XCTAssertEqual(DictationCue.microphoneMuted.issue(pasteShortcut: nil), .microphoneMuted)
         XCTAssertEqual(DictationCue.textOnClipboard.issue(pasteShortcut: "⌃⌥V"), .textOnClipboard(pasteShortcut: "⌃⌥V"))
+        XCTAssertEqual(DictationCue.textOnClipboard.issue(pasteShortcut: nil), .textOnClipboard(pasteShortcut: "⌘V"))
         XCTAssertNil(DictationCue.nothingHeard.issue(pasteShortcut: nil))
         XCTAssertNil(DictationCue.noText.issue(pasteShortcut: nil))
+        XCTAssertNil(DictationCue.waitingForModel("x").issue(pasteShortcut: nil))
+        XCTAssertNil(DictationCue.failed("x").issue(pasteShortcut: nil))
     }
 
-    func testNotificationWording() {
-        XCTAssertEqual(
-            SorlaIssue.microphoneMuted.notificationBody,
-            "The microphone seems to be muted. Check System Settings › Sound › Input."
-        )
-        XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").notificationBody, "Your text is on the clipboard — press ⌃⌥V")
-        XCTAssertNil(SorlaIssue.microphoneMuted.menuTitle)
+    func testMenuWording() {
+        XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Microphone seems to be muted — check Sound › Input")
+        XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Text is on the clipboard — press ⌃⌥V")
+    }
+
+    func testFailedStartsAndFinishesShowAWarningCue() {
+        XCTAssertEqual(DictationCue(issue: .microphoneAccessNeeded), .failed("Microphone access needed"))
+        XCTAssertEqual(DictationCue(issue: .noInputDevice), .failed("No microphone found"))
+        XCTAssertEqual(DictationCue(issue: .transcriptionFailed), .failed("Couldn't transcribe the recording"))
+        XCTAssertEqual(DictationCue(issue: .noInputDevice)?.symbolName, "exclamationmark.triangle")
+    }
+
+    func testMissingAccessibilityShowsTheClipboardCue() {
+        XCTAssertEqual(DictationCue(issue: .accessibilityAccessNeeded), .textOnClipboard)
+    }
+
+    // These have their own cue, or aren't the result of a dictation, so the menu row is enough.
+    func testModelProblemsAndOwnCuesGetNoIssueCue() {
+        let issues: [SorlaIssue] = [.modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed, .microphoneMuted, .textOnClipboard(pasteShortcut: "⌘V")]
+        for issue in issues {
+            XCTAssertNil(DictationCue(issue: issue), "\(issue)")
+        }
+    }
+
+    func testTheCueAnnouncesItsOwnMessage() {
+        XCTAssertEqual(DictationCue.waitingForModel("Wait").announcement(pasteShortcut: nil), "Wait")
+        XCTAssertEqual(DictationCue.failed("Broken").announcement(pasteShortcut: "⌃⌥V"), "Broken")
     }
 }
 

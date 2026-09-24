@@ -400,8 +400,11 @@ final class RecordingIndicatorPanel: NSPanel {
 
     // Holds the symbol for a moment, then goes back to what the dictation phase asked for meanwhile.
     func showCue(symbolName: String, label: String) {
-        guard isPresented else { return }
-        if !isShowingCue {
+        if !isPresented {
+            // A refused or failed start has no indicator yet, so the cue brings it up and then hides it.
+            showNearMouse()
+            modeAfterCue = nil
+        } else if !isShowingCue {
             modeAfterCue = viewModel.mode
         }
         isShowingCue = true

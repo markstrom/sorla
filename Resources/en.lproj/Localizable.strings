@@ -20,15 +20,12 @@
 "Model couldn't be loaded" = "Model couldn't be loaded";
 "Model download failed" = "Model download failed";
 "Model update failed" = "Model update failed";
+"No microphone found — check Sound › Input" = "No microphone found — check Sound › Input";
+"Couldn't transcribe the last recording" = "Couldn't transcribe the last recording";
+"Microphone seems to be muted — check Sound › Input" = "Microphone seems to be muted — check Sound › Input";
+"Text is on the clipboard — press %@" = "Text is on the clipboard — press %@";
 
-/* Notifications */
-"Couldn't record — grant Sorla access to the microphone in System Settings." = "Couldn't record — grant Sorla access to the microphone in System Settings.";
-"Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you." = "Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you.";
-"The model couldn't be loaded. Dictation won't work until this is fixed." = "The model couldn't be loaded. Dictation won't work until this is fixed.";
-"Couldn't start recording: no microphone found." = "Couldn't start recording: no microphone found.";
-"Couldn't transcribe that recording." = "Couldn't transcribe that recording.";
-"Couldn't download the model. Open the Sorla menu to try again." = "Couldn't download the model. Open the Sorla menu to try again.";
-"Couldn't install the model update. Sorla keeps using the current model." = "Couldn't install the model update. Sorla keeps using the current model.";
+/* Dictation refusals and readiness */
 "The model is still downloading (%lld%%). Dictation will work once it's ready." = "The model is still downloading (%lld%%). Dictation will work once it's ready.";
 "The model is being prepared (~1 min). Dictation will work once it's ready." = "The model is being prepared (~1 min). Dictation will work once it's ready.";
 "The model isn't installed yet. Open the Sorla menu to download it." = "The model isn't installed yet. Open the Sorla menu to download it.";
@@ -147,4 +144,5 @@
 "No text" = "No text";
 "Microphone seems to be muted" = "Microphone seems to be muted";
 "Your text is on the clipboard — press %@" = "Your text is on the clipboard — press %@";
-"The microphone seems to be muted. Check System Settings › Sound › Input." = "The microphone seems to be muted. Check System Settings › Sound › Input.";
+"No microphone found" = "No microphone found";
+"Couldn't transcribe the recording" = "Couldn't transcribe the recording";

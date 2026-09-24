@@ -7,16 +7,23 @@ final class MenuStatusRowTests: XCTestCase {
         accessibilityMissing: Bool = false,
         model: ModelStatus = .installed(version: "1.0.0"),
         modelLoadFailed: Bool = false,
-        modelLoading: Bool = false
+        modelLoading: Bool = false,
+        transient: TransientMenuStatus? = nil,
+        now: Date = MenuStatusRowTests.shownAt
     ) -> MenuStatusRow? {
         MenuStatusRow.current(
             microphoneDenied: microphoneDenied,
             accessibilityMissing: accessibilityMissing,
             model: model,
             modelLoadFailed: modelLoadFailed,
-            modelLoading: modelLoading
+            modelLoading: modelLoading,
+            transient: transient,
+            now: now
         )
     }
+
+    private static let shownAt = Date(timeIntervalSinceReferenceDate: 1_000_000)
+    private let muted = TransientMenuStatus(issue: .microphoneMuted, at: MenuStatusRowTests.shownAt)
 
     func testLoadingAnInstalledModelSaysHowLongItTakes() {
         XCTAssertEqual(row(modelLoading: true), MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings))
@@ -99,5 +106,55 @@ final class MenuStatusRowTests: XCTestCase {
             row(model: .updateAvailable(version: "1.1.0")),
             MenuStatusRow(title: "Model update available (1.1.0)", action: .downloadModel)
         )
+    }
+
+    func testTransientExplanationsHaveTheirOwnActions() {
+        XCTAssertEqual(muted?.row, MenuStatusRow(title: "Microphone seems to be muted — check Sound › Input", action: .openSoundSettings))
+        XCTAssertEqual(
+            TransientMenuStatus(issue: .textOnClipboard(pasteShortcut: "⌃⌥V"), at: Self.shownAt)?.row,
+            MenuStatusRow(title: "Text is on the clipboard — press ⌃⌥V", action: .pasteLastTranscription)
+        )
+        XCTAssertEqual(
+            TransientMenuStatus(issue: .noInputDevice, at: Self.shownAt)?.row,
+            MenuStatusRow(title: "No microphone found — check Sound › Input", action: .openSoundSettings)
+        )
+        XCTAssertEqual(
+            TransientMenuStatus(issue: .transcriptionFailed, at: Self.shownAt)?.row,
+            MenuStatusRow(title: "Couldn't transcribe the last recording", action: .dismiss)
+        )
+    }
+
+    // These already have a row of their own that lasts as long as the problem.
+    func testLastingProblemsAreNeverTransient() {
+        let issues: [SorlaIssue] = [.microphoneAccessNeeded, .accessibilityAccessNeeded, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed]
+        for issue in issues {
+            XCTAssertNil(TransientMenuStatus(issue: issue, at: Self.shownAt), "\(issue)")
+        }
+    }
+
+    func testATransientExplanationShowsWhenNothingElseDoes() {
+        XCTAssertEqual(row(transient: muted), muted?.row)
+    }
+
+    func testATransientExplanationLastsFiveMinutes() {
+        XCTAssertEqual(row(transient: muted, now: Self.shownAt.addingTimeInterval(4 * 60 + 59)), muted?.row)
+        XCTAssertNil(row(transient: muted, now: Self.shownAt.addingTimeInterval(5 * 60)))
+        XCTAssertEqual(muted?.isExpired(at: Self.shownAt.addingTimeInterval(5 * 60)), true)
+        XCTAssertEqual(muted?.isExpired(at: Self.shownAt), false)
+    }
+
+    func testLastingProblemsAndProgressOutrankATransientExplanation() {
+        XCTAssertEqual(row(microphoneDenied: true, transient: muted)?.action, .showWelcome)
+        XCTAssertEqual(row(accessibilityMissing: true, transient: muted)?.action, .showWelcome)
+        XCTAssertEqual(row(modelLoadFailed: true, transient: muted), .modelLoadFailed)
+        XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), transient: muted)?.action, .openSettings)
+        XCTAssertEqual(row(model: .preparing(version: "1.1.0", isUpdate: true), transient: muted)?.action, .openSettings)
+        XCTAssertEqual(row(modelLoading: true, transient: muted)?.action, .openSettings)
+    }
+
+    func testATransientExplanationOutranksUpdateOffersAndUpdateFailures() {
+        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), transient: muted), muted?.row)
+        XCTAssertEqual(row(model: .failed(.network, isUpdate: true), transient: muted), muted?.row)
+        XCTAssertEqual(row(model: .failed(.network, isUpdate: true), transient: muted, now: Self.shownAt.addingTimeInterval(600))?.action, .downloadModel)
     }
 }

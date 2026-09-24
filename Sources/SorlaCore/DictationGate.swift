@@ -28,6 +28,30 @@ public enum DictationGate {
         }
     }
 
+    // A model on its way shows an hourglass; one that needs the user's help shows a warning.
+    public static func refusal(
+        isModelInstalled: Bool,
+        isModelLoading: Bool = false,
+        didModelFailToLoad: Bool = false,
+        model: ModelStatus
+    ) -> DictationCue? {
+        guard let message = blockedMessage(
+            isModelInstalled: isModelInstalled,
+            isModelLoading: isModelLoading,
+            didModelFailToLoad: didModelFailToLoad,
+            model: model
+        ) else { return nil }
+        if isModelInstalled {
+            return isModelLoading ? .waitingForModel(message) : .failed(message)
+        }
+        switch model {
+        case .downloading, .preparing, .waitingToInstall:
+            return .waitingForModel(message)
+        default:
+            return .failed(message)
+        }
+    }
+
     // A push-to-talk press may still become a ⌘-shortcut, so its refusal is only reported on release.
     public static func waitsForRelease(mode: RecordingMode) -> Bool {
         mode == .pushToTalk

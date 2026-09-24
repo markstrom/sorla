@@ -20,15 +20,12 @@
 "Model couldn't be loaded" = "Modellen kunde inte läsas in";
 "Model download failed" = "Nedladdningen av modellen misslyckades";
 "Model update failed" = "Uppdateringen av modellen misslyckades";
+"No microphone found — check Sound › Input" = "Ingen mikrofon hittades – kontrollera Ljud › Ingång";
+"Couldn't transcribe the last recording" = "Den senaste inspelningen kunde inte transkriberas";
+"Microphone seems to be muted — check Sound › Input" = "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång";
+"Text is on the clipboard — press %@" = "Texten ligger i urklippet – tryck %@";
 
-/* Notifications */
-"Couldn't record — grant Sorla access to the microphone in System Settings." = "Kunde inte spela in – ge Sorla åtkomst till mikrofonen i Systeminställningar.";
-"Your text is on the clipboard — press ⌘V. Grant Accessibility access so Sorla can paste for you." = "Texten ligger i urklippet – tryck ⌘V. Ge Sorla åtkomst under Hjälpmedel så kan Sorla klistra in åt dig.";
-"The model couldn't be loaded. Dictation won't work until this is fixed." = "Modellen kunde inte läsas in. Diktering fungerar inte förrän det är åtgärdat.";
-"Couldn't start recording: no microphone found." = "Kunde inte börja spela in: ingen mikrofon hittades.";
-"Couldn't transcribe that recording." = "Kunde inte transkribera inspelningen.";
-"Couldn't download the model. Open the Sorla menu to try again." = "Kunde inte ladda ner modellen. Öppna Sorla-menyn för att försöka igen.";
-"Couldn't install the model update. Sorla keeps using the current model." = "Kunde inte installera uppdateringen av modellen. Sorla fortsätter med den nuvarande modellen.";
+/* Dictation refusals and readiness */
 "The model is still downloading (%lld%%). Dictation will work once it's ready." = "Modellen laddas fortfarande ner (%lld %%). Diktering fungerar när den är klar.";
 "The model is being prepared (~1 min). Dictation will work once it's ready." = "Modellen förbereds (~1 min). Diktering fungerar när den är klar.";
 "The model isn't installed yet. Open the Sorla menu to download it." = "Modellen är inte installerad än. Öppna Sorla-menyn för att ladda ner den.";
@@ -147,4 +144,5 @@
 "No text" = "Ingen text";
 "Microphone seems to be muted" = "Mikrofonen verkar vara avstängd";
 "Your text is on the clipboard — press %@" = "Texten ligger i urklippet – tryck %@";
-"The microphone seems to be muted. Check System Settings › Sound › Input." = "Mikrofonen verkar vara avstängd. Kontrollera Systeminställningar › Ljud › Ingång.";
+"No microphone found" = "Ingen mikrofon hittades";
+"Couldn't transcribe the recording" = "Inspelningen kunde inte transkriberas";

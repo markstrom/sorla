@@ -7,6 +7,24 @@ public enum DictationCue: Equatable, Sendable {
     case nothingHeard
     case noText
     case textOnClipboard
+    case waitingForModel(String)
+    case failed(String)
+
+    // Only a failed start or finish has a cue; the model's own failures stay in the menu.
+    public init?(issue: SorlaIssue) {
+        switch issue {
+        case .microphoneAccessNeeded:
+            self = .failed(issue.menuTitle)
+        case .noInputDevice:
+            self = .failed(String(localized: "No microphone found", bundle: Localization.bundle))
+        case .transcriptionFailed:
+            self = .failed(String(localized: "Couldn't transcribe the recording", bundle: Localization.bundle))
+        case .accessibilityAccessNeeded:
+            self = .textOnClipboard
+        case .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
+            return nil
+        }
+    }
 
     public var symbolName: String {
         switch self {
@@ -14,6 +32,8 @@ public enum DictationCue: Equatable, Sendable {
         case .nothingHeard: return "waveform.slash"
         case .noText: return "minus"
         case .textOnClipboard: return "doc.on.clipboard"
+        case .waitingForModel: return "hourglass"
+        case .failed: return "exclamationmark.triangle"
         }
     }
 
@@ -29,15 +49,17 @@ public enum DictationCue: Equatable, Sendable {
         case .textOnClipboard:
             let shortcut = pasteShortcut ?? "⌘V"
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
+        case .waitingForModel(let message), .failed(let message):
+            return message
         }
     }
 
-    // Only outcomes the user has to act on also get a notification.
+    // Only outcomes the user has to act on also leave an explanation in the menu.
     public func issue(pasteShortcut: String?) -> SorlaIssue? {
         switch self {
         case .microphoneMuted: return .microphoneMuted
         case .textOnClipboard: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText: return nil
+        case .nothingHeard, .noText, .waitingForModel, .failed: return nil
         }
     }
 }

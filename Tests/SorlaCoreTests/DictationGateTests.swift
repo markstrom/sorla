@@ -57,6 +57,26 @@ final class DictationGateTests: XCTestCase {
         XCTAssertNil(DictationGate.blockedMessage(isModelInstalled: true, model: model))
     }
 
+    func testAModelOnItsWayRefusesWithAnHourglass() {
+        let downloading = DictationGate.refusal(isModelInstalled: false, model: .downloading(version: "1.0.0", fraction: 0.345, isUpdate: false))
+        XCTAssertEqual(downloading, .waitingForModel("The model is still downloading (34%). Dictation will work once it's ready."))
+        XCTAssertEqual(downloading?.symbolName, "hourglass")
+        XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .preparing(version: "1.0.0", isUpdate: false))?.symbolName, "hourglass")
+        XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .waitingToInstall(version: "1.0.0"))?.symbolName, "hourglass")
+        XCTAssertEqual(DictationGate.refusal(isModelInstalled: true, isModelLoading: true, model: .installed(version: "1.0.0"))?.symbolName, "hourglass")
+    }
+
+    func testAModelThatNeedsTheUserRefusesWithAWarning() {
+        let failedLoad = DictationGate.refusal(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0"))
+        XCTAssertEqual(failedLoad, .failed("The model couldn't be loaded. Open the Sorla menu and choose “Model couldn't be loaded — Try Again”."))
+        XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .failed(.network, isUpdate: false))?.symbolName, "exclamationmark.triangle")
+        XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .notInstalled)?.symbolName, "exclamationmark.triangle")
+    }
+
+    func testAReadyModelIsNotRefused() {
+        XCTAssertNil(DictationGate.refusal(isModelInstalled: true, model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true)))
+    }
+
     func testPushToTalkWaitsForTheReleaseSoShortcutsStaySilent() {
         XCTAssertTrue(DictationGate.waitsForRelease(mode: .pushToTalk))
         XCTAssertFalse(DictationGate.waitsForRelease(mode: .toggle))
