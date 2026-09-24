@@ -7,6 +7,7 @@ public enum DictationCue: Equatable, Sendable {
     case nothingHeard
     case noText
     case textOnClipboard
+    case cancelled
     case waitingForModel(String)
     case failed(String)
 
@@ -32,6 +33,7 @@ public enum DictationCue: Equatable, Sendable {
         case .nothingHeard: return "waveform.slash"
         case .noText: return "minus"
         case .textOnClipboard: return "doc.on.clipboard"
+        case .cancelled: return "xmark"
         case .waitingForModel: return "hourglass"
         case .failed: return "exclamationmark.triangle"
         }
@@ -49,6 +51,8 @@ public enum DictationCue: Equatable, Sendable {
         case .textOnClipboard:
             let shortcut = pasteShortcut ?? "⌘V"
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
+        case .cancelled:
+            return String(localized: "Recording cancelled", bundle: Localization.bundle)
         case .waitingForModel(let message), .failed(let message):
             return message
         }
@@ -59,7 +63,7 @@ public enum DictationCue: Equatable, Sendable {
         switch self {
         case .microphoneMuted: return .microphoneMuted
         case .textOnClipboard: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText, .waitingForModel, .failed: return nil
+        case .nothingHeard, .noText, .cancelled, .waitingForModel, .failed: return nil
         }
     }
 }

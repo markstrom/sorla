@@ -199,10 +199,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.finishRecording()
             },
             onCancel: { [weak self] in
-                self?.isRefusedDictationHeld = false
-                self?.startFailure = nil
-                self?.pendingStartSound?.cancel()
-                self?.recordingController.cancelRecording()
+                self?.cancelRecording(announce: true)
+            },
+            onDiscard: { [weak self] in
+                self?.cancelRecording(announce: false)
             }
         )
         self.triggerMonitor = triggerMonitor
@@ -396,6 +396,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Self.logger.info("recording stopped at the length limit")
         triggerMonitor?.recordingDidEndElsewhere()
         finishRecording()
+    }
+
+    // The cue comes once the microphone is closed, so VoiceOver isn't recorded into anything.
+    private func cancelRecording(announce: Bool) {
+        let wasRecording = recordingController.isRecording
+        isRefusedDictationHeld = false
+        startFailure = nil
+        pendingStartSound?.cancel()
+        recordingController.cancelRecording()
+        if announce, wasRecording {
+            presentCue(.cancelled)
+        }
     }
 
     private func finishRecording() {

@@ -146,6 +146,11 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång")
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
+            XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
+            XCTAssertEqual(
+                WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
+                "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa."
+            )
         }
     }
 

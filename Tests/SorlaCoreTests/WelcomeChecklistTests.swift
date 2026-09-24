@@ -95,4 +95,13 @@ final class WelcomeChecklistTests: XCTestCase {
             "Dictation works once all three are done."
         )
     }
+
+    // #20: holding a key can be hard, so push-to-talk users hear about the mode that only needs taps.
+    func testTheToggleModeTipShowsOnlyInPushToTalk() {
+        XCTAssertEqual(
+            WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
+            "Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop."
+        )
+        XCTAssertNil(WelcomeChecklist.toggleModeTip(mode: .toggle))
+    }
 }
