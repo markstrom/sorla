@@ -103,8 +103,8 @@ struct SettingsView: View {
         .font(.caption)
         .foregroundStyle(.secondary)
 
-        Picker("Model", selection: .constant(PianissimoModel.displayName)) {
-            Text(LocalizedStringKey(PianissimoModel.displayName)).tag(PianissimoModel.displayName)
+        LabeledContent("Model") {
+            Text(LocalizedStringKey(PianissimoModel.displayName))
         }
 
         Toggle("Keep clipboard content", isOn: $appSettings.keepClipboardContent)
@@ -159,10 +159,22 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var updates: some View {
-        updateRow(title: Text(verbatim: "Sorla"), version: AppVersion.short, row: UpdateRow.app(updateChecker.appStatus)) {
+        updateRow(
+            title: Text(verbatim: "Sorla"),
+            version: AppVersion.short,
+            row: UpdateRow.app(updateChecker.appStatus),
+            downloadLabel: Text("Download the new version of Sorla"),
+            tryAgainLabel: Text("Try Again")
+        ) {
             openURL(AppUpdateCheck.downloadPageURL)
         }
-        updateRow(title: Text("Speech model"), version: modelManager.installedVersion, row: UpdateRow.model(modelManager.status)) {
+        updateRow(
+            title: Text("Speech model"),
+            version: modelManager.installedVersion,
+            row: UpdateRow.model(modelManager.status),
+            downloadLabel: Text("Download the speech model"),
+            tryAgainLabel: Text("Try downloading the model again")
+        ) {
             modelManager.downloadModel()
         }
         Toggle("Check for updates automatically", isOn: $appSettings.autoCheckUpdates)
@@ -171,11 +183,20 @@ struct SettingsView: View {
         HStack {
             Spacer()
             Button("Check Now") { updateChecker.checkNow() }
+                .accessibilityLabel(Text("Check for updates now"))
                 .disabled(!UpdateRow.canCheckNow(app: updateChecker.appStatus, model: modelManager.status))
         }
     }
 
-    private func updateRow(title: Text, version: String?, row: UpdateRow, download: @escaping () -> Void) -> some View {
+    // "Download" and "Try Again" alone don't say what they act on, so VoiceOver gets the full action.
+    private func updateRow(
+        title: Text,
+        version: String?,
+        row: UpdateRow,
+        downloadLabel: Text,
+        tryAgainLabel: Text,
+        download: @escaping () -> Void
+    ) -> some View {
         LabeledContent {
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 8) {
@@ -186,8 +207,10 @@ struct SettingsView: View {
                     switch row.action {
                     case .download:
                         Button("Download", action: download)
+                            .accessibilityLabel(downloadLabel)
                     case .tryAgain:
                         Button("Try Again", action: download)
+                            .accessibilityLabel(tryAgainLabel)
                     case nil:
                         EmptyView()
                     }

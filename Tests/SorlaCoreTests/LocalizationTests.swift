@@ -163,6 +163,8 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(swedishStrings["Updates"], "Uppdateringar")
         XCTAssertEqual(swedishStrings["Speech model"], "Talmodell")
         XCTAssertEqual(swedishStrings["Check Now"], "Sök nu")
+        XCTAssertEqual(swedishStrings["Check for updates now"], "Sök efter uppdateringar nu")
+        XCTAssertEqual(swedishStrings["Try downloading the model again"], "Försök ladda ner modellen igen")
         XCTAssertEqual(swedishStrings["Check for updates automatically"], "Sök efter uppdateringar automatiskt")
         XCTAssertEqual(swedishStrings["Install updates automatically"], "Installera uppdateringar automatiskt")
     }
