@@ -19,6 +19,7 @@ public final class RecordingController {
     public var onPhaseChange: ((DictationPhase) -> Void)?
     public var onCue: ((DictationCue) -> Void)?
     public var onMicrophoneMutedChange: ((Bool) -> Void)?
+    public var onPaste: (() -> Void)?
     private var muteDetector: MicrophoneMuteDetector?
     private var deviceSeemedMuted = false
     public var phase: DictationPhase { phaseTracker.phase }
@@ -299,7 +300,9 @@ public final class RecordingController {
         }
         PasteService.paste()
         let pasted = AXIsProcessTrusted()
-        if !pasted {
+        if pasted {
+            onPaste?()
+        } else {
             onIssue?(.accessibilityAccessNeeded)
         }
         return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)

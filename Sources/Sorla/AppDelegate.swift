@@ -157,6 +157,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onCue = { [weak self] cue in
             self?.presentCue(cue)
         }
+        recordingController.onPaste = { [weak self] in
+            // Sighted users see the text arrive; only VoiceOver needs to be told.
+            guard NSWorkspace.shared.isVoiceOverEnabled else { return }
+            self?.announce(String(localized: "Pasted"))
+        }
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
@@ -503,12 +508,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             transientStatus = transient
             updateStatusMenuItem()
         }
-        // A newer recording owns the indicator, and speech now would be picked up by the microphone.
+        // A newer recording owns the indicator.
+        if !recordingController.isRecording {
+            recordingIndicator.showCue(symbolName: cue.symbolName, label: text)
+        }
+        announce(text)
+    }
+
+    // Speech during a recording would be picked up by the microphone, so it waits until the recording ends.
+    private func announce(_ text: String) {
         guard !recordingController.isRecording else {
             pendingAnnouncement = text
             return
         }
-        recordingIndicator.showCue(symbolName: cue.symbolName, label: text)
         AccessibilityNotification.Announcement(text).post()
     }
 
