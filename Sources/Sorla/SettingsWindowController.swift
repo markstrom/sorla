@@ -31,13 +31,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         navigation?.showsUpdates = true
     }
 
-    // Opened from the status menu: wait until it has closed, or macOS may leave the window behind others.
     func show() {
-        DispatchQueue.main.async { [weak self] in
-            guard let window = self?.window else { return }
-            window.orderFrontRegardless()
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
+        (window as? SorlaWindow)?.present { window in
             // A focused shortcut field would swallow the first Esc and could record the next key press.
             window.makeFirstResponder(nil)
             DispatchQueue.main.async { window.makeFirstResponder(nil) }

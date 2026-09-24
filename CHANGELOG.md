@@ -8,6 +8,7 @@
 - Paste Last from its shortcut (⌃⌥V) no longer pastes while the shortcut's keys are still held after its one-second wait, which reached the app as ⌃⌥⌘V. The text is put on the clipboard instead and Sorla says so ("Your text is on the clipboard — press ⌃⌥V"). Locking the Mac or starting a dictation while it waits cancels it.
 - With VoiceOver on, Sorla says "Pasting text" instead of "Pasted", since it can tell that it sent the paste but not that the app accepted it. Announcements also wait until the microphone has really closed, including the short tail after you let go, so a result that arrives while the next recording is ending isn't recorded into it.
 - New setting, Keep last transcription (on by default). Turned off, Sorla keeps no text for Paste Last once a dictation has been pasted: what was kept is forgotten at once, a Paste Last on its way is called off, and Paste Last and its shortcut are unavailable. Dictation itself pastes as before.
+- Settings, About and Welcome open the same way: a minimised window is restored, the window comes to the Space you are on (also over a full-screen app) instead of taking you to another one, and it is made the key window once Sorla has actually become active. This should keep them from opening behind other windows.
 
 ## 1.0.2 — 2026-09-24
 

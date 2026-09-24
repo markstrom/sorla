@@ -22,13 +22,7 @@ final class AboutWindowController: NSWindowController {
         nil
     }
 
-    // Opened from the status menu: wait until it has closed, or macOS may leave the window behind others.
     func show() {
-        DispatchQueue.main.async { [weak self] in
-            guard let window = self?.window else { return }
-            window.orderFrontRegardless()
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
-        }
+        (window as? SorlaWindow)?.present()
     }
 }

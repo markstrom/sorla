@@ -43,10 +43,3 @@ enum MainMenu {
         mainMenu.addItem(item)
     }
 }
-
-// None of Sorla's windows has a Cancel button, so Esc (and ⌘.) closes them like a dialog.
-final class SorlaWindow: NSWindow {
-    override func cancelOperation(_ sender: Any?) {
-        performClose(sender)
-    }
-}

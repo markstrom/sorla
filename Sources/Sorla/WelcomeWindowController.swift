@@ -41,15 +41,9 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
 
     var isKey: Bool { window?.isKeyWindow ?? false }
 
-    // Opened at launch or from the status menu: wait a turn, or macOS may leave the window behind others.
     func show() {
         startPollingPermissions()
-        DispatchQueue.main.async { [weak self] in
-            guard let window = self?.window else { return }
-            window.orderFrontRegardless()
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
-        }
+        (window as? SorlaWindow)?.present()
     }
 
     func windowWillClose(_ notification: Notification) {
