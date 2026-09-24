@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.3 — 2026-09-24
 
 - Settings are grouped under Dictation, Pasting, General and Updates. "Keep clipboard content" is now "Put back what you had copied", with a line explaining what it does, and the window never grows taller than the screen (it scrolls instead).
 - Install and update with Homebrew: `brew install --cask markstrom/tap/sorla`.
