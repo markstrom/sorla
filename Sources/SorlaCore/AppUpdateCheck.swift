@@ -29,7 +29,25 @@ public struct AppRelease: Decodable, Equatable, Sendable {
 public enum AppUpdateResult: Equatable, Sendable {
     case upToDate
     case available(version: String)
-    case invalid
+    case failed(AppUpdateFailure)
+}
+
+// Every failure is reported as such, never as "up to date", and says what the user can do.
+public enum AppUpdateFailure: Equatable, Sendable {
+    case offline
+    case rateLimited
+    case badResponse
+
+    public var message: String {
+        switch self {
+        case .offline:
+            return String(localized: "Couldn't check for updates. Check your internet connection.", bundle: Localization.bundle)
+        case .rateLimited:
+            return String(localized: "GitHub isn't answering more update checks right now. Try again in a while.", bundle: Localization.bundle)
+        case .badResponse:
+            return String(localized: "Couldn't read the answer from GitHub. Try again later.", bundle: Localization.bundle)
+        }
+    }
 }
 
 public protocol AppReleaseSource: Sendable {
@@ -52,7 +70,7 @@ public enum AppUpdateCheck {
             !latest.prerelease, !latest.draft,
             let current = currentVersion.flatMap(SemanticVersion.init),
             let newest = version(fromTag: latest.tagName)
-        else { return .invalid }
+        else { return .failed(.badResponse) }
         return newest > current ? .available(version: newest.description) : .upToDate
     }
 
@@ -60,14 +78,30 @@ public enum AppUpdateCheck {
         do {
             let release = try await source.latestRelease()
             let result = decide(currentVersion: currentVersion, latest: release)
-            if result == .invalid {
+            if result == .failed(.badResponse) {
                 logger.error("unusable release: tag=\(release.tagName, privacy: .public) prerelease=\(release.prerelease, privacy: .public) draft=\(release.draft, privacy: .public) current=\(currentVersion ?? "none", privacy: .public)")
             }
             return result
         } catch {
             logger.error("update check failed: \(String(describing: error), privacy: .public)")
-            return .invalid
+            return .failed(failure(for: error))
         }
+    }
+
+    private static let offlineCodes: Set<URLError.Code> = [
+        .notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotFindHost,
+        .cannotConnectToHost, .dnsLookupFailed, .internationalRoamingOff, .dataNotAllowed,
+    ]
+
+    // GitHub answers 403 or 429 when the unauthenticated rate limit is used up.
+    static func failure(for error: Error) -> AppUpdateFailure {
+        if case ModelNetworkError.httpStatus(let status) = error {
+            return status == 403 || status == 429 ? .rateLimited : .badResponse
+        }
+        if let urlError = error as? URLError, offlineCodes.contains(urlError.code) {
+            return .offline
+        }
+        return .badResponse
     }
 }
 

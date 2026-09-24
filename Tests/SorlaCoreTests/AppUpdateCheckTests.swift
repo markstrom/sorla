@@ -28,18 +28,18 @@ final class AppUpdateCheckTests: XCTestCase {
 
     func testMalformedTagIsInvalid() {
         for tag in ["", "v", "latest", "v1.x", "1.0.0-beta.1", "vv1.0.0", "1.0.0.0"] {
-            XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "1.0.0", latest: AppRelease(tagName: tag)), .invalid, tag)
+            XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "1.0.0", latest: AppRelease(tagName: tag)), .failed(.badResponse), tag)
         }
     }
 
     func testMissingOrMalformedCurrentVersionIsInvalid() {
-        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: nil, latest: AppRelease(tagName: "v1.0.1")), .invalid)
-        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "dev", latest: AppRelease(tagName: "v1.0.1")), .invalid)
+        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: nil, latest: AppRelease(tagName: "v1.0.1")), .failed(.badResponse))
+        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "dev", latest: AppRelease(tagName: "v1.0.1")), .failed(.badResponse))
     }
 
     func testPrereleasesAndDraftsAreRejected() {
-        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "1.0.0", latest: AppRelease(tagName: "v2.0.0", prerelease: true)), .invalid)
-        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "1.0.0", latest: AppRelease(tagName: "v2.0.0", draft: true)), .invalid)
+        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "1.0.0", latest: AppRelease(tagName: "v2.0.0", prerelease: true)), .failed(.badResponse))
+        XCTAssertEqual(AppUpdateCheck.decide(currentVersion: "1.0.0", latest: AppRelease(tagName: "v2.0.0", draft: true)), .failed(.badResponse))
     }
 
     func testDecodesOnlyWhatItNeedsFromGitHub() throws {
@@ -93,15 +93,49 @@ final class AppUpdateCheckTests: XCTestCase {
         XCTAssertEqual(result, .available(version: "1.0.1"))
     }
 
-    func testCheckTreatsANetworkFailureAsInvalid() async {
-        let source = FakeAppReleaseSource(result: .failure(URLError(.notConnectedToInternet)))
-        let result = await AppUpdateCheck.check(currentVersion: "1.0.0", source: source)
-        XCTAssertEqual(result, .invalid)
+    func testOfflineIsReportedAsOfflineNotUpToDate() async {
+        for code in [URLError.Code.notConnectedToInternet, .timedOut, .cannotFindHost, .networkConnectionLost] {
+            let source = FakeAppReleaseSource(result: .failure(URLError(code)))
+            let result = await AppUpdateCheck.check(currentVersion: "1.0.0", source: source)
+            XCTAssertEqual(result, .failed(.offline), "\(code)")
+        }
+    }
+
+    func testRateLimitIsReportedAsRateLimitedNotUpToDate() async {
+        for status in [403, 429] {
+            let source = FakeAppReleaseSource(result: .failure(ModelNetworkError.httpStatus(status)))
+            let result = await AppUpdateCheck.check(currentVersion: "1.0.0", source: source)
+            XCTAssertEqual(result, .failed(.rateLimited), "\(status)")
+        }
+    }
+
+    func testServerErrorsAndOddResponsesAreBadResponses() async {
+        let errors: [Error] = [ModelNetworkError.httpStatus(404), ModelNetworkError.httpStatus(502), URLError(.badServerResponse)]
+        for error in errors {
+            let source = FakeAppReleaseSource(result: .failure(error))
+            let result = await AppUpdateCheck.check(currentVersion: "1.0.0", source: source)
+            XCTAssertEqual(result, .failed(.badResponse), "\(error)")
+        }
+    }
+
+    func testGitHubRateLimitStatusBecomesAnError() {
+        let url = AppUpdateCheck.latestReleaseURL
+        for status in [403, 429] {
+            let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: ["X-RateLimit-Remaining": "0"])
+            XCTAssertThrowsError(try URLSessionModelNetwork.checkStatus(response)) { error in
+                XCTAssertEqual(error as? ModelNetworkError, .httpStatus(status))
+            }
+        }
+    }
+
+    func testEveryFailureHasItsOwnMessage() {
+        let messages = Set([AppUpdateFailure.offline, .rateLimited, .badResponse].map(\.message))
+        XCTAssertEqual(messages.count, 3)
     }
 
     func testCheckTreatsADecodingFailureAsInvalid() async {
         let source = FakeAppReleaseSource(result: Result { try URLSessionAppReleaseSource.decode(Data("<html>".utf8)) })
         let result = await AppUpdateCheck.check(currentVersion: "1.0.0", source: source)
-        XCTAssertEqual(result, .invalid)
+        XCTAssertEqual(result, .failed(.badResponse))
     }
 }

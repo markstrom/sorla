@@ -15,7 +15,7 @@ struct AboutView: View {
         case checking
         case upToDate
         case available(version: String)
-        case failed
+        case failed(AppUpdateFailure)
     }
 
     @Environment(\.openURL) private var openURL
@@ -122,8 +122,8 @@ struct AboutView: View {
                     }
                     .controlSize(.small)
                 }
-            case .failed:
-                updateMessage(String(localized: "Couldn't check for updates. Check your internet connection."))
+            case .failed(let failure):
+                updateMessage(failure.message)
             }
         }
     }
@@ -157,9 +157,9 @@ struct AboutView: View {
             case .available(let version):
                 updateState = .available(version: version)
                 message = String(localized: "Sorla \(version) is available.")
-            case .invalid:
-                updateState = .failed
-                message = String(localized: "Couldn't check for updates. Check your internet connection.")
+            case .failed(let failure):
+                updateState = .failed(failure)
+                message = failure.message
             }
             AccessibilityNotification.Announcement(message).post()
         }

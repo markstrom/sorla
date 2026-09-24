@@ -126,3 +126,5 @@
 "If the switch is on but this doesn't turn green, quit and reopen Sorla." = "Om reglaget är på men det här inte blir grönt, avsluta och öppna Sorla igen.";
 "Try it here" = "Prova här";
 "Done" = "Klar";
+"GitHub isn't answering more update checks right now. Try again in a while." = "GitHub tar inte emot fler sökningar just nu. Försök igen om en stund.";
+"Couldn't read the answer from GitHub. Try again later." = "Kunde inte läsa svaret från GitHub. Försök igen senare.";

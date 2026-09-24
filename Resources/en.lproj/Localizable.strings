@@ -126,3 +126,5 @@
 "If the switch is on but this doesn't turn green, quit and reopen Sorla." = "If the switch is on but this doesn't turn green, quit and reopen Sorla.";
 "Try it here" = "Try it here";
 "Done" = "Done";
+"GitHub isn't answering more update checks right now. Try again in a while." = "GitHub isn't answering more update checks right now. Try again in a while.";
+"Couldn't read the answer from GitHub. Try again later." = "Couldn't read the answer from GitHub. Try again later.";
