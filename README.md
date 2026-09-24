@@ -6,7 +6,7 @@ Sorla is push-to-talk dictation for the Mac. Hold a key (Right ⌘ by default), 
 
 Sorla lives in the menu bar and stays out of the way until you use it. Speech recognition runs entirely on your Mac, on the Apple Neural Engine. No account, no cloud, no analytics.
 
-**[Download Sorla 1.0](https://github.com/markstrom/sorla/releases/latest)** · **[Website: sorla.zerolabs.se](https://sorla.zerolabs.se)** · [Help (Swedish)](https://sorla.zerolabs.se/support) · [Privacy](https://sorla.zerolabs.se/privacy)
+**[Download Sorla](https://github.com/markstrom/sorla/releases/latest)** · **[Website: sorla.zerolabs.se](https://sorla.zerolabs.se)** · [Help (Swedish)](https://sorla.zerolabs.se/support) · [Privacy](https://sorla.zerolabs.se/privacy)
 
 ## Built on Klang Pianissimo
 

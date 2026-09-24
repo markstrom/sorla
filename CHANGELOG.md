@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 — 2026-09-24
 
 - Opening Sorla again while it runs shows Settings, since the menu bar icon can be hidden behind the notch.
 - The Paste Last shortcut (⌃⌥V) works: Sorla waits for the shortcut's keys to be released before pasting.
