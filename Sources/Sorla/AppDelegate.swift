@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var welcomeWindowController: WelcomeWindowController?
     private var recordingIndicator: RecordingIndicatorPanel!
     private var feedbackSounds: FeedbackSoundPlayer!
-    private var pendingStartSound: Task<Void, Never>?
+    private let startSound = StartSoundSchedule()
     private static let logger = Logger(subsystem: "com.sorla.app", category: "AppDelegate")
     private var statusMenuItem: NSMenuItem!
     private var statusMenuAction: MenuStatusAction?
@@ -403,17 +403,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // The cue comes once the microphone is closed, so VoiceOver isn't recorded into anything.
     private func cancelRecording(announce: Bool) {
         let wasRecording = recordingController.isRecording
+        let wasStartHeard = startSound.stop()
         isRefusedDictationHeld = false
         startFailure = nil
-        pendingStartSound?.cancel()
         recordingController.cancelRecording()
-        if announce, wasRecording {
+        if announce, wasRecording, wasStartHeard {
             presentCue(.cancelled)
         }
     }
 
     private func finishRecording() {
-        pendingStartSound?.cancel()
+        startSound.stop()
         guard recordingController.stopRecordingAndTranscribe() else { return }
         playStopSoundAfterTail()
     }
@@ -488,7 +488,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func endDictationAndForget() {
-        pendingStartSound?.cancel()
+        startSound.stop()
         isRefusedDictationHeld = false
         startFailure = nil
         triggerMonitor?.recordingDidEndElsewhere()
@@ -696,13 +696,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func scheduleStartSound(after delay: TimeInterval) {
-        pendingStartSound?.cancel()
-        guard appSettings.playSounds else { return }
-        pendingStartSound = Task { @MainActor [weak self] in
-            if delay > 0 {
-                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            }
-            guard let self, !Task.isCancelled, self.recordingController.isRecording else { return }
+        startSound.schedule(after: delay) { [weak self] in
+            guard let self, self.appSettings.playSounds, self.recordingController.isRecording else { return }
             self.feedbackSounds.playStart()
         }
     }
