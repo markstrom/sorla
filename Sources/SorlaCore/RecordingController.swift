@@ -50,6 +50,8 @@ public final class RecordingController {
     public var onIssue: ((SorlaIssue) -> Void)?
     // Asked just before each ⌘V: a replaced app's paste would be dropped without a word.
     public var isAppReplaced: () -> Bool = { false }
+    // After the issue: the text was left on the clipboard, and this says how to tell it is still there (#72).
+    public var onPasteBlocked: ((BlockedPaste) -> Void)?
 
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
@@ -533,9 +535,10 @@ public final class RecordingController {
 
     private func leaveOnClipboardIfReplaced(_ text: String) -> Bool {
         guard isAppReplaced() else { return false }
-        pasteEnvironment.write(text, transient: false)
+        let changeCount = pasteEnvironment.write(text, transient: false)
         logger.info("paste skipped (Sorla was replaced on disk)")
         onIssue?(.appReplaced)
+        onPasteBlocked?(BlockedPaste(reason: .appReplaced, clipboardChangeCount: changeCount))
         return true
     }
 
@@ -568,6 +571,7 @@ public final class RecordingController {
             onPaste?()
         } else {
             onIssue?(.accessibilityAccessNeeded)
+            onPasteBlocked?(BlockedPaste(reason: .accessibility, clipboardChangeCount: changeCountAfterWrite))
         }
         return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)
     }

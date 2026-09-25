@@ -57,6 +57,9 @@ public enum WelcomeChecklist {
             return .inProgress(String(localized: "Downloading model… \(ModelStatus.percent(fraction))%", bundle: Localization.bundle))
         case .preparing, .waitingToInstall:
             return .inProgress(preparing)
+        // Nothing was downloaded, so the row says how much room is needed rather than that the download failed.
+        case .failed(.insufficientDiskSpace(let required), _):
+            return .needsAction(.downloadModel, buttonTitle: tryAgain, note: ModelInstallError.insufficientDiskSpace(required: required).reason)
         case .failed(_, let isUpdate):
             let issue: SorlaIssue = isUpdate ? .modelUpdateFailed : .modelDownloadFailed
             return .needsAction(.downloadModel, buttonTitle: tryAgain, note: issue.menuTitle)
@@ -71,7 +74,7 @@ public enum WelcomeChecklist {
 
     public static func readinessLine(isReady: Bool, trigger: TriggerKey, mode: RecordingMode, customShortcut: String?) -> String {
         guard isReady else {
-            return String(localized: "Dictation works once all three are done.", bundle: Localization.bundle)
+            return String(localized: "Fix the items above to try dictation.", bundle: Localization.bundle)
         }
         return TriggerHint.readyMessage(trigger: trigger, mode: mode, customShortcut: customShortcut)
     }
@@ -99,6 +102,19 @@ public enum WelcomeChecklist {
         case .reloadModel:
             return String(localized: "Try loading the model again", bundle: Localization.bundle)
         }
+    }
+
+    // A window that still needs something offers "Not now"; one that is ready is "Done" (#72).
+    public static func closeButtonTitle(isReady: Bool) -> String {
+        isReady ? String(localized: "Done", bundle: Localization.bundle) : RecoveryDialog.notNow
+    }
+
+    // Opened because a paste was blocked. Only said while the text really is on the clipboard,
+    // and Paste Last isn't offered, since it needs the same access (#72).
+    public static func pasteBlockedMessage(isTextOnClipboard: Bool, isAccessibilityTrusted: Bool) -> String? {
+        guard isTextOnClipboard else { return nil }
+        guard !isAccessibilityTrusted else { return DictationCue.textOnClipboard.announcement(pasteShortcut: nil) }
+        return String(localized: "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V.", bundle: Localization.bundle)
     }
 
     private static var openSystemSettings: String { String(localized: "Open System Settings", bundle: Localization.bundle) }

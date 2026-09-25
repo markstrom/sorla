@@ -136,7 +136,6 @@
 /* Welcome */
 "Allow" = "Tillåt";
 "Open System Settings" = "Öppna Systeminställningar";
-"Dictation works once all three are done." = "Diktering fungerar när alla tre är klara.";
 "Welcome to Sorla" = "Välkommen till Sorla";
 "Microphone" = "Mikrofon";
 "So Sorla can hear you." = "Så att Sorla kan höra dig.";
@@ -182,7 +181,6 @@
 "General" = "Allmänt";
 "Put back what you had copied" = "Lägg tillbaka det du hade kopierat";
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla lånar urklippet för att klistra in och lägger sedan tillbaka det som låg där.";
-"Sorla has been updated — restarting" = "Sorla har uppdaterats – startar om";
 "Sorla (needs a restart)" = "Sorla (behöver startas om)";
 "Install and Relaunch" = "Installera och starta om";
 "Install Sorla and relaunch it" = "Installera Sorla och starta om den";
@@ -207,3 +205,18 @@
 "Open Accessibility in System Settings" = "Öppna Hjälpmedel i Systeminställningar";
 "Try loading the model again" = "Försök läsa in modellen igen";
 "Recording stopped at the five-minute limit" = "Inspelningen stoppades vid gränsen på fem minuter";
+
+/* Recovery windows (#72) */
+"Sorla has been updated and needs to restart" = "Sorla har uppdaterats och behöver startas om";
+"Not now" = "Inte nu";
+"Sorla couldn't start the microphone" = "Sorla kunde inte starta mikrofonen";
+"Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again." = "Sorla behöver en mikrofon som är ansluten och vald som ljudingång. Kontrollera Ingång i inställningarna för Ljud och försök sedan igen.";
+"Open Sound Settings" = "Öppna inställningar för Ljud";
+"Sorla needs to restart" = "Sorla behöver startas om";
+"Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy." = "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian.";
+"Sorla can't reopen itself from where it is running, so quit it and open it again from Applications." = "Sorla kan inte öppna sig själv igen där den körs nu, så avsluta den och öppna den igen från Program.";
+"Restarting opens the new version." = "När Sorla startar om öppnas den nya versionen.";
+"Restart Sorla" = "Starta om Sorla";
+"Fix the items above to try dictation." = "Åtgärda punkterna ovan för att prova diktering.";
+"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V." = "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – tryck ⌘V.";
+"Set Up Sorla" = "Ställ in Sorla";

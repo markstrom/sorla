@@ -8,16 +8,29 @@ final class WelcomeState: ObservableObject {
     @Published var microphone = PermissionsManager.microphoneAccess()
     @Published var isAccessibilityTrusted = PermissionsManager.isAccessibilityTrusted()
     @Published var modelLoadingStatus: ModelLoadingStatus
+    @Published var isRecovery = false
+    // Set when a blocked paste opened the window (#72); what it says depends on the text still being on the clipboard.
+    @Published var blockedPaste: BlockedPaste? {
+        didSet { refreshClipboard() }
+    }
+    @Published private(set) var isTextOnClipboard = false
 
     init(modelLoadingStatus: ModelLoadingStatus) {
         self.modelLoadingStatus = modelLoadingStatus
     }
 
-    func refreshPermissions() {
+    func refresh() {
         let microphone = PermissionsManager.microphoneAccess()
         if microphone != self.microphone { self.microphone = microphone }
         let isAccessibilityTrusted = PermissionsManager.isAccessibilityTrusted()
         if isAccessibilityTrusted != self.isAccessibilityTrusted { self.isAccessibilityTrusted = isAccessibilityTrusted }
+        refreshClipboard()
+    }
+
+    // Copying something else takes the text off the clipboard, and then the window must stop saying it is there.
+    private func refreshClipboard() {
+        let isTextOnClipboard = blockedPaste?.isOnClipboard(changeCount: NSPasteboard.general.changeCount) ?? false
+        if isTextOnClipboard != self.isTextOnClipboard { self.isTextOnClipboard = isTextOnClipboard }
     }
 }
 
@@ -26,11 +39,14 @@ struct WelcomeView: View {
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var modelManager: ModelManager
     let perform: (WelcomeAction) -> Void
+    // Goes through the app's queue, which holds speech back while the microphone is recording.
+    let announce: (String) -> Void
     let onDone: () -> Void
     @State private var tryItText = ""
     @FocusState private var isTryItFocused: Bool
 
     static let windowTitle = String(localized: "Welcome to Sorla")
+    static let recoveryWindowTitle = String(localized: "Set Up Sorla")
 
     var body: some View {
         let microphone = WelcomeChecklist.microphoneRow(state.microphone)
@@ -56,6 +72,18 @@ struct WelcomeView: View {
                 .accessibilityHidden(true)
 
             Text("Talk. Release. Done.").font(.headline)
+
+            if let message = WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: state.isTextOnClipboard, isAccessibilityTrusted: state.isAccessibilityTrusted) {
+                Label {
+                    Text(verbatim: message).fixedSize(horizontal: false, vertical: true)
+                } icon: {
+                    Image(systemName: "doc.on.clipboard").accessibilityHidden(true)
+                }
+                .font(.callout)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            }
 
             VStack(alignment: .leading, spacing: 14) {
                 row(symbol: "mic.fill", title: "Microphone", description: "So Sorla can hear you.", status: microphone)
@@ -83,19 +111,24 @@ struct WelcomeView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if isReady {
-                TextField("Try it here", text: $tryItText, axis: .vertical)
-                    .lineLimit(3...6)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isTryItFocused)
-                    .onAppear { isTryItFocused = true }
-            }
+            // Always there, so the user sees where to test; it only takes text once dictation can work.
+            TextField("Try it here", text: $tryItText, axis: .vertical)
+                .lineLimit(3...6)
+                .textFieldStyle(.roundedBorder)
+                .focused($isTryItFocused)
+                .disabled(!isReady)
+                .onAppear {
+                    // Opened for a blocked attempt, the user may still be typing elsewhere.
+                    if isReady, !state.isRecovery { isTryItFocused = true }
+                }
 
             HStack {
                 Spacer()
-                // Return while typing in Try it here stays in the field instead of closing the window.
-                Button("Done", action: onDone)
-                    .keyboardShortcut(isTryItFocused ? nil : .defaultAction)
+                let closeTitle = WelcomeChecklist.closeButtonTitle(isReady: isReady)
+                // Return while typing in Try it here stays in the field; "Not now" has no Return, so a stray key doesn't close it.
+                Button(closeTitle, action: onDone)
+                    .keyboardShortcut(isReady && !isTryItFocused ? .defaultAction : nil)
+                    .accessibilityInputLabels([Text(verbatim: closeTitle)])
             }
         }
         .padding(24)
@@ -104,7 +137,8 @@ struct WelcomeView: View {
         .onChange(of: isReady) { _, isReady in
             // The user may be in System Settings granting access, so the change is spoken rather than only shown.
             guard isReady else { return }
-            AccessibilityNotification.Announcement(readinessLine).post()
+            isTryItFocused = true
+            announce(readinessLine)
         }
     }
 

@@ -13,8 +13,8 @@ public enum DictationCue: Equatable, Sendable {
     // Paste Last asked for with nothing kept: it expired, was forgotten at a lock, or nothing was dictated yet.
     case nothingToPaste
     case cancelled
-    // Pressed on a replaced Sorla that can reopen itself: it restarts instead of recording.
-    case restarting
+    // Pressed on a replaced Sorla that can reopen itself: nothing is recorded until the user restarts it (#72).
+    case restartNeeded
     case waitingForModel(String)
     case failed(String)
 
@@ -45,7 +45,7 @@ public enum DictationCue: Equatable, Sendable {
         case .releaseKeys: return "keyboard"
         case .nothingToPaste: return "clipboard"
         case .cancelled: return "xmark"
-        case .restarting: return "arrow.clockwise"
+        case .restartNeeded: return "arrow.clockwise"
         case .waitingForModel: return "hourglass"
         case .failed: return "exclamationmark.triangle"
         }
@@ -75,8 +75,8 @@ public enum DictationCue: Equatable, Sendable {
             return String(localized: "Nothing to paste", bundle: Localization.bundle)
         case .cancelled:
             return String(localized: "Recording cancelled", bundle: Localization.bundle)
-        case .restarting:
-            return String(localized: "Sorla has been updated — restarting", bundle: Localization.bundle)
+        case .restartNeeded:
+            return String(localized: "Sorla has been updated and needs to restart", bundle: Localization.bundle)
         case .waitingForModel(let message), .failed(let message):
             return message
         }
@@ -87,7 +87,7 @@ public enum DictationCue: Equatable, Sendable {
         switch self {
         case .microphoneMuted: return .microphoneMuted
         case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restarting, .waitingForModel, .failed: return nil
+        case .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel, .failed: return nil
         }
     }
 }

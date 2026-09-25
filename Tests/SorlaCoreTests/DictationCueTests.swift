@@ -3,7 +3,7 @@ import XCTest
 
 final class DictationCueTests: XCTestCase {
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .nothingToPaste, .cancelled, .restarting, .waitingForModel(""), .failed("")]
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
         XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }
 
@@ -29,10 +29,11 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(cue.issue(pasteShortcut: nil), .textOnClipboard(pasteShortcut: "⌘V"))
     }
 
-    // Shown in place of the red dot, so a press on a replaced Sorla says why nothing is recorded (#43).
-    func testTheRestartCueSaysSorlaIsRestarting() {
-        XCTAssertEqual(DictationCue.restarting.announcement(pasteShortcut: nil), "Sorla has been updated — restarting")
-        XCTAssertNil(DictationCue.restarting.issue(pasteShortcut: nil))
+    // Shown in place of the red dot, so a press on a replaced Sorla says why nothing is recorded (#43);
+    // it no longer restarts by itself, so it doesn't say so (#72).
+    func testTheRestartCueSaysARestartIsNeeded() {
+        XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteShortcut: nil), "Sorla has been updated and needs to restart")
+        XCTAssertNil(DictationCue.restartNeeded.issue(pasteShortcut: nil))
     }
 
     func testTheHeldKeysCueAsksForTheShortcutAgain() {

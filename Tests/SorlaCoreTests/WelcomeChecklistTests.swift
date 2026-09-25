@@ -92,7 +92,7 @@ final class WelcomeChecklistTests: XCTestCase {
         )
         XCTAssertEqual(
             WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
-            "Dictation works once all three are done."
+            "Fix the items above to try dictation."
         )
     }
 
@@ -125,5 +125,32 @@ final class WelcomeChecklistTests: XCTestCase {
         )
         XCTAssertNil(names(.done))
         XCTAssertNil(names(.inProgress("Preparing model… ~1 min")))
+    }
+
+    // #72: nothing was downloaded, so the row gives the space the model needs and offers another try.
+    func testTooLittleDiskSpaceSaysHowMuchIsNeededAndRetries() {
+        let row = modelRow(model: .failed(.insufficientDiskSpace(required: 1_376_514_942), isUpdate: false))
+        XCTAssertEqual(row, .needsAction(.downloadModel, buttonTitle: "Try Again", note: "Not enough disk space (1.4 GB free needed)."))
+        XCTAssertEqual(WelcomeChecklist.buttonName(row), "Try downloading the model again")
+    }
+
+    func testTheWindowOffersNotNowUntilItIsReady() {
+        XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Not now")
+        XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Done")
+    }
+
+    // #72: the window opened for a blocked paste only claims the clipboard while the text is there,
+    // and never suggests Paste Last, which needs the same access.
+    func testABlockedPasteIsExplainedOnlyWhileTheTextIsOnTheClipboard() {
+        XCTAssertEqual(
+            WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+            "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: true),
+            "Your text is on the clipboard — press ⌘V"
+        )
+        XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: false))
+        XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: true))
     }
 }

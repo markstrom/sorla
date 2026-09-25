@@ -136,7 +136,6 @@
 /* Welcome */
 "Allow" = "Allow";
 "Open System Settings" = "Open System Settings";
-"Dictation works once all three are done." = "Dictation works once all three are done.";
 "Welcome to Sorla" = "Welcome to Sorla";
 "Microphone" = "Microphone";
 "So Sorla can hear you." = "So Sorla can hear you.";
@@ -182,7 +181,6 @@
 "General" = "General";
 "Put back what you had copied" = "Put back what you had copied";
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla borrows the clipboard to paste, then puts back what was there.";
-"Sorla has been updated — restarting" = "Sorla has been updated — restarting";
 "Sorla (needs a restart)" = "Sorla (needs a restart)";
 "Install and Relaunch" = "Install and Relaunch";
 "Install Sorla and relaunch it" = "Install Sorla and relaunch it";
@@ -207,3 +205,18 @@
 "Open Accessibility in System Settings" = "Open Accessibility in System Settings";
 "Try loading the model again" = "Try loading the model again";
 "Recording stopped at the five-minute limit" = "Recording stopped at the five-minute limit";
+
+/* Recovery windows (#72) */
+"Sorla has been updated and needs to restart" = "Sorla has been updated and needs to restart";
+"Not now" = "Not now";
+"Sorla couldn't start the microphone" = "Sorla couldn't start the microphone";
+"Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again." = "Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again.";
+"Open Sound Settings" = "Open Sound Settings";
+"Sorla needs to restart" = "Sorla needs to restart";
+"Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy." = "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy.";
+"Sorla can't reopen itself from where it is running, so quit it and open it again from Applications." = "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.";
+"Restarting opens the new version." = "Restarting opens the new version.";
+"Restart Sorla" = "Restart Sorla";
+"Fix the items above to try dictation." = "Fix the items above to try dictation.";
+"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V." = "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V.";
+"Set Up Sorla" = "Set Up Sorla";

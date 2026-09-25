@@ -686,6 +686,63 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(paste.pastes, ["A"])
     }
 
+    // MARK: - A blocked paste keeps the text and says where it is (#72)
+
+    func testWithoutAccessibilityTheTextStaysOnTheClipboardAndIsKept() async {
+        paste.isAccessibilityTrusted = false
+        paste.copy("mine")
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(events, ["issue \(SorlaIssue.accessibilityAccessNeeded.menuTitle)"])
+        XCTAssertEqual(blocked, [BlockedPaste(reason: .accessibility, clipboardChangeCount: paste.changeCount)])
+        XCTAssertEqual(paste.contents, "A", "the recognized text is what ⌘V pastes")
+        XCTAssertFalse(paste.events.contains("restore"), "the user's clipboard isn't put back over the text")
+        XCTAssertEqual(controller.lastTranscript(), "A")
+        XCTAssertEqual(controller.phase, .idle)
+        XCTAssertNil(controller.clipboardRestore)
+    }
+
+    // Copying something else afterwards means a window may no longer say the text is on the clipboard.
+    func testABlockedPasteKnowsWhenTheClipboardHasChanged() async {
+        paste.isAccessibilityTrusted = false
+        var blocked: BlockedPaste?
+        controller.onPasteBlocked = { blocked = $0 }
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(blocked?.isOnClipboard(changeCount: paste.changeCount), true)
+        paste.copy("something else")
+        XCTAssertEqual(blocked?.isOnClipboard(changeCount: paste.changeCount), false)
+    }
+
+    func testAReplacedSorlaReportsWhereItLeftTheText() async {
+        controller.isAppReplaced = { true }
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(blocked, [BlockedPaste(reason: .appReplaced, clipboardChangeCount: paste.changeCount)])
+        XCTAssertEqual(paste.contents, "A")
+    }
+
+    func testAPastedDictationReportsNoBlock() async {
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+        await deliverOneDictation("A")
+        XCTAssertEqual(blocked, [])
+    }
+
     // MARK: - An update waits for everything in flight, not just the indicator (#29)
 
     func testTheActivityIsQuietOnlyOnceTheClipboardIsBack() async {

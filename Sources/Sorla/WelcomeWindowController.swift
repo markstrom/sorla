@@ -5,11 +5,17 @@ import SwiftUI
 @MainActor
 final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
     let state: WelcomeState
+    var onClose: (() -> Void)?
     private let appSettings: AppSettings
     private let modelManager: ModelManager
     private var permissionPoll: Timer?
 
-    init(appSettings: AppSettings, modelManager: ModelManager, modelLoadingStatus: ModelLoadingStatus) {
+    init(
+        appSettings: AppSettings,
+        modelManager: ModelManager,
+        modelLoadingStatus: ModelLoadingStatus,
+        announce: @escaping (String) -> Void
+    ) {
         self.state = WelcomeState(modelLoadingStatus: modelLoadingStatus)
         self.appSettings = appSettings
         self.modelManager = modelManager
@@ -29,6 +35,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
             appSettings: appSettings,
             modelManager: modelManager,
             perform: { [weak self] action in self?.perform(action) },
+            announce: announce,
             onDone: { [weak self] in self?.close() }
         ))
         window.center()
@@ -41,7 +48,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
 
     var isKey: Bool { window?.isKeyWindow ?? false }
 
-    func show() {
+    // Opened for a blocked dictation or paste it is the setup checklist rather than a welcome (#72).
+    func show(forRecovery: Bool) {
+        if forRecovery { state.isRecovery = true }
+        window?.title = state.isRecovery ? WelcomeView.recoveryWindowTitle : WelcomeView.windowTitle
         startPollingPermissions()
         (window as? SorlaWindow)?.present()
     }
@@ -50,15 +60,18 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         permissionPoll?.invalidate()
         permissionPoll = nil
         appSettings.hasCompletedOnboarding = true
+        state.isRecovery = false
+        state.blockedPaste = nil
+        onClose?()
     }
 
     // macOS doesn't notify about Accessibility changes, so the row polls while the window is open.
     private func startPollingPermissions() {
-        state.refreshPermissions()
+        state.refresh()
         guard permissionPoll == nil else { return }
         permissionPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.state.refreshPermissions()
+                self?.state.refresh()
             }
         }
     }
@@ -68,7 +81,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         case .requestMicrophone:
             Task {
                 _ = await PermissionsManager.requestMicrophoneAccess()
-                state.refreshPermissions()
+                state.refresh()
             }
         case .openMicrophoneSettings:
             if let url = SorlaIssue.microphoneAccessNeeded.settingsURL { NSWorkspace.shared.open(url) }

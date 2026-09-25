@@ -141,6 +141,33 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    // #72: the recovery windows.
+    func testSwedishRecoveryWindows() throws {
+        try Localization.$bundle.withValue(swedish) {
+            XCTAssertEqual(RecoveryDialog.microphoneStart.title, "Sorla kunde inte starta mikrofonen")
+            XCTAssertEqual(RecoveryDialog.microphoneStart.actionTitle, "Öppna inställningar för Ljud")
+            XCTAssertEqual(RecoveryDialog.notNow, "Inte nu")
+            XCTAssertEqual(
+                RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true).message,
+                "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian. Texten ligger i urklippet – tryck ⌘V. När Sorla startar om öppnas den nya versionen."
+            )
+            XCTAssertEqual(RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false).actionTitle, "Starta om Sorla")
+            XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false).actionTitle, "Avsluta Sorla")
+            XCTAssertEqual(
+                WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – tryck ⌘V."
+            )
+            XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
+            XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")
+            XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Klar")
+            XCTAssertEqual(
+                WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .failed(.insufficientDiskSpace(required: 1_376_514_942), isUpdate: false)),
+                .needsAction(.downloadModel, buttonTitle: "Försök igen", note: "Inte tillräckligt med ledigt utrymme (1,4 GB behövs).")
+            )
+        }
+        XCTAssertEqual(try strings("sv")["Set Up Sorla"], "Ställ in Sorla")
+    }
+
     func testSwedishFailedLoadRefusalNamesTheMenuRow() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(
@@ -164,7 +191,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
             XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteShortcut: nil), "Inget att klistra in")
             XCTAssertEqual(RecordingLimit.stopAnnouncement, "Inspelningen stoppades vid gränsen på fem minuter")
-            XCTAssertEqual(DictationCue.restarting.announcement(pasteShortcut: nil), "Sorla har uppdaterats – startar om")
+            XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteShortcut: nil), "Sorla har uppdaterats och behöver startas om")
             XCTAssertEqual(
                 DictationCue.textOnClipboardUntilRestart.announcement(pasteShortcut: nil),
                 "Texten ligger i urklippet – tryck ⌘V. Starta om Sorla för att klistra in igen"
