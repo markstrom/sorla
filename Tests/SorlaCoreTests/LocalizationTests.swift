@@ -163,6 +163,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
             XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
             XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteShortcut: nil), "Inget att klistra in")
+            XCTAssertEqual(RecordingLimit.stopAnnouncement, "Inspelningen stoppades vid gränsen på fem minuter")
             XCTAssertEqual(DictationCue.restarting.announcement(pasteShortcut: nil), "Sorla har uppdaterats – startar om")
             XCTAssertEqual(
                 DictationCue.textOnClipboardUntilRestart.announcement(pasteShortcut: nil),

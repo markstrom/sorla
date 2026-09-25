@@ -523,6 +523,27 @@ final class RecordingControllerDictationTests: XCTestCase {
         withExtendedLifetime(announcer) {}
     }
 
+    // #63: said when the limit ends a recording, after the tail and before the result.
+    func testTheLimitAnnouncementWaitsForTheTailAndComesBeforeTheResult() async {
+        let announcer = makeAnnouncer()
+        record()
+        controller.stopRecordingAndTranscribe()
+        announcer.announce(RecordingLimit.stopAnnouncement)
+        XCTAssertTrue(announced.isEmpty)
+
+        await clock.waitForSleeps(1)
+        await clock.advance(by: tail)
+        await engine.waitForCalls(1)
+        XCTAssertEqual(announced.map(\.text), ["Recording stopped at the five-minute limit"])
+        XCTAssertEqual(announced.map(\.microphoneRunning), [false])
+
+        await engine.finish(0, with: "A")
+        await controller.dictationJobs[1]?.value
+        await controller.deliveries?.value
+        XCTAssertEqual(announced.map(\.text), ["Recording stopped at the five-minute limit", "Pasting text"])
+        withExtendedLifetime(announcer) {}
+    }
+
     func testACueWhileTheMicrophoneIsClosedIsAnnouncedAtOnce() {
         let announcer = makeAnnouncer()
 

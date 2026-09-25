@@ -458,6 +458,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Self.logger.info("recording stopped at the length limit")
         triggerMonitor?.recordingDidEndElsewhere()
         finishRecording()
+        // Held until the microphone has closed, so it comes before the result's own announcement.
+        announce(RecordingLimit.stopAnnouncement)
     }
 
     // The cue comes once the microphone is closed, so VoiceOver isn't recorded into anything.
