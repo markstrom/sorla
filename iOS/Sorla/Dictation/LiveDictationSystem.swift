@@ -39,7 +39,10 @@ final class LiveDictationSystem: DictationSystem {
     }
 
     func startActivity() -> Bool {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return false }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            recordActivityDiagnostic("activities disabled")
+            return false
+        }
         let state = DictationActivityAttributes.ContentState(phase: .listening, startedAt: Date())
         do {
             activity = try Activity.request(
@@ -49,8 +52,14 @@ final class LiveDictationSystem: DictationSystem {
             )
             return true
         } catch {
+            // The system's reason tells which background rule refused the activity; it never holds user text.
+            recordActivityDiagnostic(String(describing: error))
             return false
         }
+    }
+
+    private func recordActivityDiagnostic(_ reason: String) {
+        log.append(DictationMetric(date: Date(), outcome: "diagnostic.liveActivity: \(reason)", appWasActive: isAppActive, captureEnd: nil))
     }
 
     func updateActivity(_ phase: DictationActivityPhase) {
