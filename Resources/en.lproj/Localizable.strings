@@ -19,12 +19,12 @@
 "Paste" = "Paste";
 "Select All" = "Select All";
 "Sorla (transcribing)" = "Sorla (transcribing)";
-"Sorla (model couldn't be loaded)" = "Sorla (model couldn't be loaded)";
+"Sorla (needs attention)" = "Sorla (needs attention)";
 
 /* Status row */
 "Downloading model… %lld%%" = "Downloading model… %lld%%";
 "Preparing model… ~1 min" = "Preparing model… ~1 min";
-"Model not installed — Download" = "Model not installed — Download";
+"Model not installed" = "Model not installed";
 "%@ — Try Again" = "%@ — Try Again";
 "Model update available (%@)" = "Model update available (%@)";
 "Sorla %@ is available — Download" = "Sorla %@ is available — Download";
@@ -37,6 +37,7 @@
 "Couldn't transcribe the last recording" = "Couldn't transcribe the last recording";
 "Microphone seems to be muted — check Sound › Input" = "Microphone seems to be muted — check Sound › Input";
 "Text is on the clipboard — press %@" = "Text is on the clipboard — press %@";
+"Text is on the clipboard — choose Paste Last Transcription" = "Text is on the clipboard — choose Paste Last Transcription";
 
 /* Dictation refusals and readiness */
 "The model is still downloading (%lld%%). Dictation will work once it's ready." = "The model is still downloading (%lld%%). Dictation will work once it's ready.";
@@ -127,7 +128,7 @@
 "Pianissimo model credit" = "Pianissimo model credit";
 "License texts are included with the app." = "License texts are included with the app.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "The model is loading (~1 min). Dictation will work once it's ready.";
-"The model couldn't be loaded. Open the Sorla menu and choose “%@”." = "The model couldn't be loaded. Open the Sorla menu and choose “%@”.";
+"The model couldn't be loaded. Open the Sorla menu to try again." = "The model couldn't be loaded. Open the Sorla menu to try again.";
 "Talk. Release. Done." = "Talk. Release. Done.";
 "Check for Updates…" = "Check for Updates…";
 "Checking…" = "Checking…";
@@ -168,6 +169,8 @@
 "Couldn't transcribe the recording" = "Couldn't transcribe the recording";
 "Let go of the keys and press %@ again" = "Let go of the keys and press %@ again";
 "Let go of the keys and try again" = "Let go of the keys and try again";
+"Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)";
+"Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)";
 "Pasting text" = "Pasting text";
 "Keep last transcription" = "Keep last transcription";
 "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once." = "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once.";
@@ -233,6 +236,7 @@
 "Sorla can paste now. Your text is ready." = "Sorla can paste now. Your text is ready.";
 "The text is no longer kept. Dictate it again." = "The text is no longer kept. Dictate it again.";
 "Paste Last Transcription in Sorla's menu also works now." = "Paste Last Transcription in Sorla's menu also works now.";
+"Paste Last Transcription in Sorla's menu (VO-M twice) also works now." = "Paste Last Transcription in Sorla's menu (VO-M twice) also works now.";
 "Paste Last Transcription (%@) also works now." = "Paste Last Transcription (%@) also works now.";
 "Paste Where You Were Typing" = "Paste Where You Were Typing";
 "Close this window and paste the text where you were typing" = "Close this window and paste the text where you were typing";

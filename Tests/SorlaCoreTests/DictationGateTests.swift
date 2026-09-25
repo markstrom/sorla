@@ -37,7 +37,7 @@ final class DictationGateTests: XCTestCase {
     func testAnInstalledModelThatFailedToLoadIsRefusedWithTheRecoveryStep() {
         XCTAssertEqual(
             DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0")),
-            "The model couldn't be loaded. Open the Sorla menu and choose “Model couldn't be loaded — Try Again”."
+            "The model couldn't be loaded. Open the Sorla menu to try again."
         )
     }
 
@@ -68,7 +68,7 @@ final class DictationGateTests: XCTestCase {
 
     func testAModelThatNeedsTheUserRefusesWithAWarning() {
         let failedLoad = DictationGate.refusal(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0"))
-        XCTAssertEqual(failedLoad, .failed("The model couldn't be loaded. Open the Sorla menu and choose “Model couldn't be loaded — Try Again”."))
+        XCTAssertEqual(failedLoad, .failed("The model couldn't be loaded. Open the Sorla menu to try again."))
         XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .failed(.network, isUpdate: false))?.symbolName, "exclamationmark.triangle")
         XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .notInstalled)?.symbolName, "exclamationmark.triangle")
     }

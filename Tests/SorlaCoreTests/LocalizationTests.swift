@@ -102,8 +102,9 @@ final class LocalizationTests: XCTestCase {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(title(.downloading(version: "1", fraction: 0.42, isUpdate: false)), "Laddar ner modellen… 42 %")
             XCTAssertEqual(title(.preparing(version: "1", isUpdate: false)), "Förbereder modellen… ~1 min")
-            XCTAssertEqual(title(.notInstalled), "Modellen är inte installerad – Ladda ner")
-            XCTAssertEqual(title(.failed(.network, isUpdate: false)), "Nedladdningen av modellen misslyckades – Försök igen")
+            XCTAssertEqual(title(.notInstalled), "Modellen är inte installerad")
+            XCTAssertEqual(title(.failed(.network, isUpdate: false)), "Nedladdningen av modellen misslyckades")
+            XCTAssertEqual(title(.failed(.network, isUpdate: true)), "Uppdateringen av modellen misslyckades – Försök igen")
             XCTAssertEqual(ModelStatus.downloading(version: "1", fraction: 0.42, isUpdate: false).settingsText, "Laddar ner 42 %")
         }
     }
@@ -177,8 +178,8 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(BlockedPasteNote.pasteName, "Stäng fönstret och klistra in texten där du skrev")
             XCTAssertEqual(BlockedPasteNote.copyTitle, "Kopiera texten")
             XCTAssertEqual(BlockedPasteNote.copyName, "Kopiera texten till urklipp")
-            XCTAssertEqual(BlockedPasteNote.pasteLastHint(shortcut: "⌃⌥V"), "Klistra in senaste transkriberingen (⌃⌥V) fungerar nu också.")
-            XCTAssertEqual(BlockedPasteNote.pasteLastHint(shortcut: nil), "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.")
+            XCTAssertEqual(BlockedPasteNote.pasteLastHint(.shortcut("⌃⌥V")), "Klistra in senaste transkriberingen (⌃⌥V) fungerar nu också.")
+            XCTAssertEqual(BlockedPasteNote.pasteLastHint(nil), "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.")
             XCTAssertEqual(BlockedPasteNote.readyAnnouncement, "Sorla kan klistra in nu: Klistra in där du skrev.")
             XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")
@@ -216,33 +217,72 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    func testSwedishFailedLoadRefusalNamesTheMenuRow() throws {
+    func testSwedishFailedLoadRefusalPointsToTheMenu() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(
                 DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1")),
-                "Modellen kunde inte läsas in. Öppna Sorla-menyn och välj ”Modellen kunde inte läsas in – Försök igen”."
+                "Modellen kunde inte läsas in. Öppna Sorla-menyn för att försöka igen."
             )
+            XCTAssertEqual(MenuStatusRow.modelLoadFailed.title, "Modellen kunde inte läsas in")
         }
+    }
+
+    // #76: the menu bar icon's descriptions, with the badge's own.
+    func testSwedishMenuBarIconDescriptions() throws {
+        try Localization.$bundle.withValue(swedish) {
+            let ready = MenuBarIconState.current(isModelReady: true, phase: .idle, problems: [])
+            XCTAssertEqual(ready.accessibilityDescription, "Sorla")
+            XCTAssertEqual(MenuBarIconState.current(isModelReady: true, phase: .idle, problems: [.accessibility]).accessibilityDescription, "Sorla (behöver åtgärdas)")
+            XCTAssertEqual(MenuBarIconState.current(isModelReady: true, phase: .idle, problems: [.restartRequired]).accessibilityDescription, "Sorla (behöver startas om)")
+            XCTAssertEqual(MenuBarIconState.current(isModelReady: false, phase: .idle, problems: []).accessibilityDescription, "Sorla (läser in modellen)")
+            XCTAssertEqual(MenuBarIconState.current(isModelReady: true, phase: .recording, problems: []).accessibilityDescription, "Sorla (spelar in)")
+            XCTAssertEqual(MenuBarIconState.current(isModelReady: true, phase: .transcribing, problems: []).accessibilityDescription, "Sorla (transkriberar)")
+        }
+    }
+
+    // #64: with VoiceOver running, Sorla names the menu item and how to reach it instead of ⌃⌥V.
+    func testSwedishPasteLastWordingWithAndWithoutVoiceOver() throws {
+        try Localization.$bundle.withValue(swedish) {
+            let voiceOver = PasteLastRoute.current(shortcut: "⌃⌥V", isVoiceOverRunning: true)
+            let keys = PasteLastRoute.current(shortcut: "⌃⌥V", isVoiceOverRunning: false)
+            XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: keys), "Texten ligger i urklippet – tryck ⌃⌥V")
+            XCTAssertEqual(
+                DictationCue.textOnClipboard.announcement(pasteLast: voiceOver),
+                "Texten ligger i urklippet – välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)"
+            )
+            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: keys), "Släpp tangenterna och tryck ⌃⌥V igen")
+            XCTAssertEqual(
+                DictationCue.releaseKeys.announcement(pasteLast: voiceOver),
+                "Släpp tangenterna och välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)"
+            )
+            XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteLast: voiceOver), "Inget att klistra in")
+            XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: keys).menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
+            XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: voiceOver).menuTitle, "Texten ligger i urklippet – välj Klistra in senaste transkriberingen")
+            XCTAssertEqual(BlockedPasteNote.pasteLastHint(keys), "Klistra in senaste transkriberingen (⌃⌥V) fungerar nu också.")
+            XCTAssertEqual(BlockedPasteNote.pasteLastHint(voiceOver), "Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger) fungerar nu också.")
+        }
+        // The item the messages name is the menu's own.
+        XCTAssertEqual(try strings("sv")["Paste Last Transcription"], "Klistra in senaste transkriberingen")
     }
 
     func testSwedishDictationCues() throws {
         try Localization.$bundle.withValue(swedish) {
-            XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteShortcut: nil), "Inget hördes")
-            XCTAssertEqual(DictationCue.noText.announcement(pasteShortcut: nil), "Ingen text")
-            XCTAssertEqual(DictationCue.textKept.announcement(pasteShortcut: nil), "Kunde inte klistra in – Sorla har sparat texten")
-            XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteShortcut: nil), "Mikrofonen verkar vara avstängd")
-            XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: "⌃⌥V"), "Texten ligger i urklippet – tryck ⌃⌥V")
-            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: "⌃⌥V"), "Släpp tangenterna och tryck ⌃⌥V igen")
-            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: nil), "Släpp tangenterna och försök igen")
+            XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteLast: nil), "Inget hördes")
+            XCTAssertEqual(DictationCue.noText.announcement(pasteLast: nil), "Ingen text")
+            XCTAssertEqual(DictationCue.textKept.announcement(pasteLast: nil), "Kunde inte klistra in – Sorla har sparat texten")
+            XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteLast: nil), "Mikrofonen verkar vara avstängd")
+            XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: .shortcut("⌃⌥V")), "Texten ligger i urklippet – tryck ⌃⌥V")
+            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: .shortcut("⌃⌥V")), "Släpp tangenterna och tryck ⌃⌥V igen")
+            XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: nil), "Släpp tangenterna och försök igen")
             XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång")
-            XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
-            XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
-            XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
-            XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteShortcut: nil), "Inget att klistra in")
+            XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
+            XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteLast: nil), "Ingen mikrofon hittades")
+            XCTAssertEqual(DictationCue.cancelled.announcement(pasteLast: nil), "Inspelningen avbröts")
+            XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteLast: nil), "Inget att klistra in")
             XCTAssertEqual(RecordingLimit.stopAnnouncement, "Inspelningen stoppades vid gränsen på fem minuter")
-            XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteShortcut: nil), "Sorla har uppdaterats och behöver startas om")
+            XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteLast: nil), "Sorla har uppdaterats och behöver startas om")
             XCTAssertEqual(
-                DictationCue.textOnClipboardUntilRestart.announcement(pasteShortcut: nil),
+                DictationCue.textOnClipboardUntilRestart.announcement(pasteLast: nil),
                 "Texten ligger i urklippet – tryck ⌘V. Starta om Sorla för att klistra in igen"
             )
             XCTAssertEqual(

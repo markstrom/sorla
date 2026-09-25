@@ -126,7 +126,7 @@
     <h3>Det här hör du</h3>
     <ul>
       <li><strong>Ett ljud när inspelningen börjar</strong> och ett när den slutar. Avbryter du hörs inget slutljud. I läget Håll in kommer startljudet när du har hållit in tangenten en kort stund, så börja prata när du hör det. Ljuden slår du av och på med <strong>Spela upp ljud</strong> under Allmänt i Inställningar.</li>
-      <li><strong>Ett besked efter varje diktering.</strong> När texten skickas till appen säger VoiceOver ”Klistrar in texten”. Sorla kan se att texten skickades, inte att appen tog emot den. Kom ingen text säger VoiceOver varför, till exempel ”Inget hördes”, ”Mikrofonen verkar vara avstängd” eller ”Texten ligger i urklippet – tryck <code>⌃⌥V</code>”.</li>
+      <li><strong>Ett besked efter varje diktering.</strong> När texten skickas till appen säger VoiceOver ”Klistrar in texten”. Sorla kan se att texten skickades, inte att appen tog emot den. Kom ingen text säger VoiceOver varför, till exempel ”Inget hördes”, ”Mikrofonen verkar vara avstängd” eller ”Texten ligger i urklippet – välj Klistra in senaste transkriberingen i Sorlas meny (<code>VO-M</code> två gånger)”.</li>
       <li><strong>Inget medan mikrofonen är på.</strong> Beskedet väntar tills mikrofonen har stängts, strax efter att du har slutat, så att VoiceOver aldrig spelas in i din text.</li>
     </ul>
     <p>Sorla läser inte upp texten du dikterade. Vill du höra den läser du den med VoiceOver där den hamnade. Första gången säger välkomstfönstret till när Sorla är redo, till exempel ”Sorla är redo. Håll Höger ⌘ för att diktera.”</p>
@@ -149,7 +149,7 @@
     <p>Överst i menyn står ibland en rad som förklarar hur senaste dikteringen gick, till exempel ”Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång”. Den försvinner när du börjar nästa diktering, och annars efter fem minuter.</p>
 
     <h3>Hamnade texten fel?</h3>
-    <p>Välj <strong>Klistra in senaste transkriberingen</strong> i Sorla-menyn, eller tryck <code>⌃⌥V</code> (<code>Kontroll-Alternativ-V</code>). Då klistras senaste texten in där du står nu, utan att du behöver diktera igen. Kortkommandot består av samma tangenter som VoiceOvers VO-tangenter och V. Fungerar det inte medan VoiceOver är på, använd menyn eller välj ett annat kortkommando under Inklistring i Inställningar.</p>
+    <p>Välj <strong>Klistra in senaste transkriberingen</strong> i Sorla-menyn, eller tryck <code>⌃⌥V</code> (<code>Kontroll-Alternativ-V</code>). Då klistras senaste texten in där du står nu, utan att du behöver diktera igen. Kortkommandot består av samma tangenter som VoiceOvers VO-tangenter och V. Fungerar det inte medan VoiceOver är på, använd menyn eller välj ett annat kortkommando under Inklistring i Inställningar. Medan VoiceOver är igång nämner Sorlas egna besked därför menyvalet och <code>VO-M</code> två gånger i stället för <code>⌃⌥V</code>.</p>
     <p>Texten finns kvar i fem minuter. Den glöms direkt om skärmen låses, Macen går i vila eller du byter användare. Då går menyvalet inte att välja förrän efter nästa diktering. Mer om det under <a href="#senaste">Klistra in senaste transkriberingen</a>.</p>
 
     <h3>Symbolen i menyraden</h3>
@@ -158,7 +158,7 @@
       <li><strong>”Sorla”</strong>: redo. Symbolen är en prick och tre staplar.</li>
       <li><strong>”Sorla (spelar in)”</strong> och <strong>”Sorla (transkriberar)”</strong>: en diktering pågår. Symbolen ser likadan ut som när Sorla är redo; det är indikatorn högst upp på skärmen som visar inspelningen.</li>
       <li><strong>”Sorla (läser in modellen)”</strong>: talmodellen laddas ner eller görs klar. Pricken är en tom ring och staplarna är svagare. Diktering fungerar inte än, och trycker du på tangenten säger VoiceOver att modellen inte är klar.</li>
-      <li><strong>”Sorla (modellen kunde inte läsas in)”</strong>: ett utropstecken i stället för pricken. Öppna menyn och välj raden som slutar med ”Försök igen”.</li>
+      <li><strong>”Sorla (behöver åtgärdas)”</strong>: ett litet utropstecken i hörnet. Något hindrar diktering: behörigheten för mikrofonen eller Enhetskontroll och dataåtkomst saknas, eller talmodellen saknas eller kunde inte laddas ner eller läsas in. Raden överst i menyn säger vad, och väljer du den öppnas Ställ in Sorla med det som behöver göras.</li>
       <li><strong>”Sorla (behöver startas om)”</strong>: en liten pil i hörnet. Sorla har uppdaterats men kör fortfarande den gamla versionen. Välj raden ”Sorla har uppdaterats” överst i menyn. Oftast räcker det också att trycka på tangenten, så startar Sorla om sig själv.</li>
     </ul>
 
@@ -189,7 +189,7 @@
     </details>
     <details>
       <summary>Nedladdningen av modellen misslyckas</summary>
-      <p>Kontrollera internetanslutning och ledigt utrymme, och välj ”Försök igen” i menyn eller i fönstret Ställ in Sorla.</p>
+      <p>Kontrollera internetanslutning och ledigt utrymme, och välj ”Försök igen” i fönstret Ställ in Sorla. Du öppnar det med raden överst i menyn.</p>
     </details>
 
     <h2 id="medan-du-pratar">Varför syns inte texten medan jag pratar?</h2>

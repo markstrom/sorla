@@ -58,8 +58,8 @@ public enum DictationCue: Equatable, Sendable {
         }
     }
 
-    // Without a Paste Last shortcut the text can still be pasted with ⌘V, since it is on the clipboard.
-    public func announcement(pasteShortcut: String?) -> String {
+    // Without a way to Paste Last the text can still be pasted with ⌘V, since it is on the clipboard.
+    public func announcement(pasteLast: PasteLastRoute?) -> String {
         switch self {
         case .microphoneMuted:
             return String(localized: "Microphone seems to be muted", bundle: Localization.bundle)
@@ -68,18 +68,26 @@ public enum DictationCue: Equatable, Sendable {
         case .noText:
             return String(localized: "No text", bundle: Localization.bundle)
         case .textOnClipboard:
-            let shortcut = pasteShortcut ?? "⌘V"
+            guard pasteLast != .menu else {
+                return String(localized: "Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)", bundle: Localization.bundle)
+            }
+            let shortcut = pasteLast?.keys ?? "⌘V"
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
         case .textKept:
             return String(localized: "Couldn't paste — Sorla has kept your text", bundle: Localization.bundle)
         case .textOnClipboardUntilRestart:
-            let onClipboard = DictationCue.textOnClipboard.announcement(pasteShortcut: pasteShortcut)
+            let onClipboard = DictationCue.textOnClipboard.announcement(pasteLast: pasteLast)
             return onClipboard + ". " + String(localized: "Restart Sorla to paste again", bundle: Localization.bundle)
         case .releaseKeys:
-            guard let pasteShortcut else {
+            switch pasteLast {
+            case .menu:
+                return String(localized: "Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)", bundle: Localization.bundle)
+            case .shortcut(let shortcut):
+                return String(localized: "Let go of the keys and press \(shortcut) again", bundle: Localization.bundle)
+            case nil:
                 return String(localized: "Let go of the keys and try again", bundle: Localization.bundle)
             }
-            return String(localized: "Let go of the keys and press \(pasteShortcut) again", bundle: Localization.bundle)
+        // Names no way to paste, so it reads the same with VoiceOver.
         case .nothingToPaste:
             return String(localized: "Nothing to paste", bundle: Localization.bundle)
         case .cancelled:
@@ -92,10 +100,10 @@ public enum DictationCue: Equatable, Sendable {
     }
 
     // Only outcomes the user has to act on also leave an explanation in the menu.
-    public func issue(pasteShortcut: String?) -> SorlaIssue? {
+    public func issue(pasteLast: PasteLastRoute?) -> SorlaIssue? {
         switch self {
         case .microphoneMuted: return .microphoneMuted
-        case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
+        case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteLast: pasteLast)
         case .textKept, .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel, .failed: return nil
         }
     }

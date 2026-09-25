@@ -147,7 +147,7 @@ final class RecoveryProblemTests: XCTestCase {
         XCTAssertEqual(RecoveryProblem(startFailure: .microphoneAccessNeeded), .microphoneAccess)
         XCTAssertNil(RecoveryProblem(startFailure: .microphoneMuted))
         XCTAssertNil(RecoveryProblem(startFailure: .transcriptionFailed))
-        XCTAssertNil(RecoveryProblem(startFailure: .textOnClipboard(pasteShortcut: "⌘V")))
+        XCTAssertNil(RecoveryProblem(startFailure: .textOnClipboard(pasteLast: nil)))
     }
 
     func testTheCurrentProblems() {

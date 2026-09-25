@@ -17,6 +17,8 @@ final class WelcomeState: ObservableObject {
     @Published private(set) var isTextKept = false
     // The kept transcript's revision; it changes when a newer dictation replaces the text, and is nil once it is gone.
     private let transcriptRevision: () -> Int?
+    // The window's checks are the app's too: the menu bar icon's badge follows them (#76).
+    var onPermissionsChange: (() -> Void)?
 
     init(modelLoadingStatus: ModelLoadingStatus, transcriptRevision: @escaping () -> Int? = { nil }) {
         self.modelLoadingStatus = modelLoadingStatus
@@ -25,10 +27,12 @@ final class WelcomeState: ObservableObject {
 
     func refresh() {
         let microphone = PermissionsManager.microphoneAccess()
-        if microphone != self.microphone { self.microphone = microphone }
         let isAccessibilityTrusted = PermissionsManager.isAccessibilityTrusted()
+        let changed = microphone != self.microphone || isAccessibilityTrusted != self.isAccessibilityTrusted
+        if microphone != self.microphone { self.microphone = microphone }
         if isAccessibilityTrusted != self.isAccessibilityTrusted { self.isAccessibilityTrusted = isAccessibilityTrusted }
         refreshClipboard()
+        if changed { onPermissionsChange?() }
     }
 
     // Copying something else takes the text off the clipboard, and then the window must stop saying it is there;
@@ -47,7 +51,7 @@ struct WelcomeContent: Equatable {
     var accessibility: WelcomeRowStatus
     var model: WelcomeRowStatus
     var blockedPaste: BlockedPasteNote?
-    var pasteLastShortcut: String?
+    var pasteLast: PasteLastRoute?
     var readyLine: String
     // The trigger as the ready line names it, set apart as a keycap.
     var readyKey: String?
@@ -70,6 +74,8 @@ struct WelcomeView: View {
     // Goes through the app's queue, which holds speech back while the microphone is recording.
     let announce: (String) -> Void
     let onDone: () -> Void
+    // As in Settings: VoiceOver may take ⌃⌥V for itself, so the paste note names the menu item then (#64).
+    @State private var isVoiceOverEnabled = NSWorkspace.shared.isVoiceOverEnabled
 
     static let windowTitle = String(localized: "Welcome to Sorla")
     static let recoveryWindowTitle = String(localized: "Set Up Sorla")
@@ -90,7 +96,10 @@ struct WelcomeView: View {
                 blockedPaste: state.blockedPaste.map { _ in
                     BlockedPasteNote.current(isTextOnClipboard: state.isTextOnClipboard, isTextKept: state.isTextKept, isAccessibilityTrusted: state.isAccessibilityTrusted)
                 },
-                pasteLastShortcut: KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description,
+                pasteLast: PasteLastRoute.current(
+                    shortcut: KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description,
+                    isVoiceOverRunning: isVoiceOverEnabled
+                ),
                 readyLine: WelcomeChecklist.readinessLine(
                     isReady: true,
                     trigger: appSettings.triggerKey,
@@ -110,6 +119,9 @@ struct WelcomeView: View {
             announce: announce,
             onDone: onDone
         )
+        .onReceive(NSWorkspace.shared.publisher(for: \.isVoiceOverEnabled)) { enabled in
+            isVoiceOverEnabled = enabled
+        }
     }
 }
 
@@ -229,8 +241,8 @@ struct WelcomePage: View {
                 if note.offersPaste {
                     pasteButton(isShown: isShown)
                     Text(KeycapText.attributed(
-                        BlockedPasteNote.pasteLastHint(shortcut: content.pasteLastShortcut),
-                        keys: [content.pasteLastShortcut],
+                        BlockedPasteNote.pasteLastHint(content.pasteLast),
+                        keys: [content.pasteLast?.keys],
                         font: .system(.caption2, design: .monospaced)
                     ))
                         .font(.caption)

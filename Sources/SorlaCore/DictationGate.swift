@@ -12,9 +12,9 @@ public enum DictationGate {
             if isModelLoading {
                 return String(localized: "The model is loading (~1 min). Dictation will work once it's ready.", bundle: Localization.bundle)
             }
+            // The menu's row opens the setup window, where Try Again is (#76).
             if didModelFailToLoad {
-                let row = MenuStatusRow.modelLoadFailed.title
-                return String(localized: "The model couldn't be loaded. Open the Sorla menu and choose “\(row)”.", bundle: Localization.bundle)
+                return String(localized: "The model couldn't be loaded. Open the Sorla menu to try again.", bundle: Localization.bundle)
             }
             return nil
         }

@@ -41,12 +41,16 @@ public enum BlockedPasteNote: Equatable, Sendable, CaseIterable {
     public var offersCopy: Bool { self == .savedNeedsAccess }
     public var offersPaste: Bool { self == .readyToPaste }
 
-    // Paste Last also works once access is there; without a shortcut the menu item is named instead.
-    public static func pasteLastHint(shortcut: String?) -> String {
-        guard let shortcut else {
+    // Paste Last also works once access is there; without a shortcut, or with VoiceOver (#64), the menu item is named instead.
+    public static func pasteLastHint(_ route: PasteLastRoute?) -> String {
+        switch route {
+        case .shortcut(let shortcut):
+            return String(localized: "Paste Last Transcription (\(shortcut)) also works now.", bundle: Localization.bundle)
+        case .menu:
+            return String(localized: "Paste Last Transcription in Sorla's menu (VO-M twice) also works now.", bundle: Localization.bundle)
+        case nil:
             return String(localized: "Paste Last Transcription in Sorla's menu also works now.", bundle: Localization.bundle)
         }
-        return String(localized: "Paste Last Transcription (\(shortcut)) also works now.", bundle: Localization.bundle)
     }
 
     public static var pasteTitle: String { String(localized: "Paste Where You Were Typing", bundle: Localization.bundle) }

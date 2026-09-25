@@ -61,7 +61,7 @@ final class WelcomeLayoutTests: XCTestCase {
             accessibility: WelcomeChecklist.accessibilityRow(isTrusted: isTrusted),
             model: model,
             blockedPaste: blockedPaste,
-            pasteLastShortcut: "⌃⌥V",
+            pasteLast: .shortcut("⌃⌥V"),
             readyLine: WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
             readyKey: TriggerHint.keyLabel(for: .rightCommand, customShortcut: nil),
             toggleModeTip: WelcomeChecklist.toggleModeTip(mode: .pushToTalk)

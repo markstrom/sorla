@@ -186,7 +186,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.performRecovery(self.recovery.dictationBecameIdle(current: current))
             }
             self.appUpdater.dictationActivityChanged()
-            self.updateIcon()
             self.updateStatusMenuItem()
         }
         recordingController.onSpectrum = { [weak self] spectrum in
@@ -206,7 +205,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
-            self.updateIcon()
             self.updateStatusMenuItem()
         }
         recordingController.onIssue = { [weak self] issue in
@@ -288,6 +286,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             .store(in: &cancellables)
         updatePasteLastShortcut(keepLastTranscription: appSettings.keepLastTranscription)
+
+        // VoiceOver may take ⌃⌥V (VO-V) for itself, so while it runs Sorla's messages name the menu item instead (#64).
+        NSWorkspace.shared.publisher(for: \.isVoiceOverEnabled)
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.voiceOverDidChange()
+            }
+            .store(in: &cancellables)
+
+        // Coming back from System Settings activates some app, so a permission granted or taken away there shows
+        // on the icon then; together with menu open and the setup window's checks this needs no polling (#76).
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusMenuItem()
+            }
+            .store(in: &cancellables)
 
         // Someone else at the Mac shouldn't be able to paste what was last dictated, or keep the microphone open.
         Publishers.MergeMany(
@@ -438,6 +455,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             controller.onClose = { [weak self] in
                 self?.recoveryWindowClosed(.setup, byAction: false)
             }
+            // The window checks the permissions while it is open, and the icon's badge follows what it finds (#76).
+            controller.state.onPermissionsChange = { [weak self] in
+                self?.updateStatusMenuItem()
+            }
             welcomeWindowController = controller
         }
         welcomeWindowController?.state.blockedPaste = blockedPaste?.reason == .accessibility ? blockedPaste : nil
@@ -515,7 +536,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // Everything wrong right now, so a problem that was solved and came back is explained again.
-    private func currentRecoveryProblems() -> Set<RecoveryProblem> {
+    // Also what badges the menu bar icon (#76); a model status sink passes the new status in.
+    private func currentRecoveryProblems(model: ModelStatus? = nil) -> Set<RecoveryProblem> {
         RecoveryProblem.current(
             isMicrophoneAccessDenied: PermissionsManager.isMicrophoneAccessDenied(),
             isAccessibilityTrusted: PermissionsManager.isAccessibilityTrusted(),
@@ -523,7 +545,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 isModelInstalled: modelManager.isInstalled,
                 isModelLoading: modelLoadingStatus == .loading,
                 didModelFailToLoad: modelLoadingStatus == .failed,
-                model: modelManager.status
+                model: model ?? modelManager.status
             ),
             didMicrophoneFailToStart: didMicrophoneFailToStart,
             isAppReplaced: appReplacement.isReplaced
@@ -552,7 +574,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         blockedPaste = blocked
         if blocked.reason == .accessibility {
             // Paste Last needs the same access, so only ⌘V is named, and only while the text is on the clipboard.
-            presentCue(.blockedPaste(isTextOnClipboard: blocked.isOnClipboard(changeCount: NSPasteboard.general.changeCount)), pasteShortcut: nil)
+            presentCue(.blockedPaste(isTextOnClipboard: blocked.isOnClipboard(changeCount: NSPasteboard.general.changeCount)), pasteLast: nil)
         }
         performRecovery(recoveryDecision(for: blocked.problem))
     }
@@ -648,8 +670,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .showUpdates:
             showSettings()
             settingsWindowController?.revealUpdates()
-        case .reloadModel:
-            modelManager.retryLoadingModel()
         case .openSettings:
             showSettings()
         case .openSoundSettings:
@@ -679,7 +699,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bundleFolderWatch?.cancel()
         bundleFolderWatch = nil
         updateStatusMenuItem()
-        updateIcon()
         return true
     }
 
@@ -847,12 +866,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenuAction = row?.action
         statusMenuItem.title = row?.title ?? ""
         statusMenuItem.isHidden = row == nil
+        // The badge and the row come from the same checks, so they change together.
+        updateIcon(model: model)
     }
 
     private func modelStatusDidChange(_ status: ModelStatus) {
         if status.isBusy, !modelManager.isInstalled, modelLoadingStatus != .loading {
             modelLoadingStatus = .loading
-            updateIcon()
         }
         updateStatusMenuItem(model: status)
     }
@@ -886,14 +906,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A text left on the clipboard earlier isn't what this attempt is about.
         blockedPaste = nil
         let decision = refusal.problem.map(recoveryDecision) ?? .none
-        presentCue(refusal.cue, pasteShortcut: currentPasteShortcut, announces: !decision.opensWindow)
+        presentCue(refusal.cue, pasteLast: currentPasteLast, announces: !decision.opensWindow)
         performRecovery(decision)
     }
 
     private func handleIssue(_ issue: SorlaIssue) {
         if issue == .modelNotLoaded || (issue == .modelDownloadFailed && !modelManager.isInstalled) {
             modelLoadingStatus = .failed
-            updateIcon()
         }
         if let transient = TransientMenuStatus(issue: issue, at: Date()) {
             transientStatus = transient
@@ -907,25 +926,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             } else {
                 // Paste Last posts ⌘V too, so without Accessibility or after a replacement only the user's own ⌘V works.
                 let isPasteBlocked = issue == .accessibilityAccessNeeded || issue == .appReplaced
-                presentCue(cue, pasteShortcut: isPasteBlocked ? nil : currentPasteShortcut)
+                presentCue(cue, pasteLast: isPasteBlocked ? nil : currentPasteLast)
             }
         }
         updateStatusMenuItem()
     }
 
     // Without a kept transcription the text on the clipboard is only reachable with ⌘V.
-    private var currentPasteShortcut: String? {
+    // Read when a message is made, so it follows VoiceOver without keeping a copy of its state (#64).
+    private var currentPasteLast: PasteLastRoute? {
         guard appSettings.keepLastTranscription else { return nil }
-        return KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
+        return PasteLastRoute.current(
+            shortcut: KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description,
+            isVoiceOverRunning: NSWorkspace.shared.isVoiceOverEnabled
+        )
+    }
+
+    // A menu row left from before VoiceOver was turned on or off names Paste Last the way it now should.
+    private func voiceOverDidChange() {
+        guard let transient = transientStatus else { return }
+        transientStatus = transient.rerouted(pasteLast: currentPasteLast)
+        updateStatusMenuItem()
     }
 
     private func presentCue(_ cue: DictationCue) {
-        presentCue(cue, pasteShortcut: currentPasteShortcut)
+        presentCue(cue, pasteLast: currentPasteLast)
     }
 
-    private func presentCue(_ cue: DictationCue, pasteShortcut: String?, announces: Bool = true) {
-        let text = cue.announcement(pasteShortcut: pasteShortcut)
-        if let issue = cue.issue(pasteShortcut: pasteShortcut), let transient = TransientMenuStatus(issue: issue, at: Date()) {
+    private func presentCue(_ cue: DictationCue, pasteLast: PasteLastRoute?, announces: Bool = true) {
+        let text = cue.announcement(pasteLast: pasteLast)
+        if let issue = cue.issue(pasteLast: pasteLast), let transient = TransientMenuStatus(issue: issue, at: Date()) {
             transientStatus = transient
             updateStatusMenuItem()
         }
@@ -966,9 +996,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func updateIcon() {
-        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, phase: recordingController.phase, restartPending: appReplacement.isReplaced)
-        statusItem.button?.image = icon.glyph.image(accessibilityDescription: icon.accessibilityDescription, restartBadge: icon.restartBadge)
+    // A badge when something needs the user, from the same checks as the setup and recovery windows (#76).
+    private func updateIcon(model: ModelStatus? = nil) {
+        let icon = MenuBarIconState.current(
+            isModelReady: modelLoadingStatus == .ready,
+            phase: recordingController.phase,
+            problems: currentRecoveryProblems(model: model)
+        )
+        statusItem.button?.image = MenuBarGlyph.image(icon)
     }
 
     @objc private func quit() {

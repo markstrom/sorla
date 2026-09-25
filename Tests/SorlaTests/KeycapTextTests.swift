@@ -53,7 +53,9 @@ final class KeycapTextTests: XCTestCase {
                     }
                 }
                 assertChip(BlockedPasteNote.onClipboard.message, key: "⌘V")
-                assertChip(BlockedPasteNote.pasteLastHint(shortcut: "⌃⌥V"), key: "⌃⌥V")
+                assertChip(BlockedPasteNote.pasteLastHint(.shortcut("⌃⌥V")), key: "⌃⌥V")
+                // With VoiceOver the note names the menu item and VO-M instead (#64).
+                assertChip(BlockedPasteNote.pasteLastHint(.menu), key: PasteLastRoute.menu.keys)
             }
         }
     }

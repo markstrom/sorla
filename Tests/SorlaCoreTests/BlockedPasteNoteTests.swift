@@ -78,8 +78,8 @@ final class BlockedPasteNoteTests: XCTestCase {
         XCTAssertNotEqual(BlockedPasteNote.pasteName, BlockedPasteNote.pasteTitle)
         XCTAssertEqual(BlockedPasteNote.copyTitle, "Copy Text")
         XCTAssertEqual(BlockedPasteNote.copyName, "Copy the text to the clipboard")
-        XCTAssertEqual(BlockedPasteNote.pasteLastHint(shortcut: "⌃⌥V"), "Paste Last Transcription (⌃⌥V) also works now.")
-        XCTAssertEqual(BlockedPasteNote.pasteLastHint(shortcut: nil), "Paste Last Transcription in Sorla's menu also works now.")
+        XCTAssertEqual(BlockedPasteNote.pasteLastHint(.shortcut("⌃⌥V")), "Paste Last Transcription (⌃⌥V) also works now.")
+        XCTAssertEqual(BlockedPasteNote.pasteLastHint(nil), "Paste Last Transcription in Sorla's menu also works now.")
         XCTAssertEqual(BlockedPasteNote.readyAnnouncement, "Sorla can paste now: Paste Where You Were Typing.")
     }
 }

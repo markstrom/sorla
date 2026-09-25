@@ -19,12 +19,12 @@
 "Paste" = "Klistra in";
 "Select All" = "Markera allt";
 "Sorla (transcribing)" = "Sorla (transkriberar)";
-"Sorla (model couldn't be loaded)" = "Sorla (modellen kunde inte läsas in)";
+"Sorla (needs attention)" = "Sorla (behöver åtgärdas)";
 
 /* Status row */
 "Downloading model… %lld%%" = "Laddar ner modellen… %lld %%";
 "Preparing model… ~1 min" = "Förbereder modellen… ~1 min";
-"Model not installed — Download" = "Modellen är inte installerad – Ladda ner";
+"Model not installed" = "Modellen är inte installerad";
 "%@ — Try Again" = "%@ – Försök igen";
 "Model update available (%@)" = "Modelluppdatering tillgänglig (%@)";
 "Sorla %@ is available — Download" = "Sorla %@ finns – Ladda ner";
@@ -37,6 +37,7 @@
 "Couldn't transcribe the last recording" = "Den senaste inspelningen kunde inte transkriberas";
 "Microphone seems to be muted — check Sound › Input" = "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång";
 "Text is on the clipboard — press %@" = "Texten ligger i urklippet – tryck %@";
+"Text is on the clipboard — choose Paste Last Transcription" = "Texten ligger i urklippet – välj Klistra in senaste transkriberingen";
 
 /* Dictation refusals and readiness */
 "The model is still downloading (%lld%%). Dictation will work once it's ready." = "Modellen laddas fortfarande ner (%lld %%). Diktering fungerar när den är klar.";
@@ -127,7 +128,7 @@
 "Pianissimo model credit" = "Pianissimo-modellen";
 "License texts are included with the app." = "Licenstexterna följer med appen.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "Modellen läses in (~1 min). Diktering fungerar när den är klar.";
-"The model couldn't be loaded. Open the Sorla menu and choose “%@”." = "Modellen kunde inte läsas in. Öppna Sorla-menyn och välj ”%@”.";
+"The model couldn't be loaded. Open the Sorla menu to try again." = "Modellen kunde inte läsas in. Öppna Sorla-menyn för att försöka igen.";
 "Talk. Release. Done." = "Prata. Släpp. Klart.";
 "Check for Updates…" = "Sök efter uppdateringar…";
 "Checking…" = "Söker…";
@@ -168,6 +169,8 @@
 "Couldn't transcribe the recording" = "Inspelningen kunde inte transkriberas";
 "Let go of the keys and press %@ again" = "Släpp tangenterna och tryck %@ igen";
 "Let go of the keys and try again" = "Släpp tangenterna och försök igen";
+"Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "Släpp tangenterna och välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)";
+"Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "Texten ligger i urklippet – välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)";
 "Pasting text" = "Klistrar in texten";
 "Keep last transcription" = "Spara senaste transkriberingen";
 "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once." = "Håller din senaste text i minnet i upp till fem minuter så att du kan klistra in den igen med Klistra in senaste transkriberingen. Stänger du av det glöms texten direkt.";
@@ -233,6 +236,7 @@
 "Sorla can paste now. Your text is ready." = "Sorla kan klistra in nu. Texten är klar.";
 "The text is no longer kept. Dictate it again." = "Texten finns inte längre kvar. Diktera den igen.";
 "Paste Last Transcription in Sorla's menu also works now." = "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.";
+"Paste Last Transcription in Sorla's menu (VO-M twice) also works now." = "Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger) fungerar nu också.";
 "Paste Last Transcription (%@) also works now." = "Klistra in senaste transkriberingen (%@) fungerar nu också.";
 "Paste Where You Were Typing" = "Klistra in där du skrev";
 "Close this window and paste the text where you were typing" = "Stäng fönstret och klistra in texten där du skrev";
