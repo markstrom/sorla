@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hjälp – Sorla</title>
-<meta name="description" content="Hjälp med Sorla: öppna appen första gången, krav, kom igång, kortkommandon, urklipp och felsökning.">
+<meta name="description" content="Hjälp med Sorla: öppna appen första gången, krav, kom igång, kortkommandon, VoiceOver, urklipp och felsökning.">
 <meta property="og:site_name" content="Sorla">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="sv_SE">
@@ -43,7 +43,7 @@
     <p class="eyebrow">Hjälp</p>
     <h1 class="page-title">Hjälp</h1>
     <p class="lede">Krav, kom igång och svar på det som brukar dyka upp.</p>
-    <p class="note">Första gången: <a href="#oppna">Om macOS inte vill öppna Sorla</a>. Steg för steg, från nedladdning till första diktering.</p>
+    <p class="note">Första gången: <a href="#oppna">Om macOS inte vill öppna Sorla</a>. Steg för steg, från nedladdning till första diktering.<br>Med VoiceOver: <a href="#voiceover">Sorla med VoiceOver</a>. Vad du hör och vilka tangenter du behöver.</p>
 
     <h2>Krav</h2>
     <ul>
@@ -103,11 +103,61 @@
     <p>En inspelning stoppas av sig själv efter fem minuter, och det du hunnit säga klistras in som vanligt. De sista tio sekunderna blir staplarna i indikatorn svagare.</p>
     <p>Du kan också välja <strong>Starta diktering</strong> i Sorla-menyn och sedan <strong>Stoppa diktering</strong>, till exempel med Röststyrning eller Reglagestyrning. Texten hamnar i appen du arbetade i.</p>
 
-    <h2>Klistra in senaste transkriberingen</h2>
+    <h2 id="senaste">Klistra in senaste transkriberingen</h2>
     <p>Om fokus var fel när du släppte tangenten: <code>⌃⌥V</code> klistrar in senaste texten där du står nu. Kortkommandot går att ändra i Inställningar. Texten finns kvar i fem minuter och glöms direkt om skärmen låses eller Macen går i vila. Vill du inte att Sorla håller kvar texten stänger du av <strong>Spara senaste transkriberingen</strong> i Inställningar. Då går det inte att klistra in senaste transkriberingen, men dikteringen klistrar in som vanligt. Inställningen gäller bara det Sorla själv sparar; urklippet styrs för sig, se <a href="#urklipp">Urklipp</a>.</p>
 
     <h2 id="urklipp">Urklipp</h2>
     <p>Sorla lånar urklippet för att klistra in texten och lägger sedan tillbaka det du hade kopierat. Det går att stänga av med <strong>Lägg tillbaka det du hade kopierat</strong> i Inställningar, och då ligger texten kvar i urklippet. Texten ligger också kvar där när Sorla inte kunde klistra in den, till exempel om du hade bytt app.</p>
+
+    <h2 id="voiceover">Sorla med VoiceOver</h2>
+    <p>Sorla går att använda helt utan att se skärmen. Här är det du hör och de tangenter du behöver.</p>
+
+    <h3>Det här hör du</h3>
+    <ul>
+      <li><strong>Ett ljud när inspelningen börjar</strong> och ett när den slutar. Avbryter du hörs inget slutljud. I läget Håll in kommer startljudet när du har hållit in tangenten en kort stund, så börja prata när du hör det. Ljuden slår du av och på med <strong>Spela upp ljud</strong> under Allmänt i Inställningar.</li>
+      <li><strong>Ett besked efter varje diktering.</strong> När texten skickas till appen säger VoiceOver ”Klistrar in texten”. Sorla kan se att texten skickades, inte att appen tog emot den. Kom ingen text säger VoiceOver varför, till exempel ”Inget hördes”, ”Mikrofonen verkar vara avstängd” eller ”Texten ligger i urklippet – tryck <code>⌃⌥V</code>”.</li>
+      <li><strong>Inget medan mikrofonen är på.</strong> Beskedet väntar tills mikrofonen har stängts, strax efter att du har slutat, så att VoiceOver aldrig spelas in i din text.</li>
+    </ul>
+    <p>Sorla läser inte upp texten du dikterade. Vill du höra den läser du den med VoiceOver där den hamnade. Första gången säger välkomstfönstret till när Sorla är redo, till exempel ”Sorla är redo. Håll Höger ⌘ för att diktera.”</p>
+
+    <h3>Håll in eller Av/på</h3>
+    <p><strong>Håll in</strong> är förvalt: håll in tangenten medan du pratar och släpp när du är klar. Trycker du på en annan tangent medan du håller in avbryts inspelningen, så att vanliga kortkommandon med tangenten fungerar som vanligt. <strong>Av/på</strong>: tryck en gång för att börja och en gång till för att sluta. Det passar dig som tycker att det är svårt att hålla ner en tangent.</p>
+    <p>Du byter läge under <strong>Läge</strong> i avsnittet Diktering i Inställningar. Där väljer du också tangent under <strong>Tangent</strong>. Är du van vid macOS egen diktering, se <a href="#macos-diktering">Van vid macOS egen diktering?</a> Inställningar öppnar du från Sorla-menyn, eller genom att öppna Sorla igen från Program eller Spotlight medan Sorla är igång. <code>Esc</code> stänger fönstret.</p>
+
+    <h3>Avbryt med Esc</h3>
+    <p>Tryck på <code>Esc</code> för att avbryta en pågående inspelning, i båda lägena och oavsett hur du startade den. Inget klistras in. Hade startljudet hunnit spelas säger VoiceOver ”Inspelningen avbröts”. Tangenttrycket går också fram till appen du arbetar i, så samma <code>Esc</code> kan till exempel stänga en ruta där.</p>
+
+    <h3>Starta och stoppa från menyn</h3>
+    <p>Allt går också att göra från Sorlas meny i menyraden, utan dikteringstangenten. Så når du den med VoiceOver:</p>
+    <ol>
+      <li>Tryck <code>VO-M</code> två gånger (VO är <code>Kontroll-Alternativ</code>, eller <code>Caps Lock</code> om du har valt det). Då hamnar du bland symbolerna längst till höger i menyraden. <code>Kontroll-F8</code> (på många tangentbord <code>Fn-Kontroll-F8</code>) tar dig också dit, om kortkommandot för att flytta fokus till statusmenyerna är påslaget under Systeminställningar → Tangentbord → Kortkommandon.</li>
+      <li>Gå med vänster- och högerpil tills VoiceOver säger ”Sorla” och öppna menyn med <code>VO-mellanslag</code>.</li>
+      <li>Välj <strong>Starta diktering</strong>. Menyraden visar också tangenten, till exempel ”Starta diktering (håll Höger ⌘)”. Menyn stängs och du är kvar i appen du arbetade i. Prata.</li>
+      <li>Öppna menyn igen och välj <strong>Stoppa diktering</strong>. Du kan också trycka och släppa dikteringstangenten. Texten hamnar i appen du arbetade i.</li>
+    </ol>
+    <p>Överst i menyn står ibland en rad som förklarar hur senaste dikteringen gick, till exempel ”Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång”. Den försvinner när du börjar nästa diktering, och annars efter fem minuter.</p>
+
+    <h3>Hamnade texten fel?</h3>
+    <p>Välj <strong>Klistra in senaste transkriberingen</strong> i Sorla-menyn, eller tryck <code>⌃⌥V</code> (<code>Kontroll-Alternativ-V</code>). Då klistras senaste texten in där du står nu, utan att du behöver diktera igen. Kortkommandot består av samma tangenter som VoiceOvers VO-tangenter och V. Fungerar det inte medan VoiceOver är på, använd menyn eller välj ett annat kortkommando under Inklistring i Inställningar.</p>
+    <p>Texten finns kvar i fem minuter. Den glöms direkt om skärmen låses, Macen går i vila eller du byter användare. Då går menyvalet inte att välja förrän efter nästa diktering. Mer om det under <a href="#senaste">Klistra in senaste transkriberingen</a>.</p>
+
+    <h3>Symbolen i menyraden</h3>
+    <p>VoiceOver läser Sorlas symbol i menyraden med ett ord om läget inom parentes:</p>
+    <ul>
+      <li><strong>”Sorla”</strong>: redo. Symbolen är en prick och tre staplar.</li>
+      <li><strong>”Sorla (spelar in)”</strong> och <strong>”Sorla (transkriberar)”</strong>: en diktering pågår. Symbolen ser likadan ut som när Sorla är redo; det är indikatorn högst upp på skärmen som visar inspelningen.</li>
+      <li><strong>”Sorla (läser in modellen)”</strong>: talmodellen laddas ner eller görs klar. Pricken är en tom ring och staplarna är svagare. Diktering fungerar inte än, och trycker du på tangenten säger VoiceOver att modellen inte är klar.</li>
+      <li><strong>”Sorla (modellen kunde inte läsas in)”</strong>: ett utropstecken i stället för pricken. Öppna menyn och välj raden som slutar med ”Försök igen”.</li>
+      <li><strong>”Sorla (behöver startas om)”</strong>: en liten pil i hörnet. Sorla har uppdaterats men kör fortfarande den gamla versionen. Välj raden ”Sorla har uppdaterats” överst i menyn. Oftast räcker det också att trycka på tangenten, så startar Sorla om sig själv.</li>
+    </ul>
+
+    <h2 id="macos-diktering">Van vid macOS egen diktering?</h2>
+    <p>macOS har en egen diktering, och den finns kvar när du använder Sorla. Så här startar du Sorla med tangenter du redan är van vid.</p>
+    <h3>🌐-tangenten (Fn)</h3>
+    <p>Välj <strong>Fn</strong> under Tangent i Sorlas Inställningar. Ett tryck på 🌐 kan annars också göra det macOS är inställt på: starta macOS diktering, visa emojier eller byta inmatningskälla. Stäng av det i Systeminställningar → Tangentbord: ställ in ”Tryck på 🌐-tangenten för att” på ”Gör ingenting”.</p>
+    <p>Vill du ha tillbaka det som förut väljer du Tangent i Sorla igen, till exempel <code>Höger ⌘</code>, och ställer in samma meny i Systeminställningar på det den stod på innan.</p>
+    <h3>Tryck två gånger på Kontroll eller Kommando</h3>
+    <p>macOS diktering kan startas med två snabba tryck på Kontroll eller Kommando. Det finns inte i Sorla. Närmast kommer du med <code>Höger ⌃</code> eller <code>Höger ⌘</code> som tangent: håll in den medan du pratar, eller välj läget Av/på och tryck en gång för att börja och en gång till för att sluta.</p>
 
     <h2>Felsökning</h2>
     <details>

@@ -70,8 +70,11 @@ nav img { width: 28px; height: 28px; display: block; }
 nav .name { font-weight: 650; font-size: 20px; letter-spacing: -0.01em; }
 nav .links { margin-left: auto; display: flex; gap: 20px; font-size: 15px; flex-wrap: wrap; }
 nav .links a { color: var(--ink-2); }
-nav .links a[aria-current] { color: var(--ink); }
+/* The current page is underlined, not only darker (WCAG 1.4.1). */
+nav .links a[aria-current] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
 
+/* Long Swedish compounds may break rather than push the page sideways (WCAG 1.4.10, 1.4.12). */
+h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; }
 h1 {
   font-size: clamp(40px, 10vw, 68px); line-height: 1.02; font-weight: 700;
   letter-spacing: -0.035em; margin: 0 0 18px; text-wrap: balance;
@@ -206,7 +209,7 @@ dd { margin: 2px 0 0; color: var(--ink-2); }
 .cta[aria-disabled="true"] { background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule); cursor: default; filter: none; }
 
 .credits { margin-top: 72px; font-size: 14px; color: var(--ink-3); }
-.credits a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 0.15em; }
+.credits a { color: var(--ink-2); text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 0.15em; }
 
 table { border-collapse: collapse; margin: 16px 0; width: 100%; max-width: 60ch; font-size: 15px; }
 th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); }
