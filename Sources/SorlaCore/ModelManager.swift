@@ -15,6 +15,8 @@ public final class ModelManager: ObservableObject {
     public var automaticDownloads: Bool
     public var onInstalled: ((_ wasFirstInstall: Bool) -> Void)?
     public var onFailure: ((SorlaIssue) -> Void)?
+    // Said when work the user asked for fails: the row they started it from changes without a word (#62).
+    public var onRequestedWorkFailed: ((String) -> Void)?
     // Lets the app update check ride on this timer instead of waking the Mac on its own.
     public var onAutomaticCheck: (() -> Void)?
 
@@ -27,6 +29,8 @@ public final class ModelManager: ObservableObject {
     private let idlePollInterval: TimeInterval
     private let sleep: @MainActor (TimeInterval) async -> Void
     private var hasStarted = false
+    // Whether the current work was asked for, rather than started by an automatic check.
+    private var isWorkRequested = false
     private(set) var work: Task<Void, Never>?
     private(set) var automaticCheckTask: Task<Void, Never>?
     private var offered: PublishedModel?
@@ -89,7 +93,8 @@ public final class ModelManager: ObservableObject {
 
     private func check(userInitiated: Bool) {
         guard work == nil else { return }
-        guard isInstalled else { return downloadModel() }
+        guard isInstalled else { return download(requested: userInitiated) }
+        isWorkRequested = userInitiated
         status = .checking
         Self.logger.info("model update check started")
         work = Task {
@@ -125,7 +130,12 @@ public final class ModelManager: ObservableObject {
 
     // Installs the latest model: the first install, a retry, or an update the user accepted.
     public func downloadModel() {
+        download(requested: true)
+    }
+
+    private func download(requested: Bool) {
         guard work == nil else { return }
+        isWorkRequested = requested
         let isUpdate = isInstalled
         status = .downloading(version: offered?.release.version ?? "", fraction: 0, isUpdate: isUpdate)
         work = Task {
@@ -155,6 +165,7 @@ public final class ModelManager: ObservableObject {
     // Loads the installed model again after it failed to load, first finishing any swap that was cut short.
     public func retryLoadingModel() {
         guard work == nil else { return }
+        isWorkRequested = true
         work = Task {
             defer { self.work = nil }
             self.recoverInterruptedSwap()
@@ -165,7 +176,7 @@ public final class ModelManager: ObservableObject {
             Self.logger.info("retrying to load the installed model")
             if await !self.reloadModel() {
                 Self.logger.error("installed model failed to load again")
-                self.onFailure?(.modelNotLoaded)
+                self.report(.modelNotLoaded)
             }
         }
     }
@@ -250,7 +261,7 @@ public final class ModelManager: ObservableObject {
             removeStaging(version: version)
             offered = nil
             status = .installed(version: version)
-            onFailure?(.modelNotLoaded)
+            report(.modelNotLoaded)
             return
         }
         Self.logger.error("model update \(version, privacy: .public) failed to load; rolling back")
@@ -354,7 +365,13 @@ public final class ModelManager: ObservableObject {
         Self.logger.error("model install failed: \(String(describing: installError), privacy: .public)")
         status = .failed(installError, isUpdate: isUpdate)
         let issue: SorlaIssue = !isUpdate ? .modelDownloadFailed : previousModelWorks ? .modelUpdateFailed : .modelNotLoaded
+        report(issue, reason: installError.reason)
+    }
+
+    private func report(_ issue: SorlaIssue, reason: String? = nil) {
         onFailure?(issue)
+        guard isWorkRequested else { return }
+        onRequestedWorkFailed?(reason.map { "\(issue.menuTitle). \($0)" } ?? issue.menuTitle)
     }
 
     private func scheduleAutomaticChecks(checkFirst: Bool) {

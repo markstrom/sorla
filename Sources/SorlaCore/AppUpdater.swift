@@ -56,6 +56,8 @@ public final class AppUpdater: ObservableObject {
         }
     }
     public var onUpdated: ((String) -> Void)?
+    // Only a click on Install and Relaunch is reported: the row it came from changes without a word (#62).
+    public var onRequestedInstallFailed: ((String) -> Void)?
 
     private let installer: AppInstaller
     private let relauncher: AppRelaunching
@@ -172,6 +174,9 @@ public final class AppUpdater: ObservableObject {
                 try self.swapAndRelaunch(staged)
             } catch {
                 self.fail(error, version: pin.version)
+                if case .failed(_, let failure) = self.state {
+                    self.onRequestedInstallFailed?(failure.message)
+                }
             }
         }
     }

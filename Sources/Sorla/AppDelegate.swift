@@ -303,6 +303,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         modelManager.onFailure = { [weak self] issue in
             self?.handleIssue(issue)
         }
+        modelManager.onRequestedWorkFailed = { [weak self] text in
+            self?.announce(text)
+        }
         modelManager.$status
             .removeDuplicates()
             .sink { [weak self] status in
@@ -332,6 +335,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Self.logger.info("updated to \(version, privacy: .public); accessibility trusted: \(PermissionsManager.isAccessibilityTrusted(), privacy: .public)")
             self?.transientStatus = TransientMenuStatus(updatedTo: version, at: Date())
             self?.updateStatusMenuItem()
+        }
+        appUpdater.onRequestedInstallFailed = { [weak self] message in
+            self?.announce(message)
         }
         appUpdater.start()
 

@@ -5,6 +5,7 @@
 - Esc cancels a dictation started from the menu while Settings was open (#55).
 - Paste Last with nothing kept (it expired, or the Mac locked) now says "Nothing to paste" with VoiceOver and shows a brief cue, instead of doing nothing (#60).
 - The Welcome window's buttons say what they act on when reached with Tab or VoiceOver's list of controls, such as "Open Microphone in System Settings" and "Open Accessibility in System Settings" instead of two "Open System Settings" (#61).
+- With VoiceOver, a download or install you started that fails now says so and why: Install and Relaunch (from Settings or the menu), and the speech model's Download and Try Again (from Settings, the Welcome window or the menu). Background checks and installs stay quiet, as before (#62).
 
 ## 1.1.0 — 2026-09-24
 

@@ -18,6 +18,7 @@ final class AppUpdaterTests: XCTestCase {
     private var quits = 0
     private var quitGoesAhead = true
     private var updatedTo: [String] = []
+    private var reportedFailures: [String] = []
     private let pin = AppInstallFixtures.pin
     private let bundle = AppInstallFixtures.bundle
     private let backup = AppInstallFixtures.backup
@@ -71,6 +72,7 @@ final class AppUpdaterTests: XCTestCase {
             }
         )
         updater.onUpdated = { [unowned self] in self.updatedTo.append($0) }
+        updater.onRequestedInstallFailed = { [unowned self] in self.reportedFailures.append($0) }
         return updater
     }
 
@@ -131,6 +133,7 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertTrue(relauncher.starts.isEmpty)
         XCTAssertEqual(quits, 0)
         XCTAssertNil(journal.record)
+        XCTAssertEqual(reportedFailures, [AppInstallFailure.verification.message])
     }
 
     func testAHelperThatWontStartPutsTheOldAppBack() async {
@@ -144,6 +147,7 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(disk.item(bundle.path), .app(FakeApp(version: "1.0.0")))
         XCTAssertEqual(quits, 0)
         XCTAssertNil(journal.record)
+        XCTAssertEqual(reportedFailures, [AppInstallFailure.relaunch.message])
     }
 
     // Quitting called off: the helper is stopped and the old app goes back, so this Sorla keeps pasting.
@@ -189,6 +193,7 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertTrue(relauncher.starts.isEmpty)
         XCTAssertEqual(quits, 0)
         XCTAssertNil(journal.record)
+        XCTAssertEqual(reportedFailures, [])
     }
 
     // A rebuild with the same version is only told apart by the running app's replacement check.
@@ -372,6 +377,8 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(updater.state, .failed(version: "1.1.0", .download))
         XCTAssertNil(journal.pendingRelease)
         XCTAssertEqual(disk.paths, [bundle.path])
+        // Nobody asked for it, so it stays in the menu and Settings instead of being read out.
+        XCTAssertEqual(reportedFailures, [])
     }
 
     // MARK: - After the relaunch

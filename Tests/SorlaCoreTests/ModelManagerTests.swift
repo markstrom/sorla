@@ -12,6 +12,7 @@ final class ModelManagerTests: XCTestCase {
     private var reloads = 0
     private var installs: [Bool] = []
     private var failures: [SorlaIssue] = []
+    private var reported: [String] = []
     private let clock = TestClock()
     private let day: Duration = .seconds(86_400)
 
@@ -55,6 +56,7 @@ final class ModelManagerTests: XCTestCase {
         )
         manager.onInstalled = { [unowned self] firstInstall in self.installs.append(firstInstall) }
         manager.onFailure = { [unowned self] issue in self.failures.append(issue) }
+        manager.onRequestedWorkFailed = { [unowned self] text in self.reported.append(text) }
         return manager
     }
 
@@ -123,6 +125,7 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
 
         XCTAssertEqual(failures, [.modelDownloadFailed])
+        XCTAssertEqual(reported, ["Model download failed. Couldn't reach Hugging Face. Check your internet connection."])
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.installed.path))
 
         await PublishedModelFixture(version: "1.0.0").publish(on: network)
@@ -275,6 +278,22 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertEqual(reloads, 0)
         XCTAssertEqual(failures, [.modelUpdateFailed])
+        XCTAssertEqual(reported, ["Model update failed. The new model didn't pass its self-test."])
+    }
+
+    // #62: nobody asked for a background update, so its failure stays in the menu and Settings.
+    func testAnAutomaticUpdateThatFailsIsNotReadOut() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        await preparer.failSelfTest()
+        let manager = makeManager(autoCheck: true, autoDownload: true)
+
+        manager.start()
+        await finishTimerCheck(manager, sleeps: 1)
+
+        XCTAssertEqual(manager.status, .failed(.selfTestFailed, isUpdate: true))
+        XCTAssertEqual(failures, [.modelUpdateFailed])
+        XCTAssertEqual(reported, [])
     }
 
     func testTheSwapWaitsUntilDictationIsIdle() async throws {
@@ -448,11 +467,13 @@ final class ModelManagerTests: XCTestCase {
         manager.retryLoadingModel()
         await manager.work?.value
         XCTAssertEqual(failures, [.modelNotLoaded])
+        XCTAssertEqual(reported, ["Model couldn't be loaded"])
         manager.retryLoadingModel()
         await manager.work?.value
 
         XCTAssertEqual(reloads, 2)
         XCTAssertEqual(failures, [.modelNotLoaded])
+        XCTAssertEqual(reported, ["Model couldn't be loaded"])
     }
 
     func testRetryingTheLoadFirstFinishesAnInterruptedSwap() async throws {
