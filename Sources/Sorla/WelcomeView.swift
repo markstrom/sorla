@@ -49,6 +49,8 @@ struct WelcomeContent: Equatable {
     var blockedPaste: BlockedPasteNote?
     var pasteLastShortcut: String?
     var readyLine: String
+    // The trigger as the ready line names it, set apart as a keycap.
+    var readyKey: String?
     var toggleModeTip: String?
     var isRecovery = false
 
@@ -73,7 +75,9 @@ struct WelcomeView: View {
     static let recoveryWindowTitle = String(localized: "Set Up Sorla")
 
     var body: some View {
-        WelcomePage(
+        let customShortcut = KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
+        let hasTrigger = appSettings.triggerKey != .customShortcut || !(customShortcut?.isEmpty ?? true)
+        return WelcomePage(
             content: WelcomeContent(
                 microphone: WelcomeChecklist.microphoneRow(state.microphone),
                 accessibility: WelcomeChecklist.accessibilityRow(isTrusted: state.isAccessibilityTrusted),
@@ -91,8 +95,9 @@ struct WelcomeView: View {
                     isReady: true,
                     trigger: appSettings.triggerKey,
                     mode: appSettings.recordingMode,
-                    customShortcut: KeyboardShortcuts.getShortcut(for: .sorlaCustomTrigger)?.description
+                    customShortcut: customShortcut
                 ),
+                readyKey: hasTrigger ? TriggerHint.keyLabel(for: appSettings.triggerKey, customShortcut: customShortcut) : nil,
                 toggleModeTip: WelcomeChecklist.toggleModeTip(mode: appSettings.recordingMode),
                 isRecovery: state.isRecovery
             ),
@@ -219,11 +224,15 @@ struct WelcomePage: View {
     private func pasteNote(_ note: BlockedPasteNote, isShown: Bool) -> some View {
         Label {
             VStack(alignment: .leading, spacing: 8) {
-                Text(verbatim: note.message)
+                Text(KeycapText.attributed(note.message, keys: ["⌘V"], font: .system(.footnote, design: .monospaced)))
                     .fixedSize(horizontal: false, vertical: true)
                 if note.offersPaste {
                     pasteButton(isShown: isShown)
-                    Text(verbatim: BlockedPasteNote.pasteLastHint(shortcut: content.pasteLastShortcut))
+                    Text(KeycapText.attributed(
+                        BlockedPasteNote.pasteLastHint(shortcut: content.pasteLastShortcut),
+                        keys: [content.pasteLastShortcut],
+                        font: .system(.caption2, design: .monospaced)
+                    ))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -314,7 +323,7 @@ struct WelcomePage: View {
     }
 
     private func readiness(_ line: String, isReady: Bool) -> some View {
-        Text(verbatim: line)
+        Text(KeycapText.attributed(line, keys: [content.readyKey], font: .system(.callout, design: .monospaced).weight(.semibold)))
             .font(isReady ? .headline : .callout)
             .foregroundStyle(isReady ? .primary : .secondary)
             .multilineTextAlignment(.center)

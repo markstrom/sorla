@@ -63,6 +63,7 @@ final class WelcomeLayoutTests: XCTestCase {
             blockedPaste: blockedPaste,
             pasteLastShortcut: "⌃⌥V",
             readyLine: WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
+            readyKey: TriggerHint.keyLabel(for: .rightCommand, customShortcut: nil),
             toggleModeTip: WelcomeChecklist.toggleModeTip(mode: .pushToTalk)
         )
     }
