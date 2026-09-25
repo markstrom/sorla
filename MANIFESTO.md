@@ -29,7 +29,7 @@ Solve problems with well-considered default behaviour before introducing new cho
 Sorla transcribes; it does not edit. Punctuation and capitalisation may make speech readable, but features must not change the user's meaning, tone or choice of words. Rewriting, summarising, translating and added content are outside its job.
 
 ### 7. Preserve the work and enable recovery
-Preserve the clipboard and focus. Existing text may only be replaced as the user intends, for example through an active selection. If pasting fails, the latest transcription must be reusable without dictating again. Limit storage and recovery to what the current flow needs.
+Preserve the clipboard and focus. Existing text may only be replaced as the user intends, for example through an active selection. If pasting fails, the latest transcription must be reusable without dictating again through Paste Last Transcription, unless the user has turned off keeping it or Sorla must restart. Limit storage and recovery to what the current flow needs.
 
 ### 8. Depth before breadth
 Prioritise accuracy, reliability and accessibility over more features, models and languages. An addition must solve a demonstrated problem, not just widen the offering. The benefit doesn't have to reach the majority: making the core function accessible to a smaller group can weigh heavily.
