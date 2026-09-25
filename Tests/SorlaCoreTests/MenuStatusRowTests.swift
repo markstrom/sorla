@@ -50,7 +50,7 @@ final class MenuStatusRowTests: XCTestCase {
 
     func testAccessibilityComesBeforeTheModel() {
         let row = AccessibilityPaneName.$systemMajorVersion.withValue(26) {
-            row(accessibilityMissing: true, model: .downloading(version: "1.0.0", fraction: 0.5, isUpdate: false))
+            self.row(accessibilityMissing: true, model: .downloading(version: "1.0.0", fraction: 0.5, isUpdate: false))
         }
 
         XCTAssertEqual(row, MenuStatusRow(title: "Accessibility permission needed to paste", action: .showWelcome))
