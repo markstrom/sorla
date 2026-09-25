@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Esc cancels a dictation started from the menu while Settings was open; before, Esc did nothing until the next press (#55).
+
 ## 1.1.0 — 2026-09-24
 
 - Sorla installs its own updates. When a check finds a newer version, **Install and Relaunch** in Settings › Updates or the menu's status row downloads exactly that release (the versioned `Sorla-X.Y.Z.dmg` the check saw, never whatever "latest" is by then) into a private folder, with a size cap and a check that it arrived whole. Nothing is touched until the app in it passes: mounted read-only and hidden, signed with Sorla's Team ID and bundle ID, notarized according to Gatekeeper, and exactly the version that was found and newer than the running one. It is then copied next to Sorla, checked again and swapped in at the same path, so permissions stay; Sorla waits for any recording, transcription, paste or clipboard restore in flight, relaunches once the old process has exited, and never reopens the old app. The previous version stays next to it (for example `Sorla 1.0.3.app`) until the new one has run for 30 seconds, so a new version that won't start leaves the old one to open. Any failure keeps the current version and says so, never as "Latest". Download stays as the fallback; a copy that can't be replaced (a folder you can't write to, or App Translocation) explains why, and a Homebrew install is told to run `brew upgrade --cask sorla`.
