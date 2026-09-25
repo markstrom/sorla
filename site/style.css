@@ -1,6 +1,6 @@
 /* Sorla. The Mac's own typeface, near-black and one warm accent taken
-   from the record dot. No web fonts; two small first-party scripts
-   (copy buttons, the demo's pause button) that the pages work without. */
+   from the record dot. No web fonts; one small first-party script
+   (copy buttons) that the pages work without. */
 :root {
   --bg: #F7F5F1;
   --surface: #EEEBE5;
@@ -153,13 +153,13 @@ em { font-style: italic; }
 .lights i:nth-child(2) { background: #FEBC2E; }
 .lights i:nth-child(3) { background: #28C840; }
 .window p { position: relative; margin: clamp(12px, 3.2vw, 22px) clamp(14px, 4vw, 26px); max-width: none; }
-/* Five sentences take turns, one per 11 s round: about 3 s of speaking, then 6 s to read the text. */
+/* Five sentences take turns, one per 11 s round: about 3 s of speaking, 5 s to read the text, then an empty document for a moment before the next one. */
 .said { position: absolute; left: 0; top: 0; opacity: 0; animation: said 55s ease-out infinite; }
 .said:nth-of-type(3) { animation-delay: 11s; }
 .said:nth-of-type(4) { animation-delay: 22s; }
 .said:nth-of-type(5) { animation-delay: 33s; }
 .said:nth-of-type(6) { animation-delay: 44s; }
-.stage:hover *, .stage:focus-within *, .stage.is-paused * { animation-play-state: paused; }
+.stage:hover *, .stage:focus-within * { animation-play-state: paused; }
 .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 20px; }
 .waiting { position: absolute; left: 0; top: 0; animation: waiting 11s ease-out infinite; }
 .caret {
@@ -167,20 +167,18 @@ em { font-style: italic; }
   background: var(--accent); animation: blink 1s steps(1) infinite;
 }
 .stage figcaption { color: var(--ink-2); font-size: 15px; margin: 10px 2px 0; }
-/* The pause button sits beside the caption, outside the demo, so pressing it doesn't itself hold the demo still. */
 .demo { position: relative; margin: 0 0 12px; }
 .demo .stage { margin: 0; }
-.demo.has-toggle figcaption { padding-right: 104px; min-height: 34px; }
-.demo-toggle {
-  position: absolute; right: 0; bottom: 0; display: inline-flex; align-items: center; gap: 6px;
-  min-height: 34px; padding: 4px 14px 4px 10px; border-radius: 999px;
-  border: 1px solid var(--rule); background: var(--surface); color: var(--ink);
-  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+/* The trigger key, bottom right: it shows up and goes down as the island starts to drop, and lets go just before the island lifts. */
+.key { position: absolute; right: 3.5%; bottom: 3%; z-index: 1; }
+.key .cap {
+  display: grid; place-items: center;
+  width: clamp(30px, 7vw, 42px); height: clamp(28px, 6.4vw, 38px);
+  border-radius: 7px; background: var(--window); color: var(--window-ink);
+  font-size: clamp(15px, 3.6vw, 20px); line-height: 1;
+  opacity: 0;
+  animation: keypress 11s cubic-bezier(.3, .7, .2, 1) infinite;
 }
-.demo-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
-.demo-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.demo-toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.demo-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 @keyframes island {
   0%, 2.55% { transform: translateY(-110%); }
@@ -189,23 +187,31 @@ em { font-style: italic; }
 }
 @keyframes said {
   0%, 7.64% { opacity: 0; }
-  8.4%, 19.24% { opacity: 1; }
-  20%, 100% { opacity: 0; }
+  8.4%, 17.64% { opacity: 1; }
+  18.36%, 100% { opacity: 0; }
 }
 @keyframes waiting {
   0%, 38.18% { opacity: 1; }
-  40.09%, 98.09% { opacity: 0; }
-  100% { opacity: 1; }
+  40.09%, 91.8% { opacity: 0; }
+  92.7%, 100% { opacity: 1; }
 }
+@keyframes keypress {
+  0%, 2.4% { opacity: 0; transform: translateY(0); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.10); }
+  2.55% { opacity: 1; transform: translateY(0); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.10); }
+  3.4%, 34% { opacity: 1; transform: translateY(3px); box-shadow: 0 0 0 rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.10); }
+  35% { opacity: 1; transform: translateY(0); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.10); }
+  36.5%, 100% { opacity: 0; transform: translateY(0); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(0, 0, 0, 0.10); }
+}
+
+
 @keyframes talk { from { transform: scaleY(0.2); } to { transform: scaleY(1); } }
 @keyframes pulse { 50% { opacity: 0.55; } }
 @keyframes blink { 50% { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .island, .island .dot, .island .bars i, .said, .caret { animation: none; }
+  .island, .island .dot, .island .bars i, .said, .caret, .key .cap { animation: none; }
+  .key { display: none; }
   .waiting { display: none; }
-  .demo-toggle { display: none; }
-  .demo.has-toggle figcaption { padding-right: 0; min-height: 0; }
   .said:nth-of-type(2) { opacity: 1; }
   .island .bars i:nth-child(1), .island .bars i:nth-child(7) { transform: scaleY(0.3); }
   .island .bars i:nth-child(2), .island .bars i:nth-child(6) { transform: scaleY(0.55); }
@@ -278,8 +284,9 @@ a code { color: var(--accent); }
   .lede { font-size: 18px; }
   h2 { font-size: 23px; margin-top: 56px; }
   .steps { grid-template-columns: 1fr; }
-  .screen { aspect-ratio: 1 / 1; }
-  .window { top: 26%; bottom: 8%; }
+  /* Room under the document for the key. */
+  .screen { aspect-ratio: 5 / 6; }
+  .window { top: 22%; bottom: 20%; }
 }
 
 details { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); }
@@ -309,7 +316,7 @@ details p { margin: 8px 0 4px; }
 @media (max-width: 400px) {
   code.path { white-space: normal; overflow-wrap: anywhere; }
   /* The longest demo sentence needs a taller screen on the narrowest phones. */
-  .screen { aspect-ratio: 5 / 6; }
+  .screen { aspect-ratio: 3 / 4; }
 }
 @media (max-width: 600px) { .policy h2.lead-section { font-size: 23px; } }
 
