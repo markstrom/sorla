@@ -32,6 +32,7 @@ Sorla also builds on:
 - **A small indicator** at the top of the screen, with a live waveform while you speak.
 - **Paste Last.** ⌃⌥V pastes the most recent text again, wherever you are now. The text is kept for five minutes, and forgotten at once when the screen locks or the Mac sleeps. Turn off **Keep last transcription** in Settings and Sorla itself keeps no text for Paste Last once it has been pasted. The clipboard is separate: the text stays on it when **Put back what you had copied** is off, or when Sorla couldn't paste and left the text on the clipboard instead.
 - **Your clipboard is kept.** Whatever you had copied is still there after Sorla pastes.
+- **Help when something is in the way.** If a dictation or paste is blocked by something only you can fix (a missing permission, the speech model, a microphone that won't start, a restart after an update), Sorla opens a window that says what and offers the fix, after you let go of the key. Choose **Not now** and it won't ask again about the same problem until Sorla restarts. No notifications.
 - Soft start and stop sounds, and optional launch at login.
 - English and Swedish user interface.
 - Text appears when you let go, not while you speak: Klang Pianissimo transcribes a whole utterance at once and isn't built for streaming, and transcribing in chunks would mean worse text. From release to text takes about half a second.
@@ -47,7 +48,7 @@ Sorla also builds on:
 1. Download the DMG from [the website](https://sorla.zerolabs.se) or the [latest release](https://github.com/markstrom/sorla/releases/latest).
 2. Open it and drag **Sorla** to **Applications**.
 3. Open Sorla from the Applications folder.
-4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both and downloads the model.
+4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both, downloads the model and lets you try dictating in the window itself.
 5. Hold Right ⌘ and speak.
 
 Or with [Homebrew](https://brew.sh):

@@ -96,13 +96,22 @@
     <h2>Kom igång</h2>
     <p>Första gången Sorla startar öppnas ett välkomstfönster. Det visar de tre saker som behövs: <strong>Mikrofon</strong>, <strong>Hjälpmedel</strong> och <strong>talmodellen</strong>. Mikrofonen tillåter du direkt i fönstret. Hjälpmedel slår du på i Systeminställningar → Integritet och säkerhet → Hjälpmedel; knappen Öppna Systeminställningar tar dig dit. Varje rad får en bock när den är klar. Får Hjälpmedel ingen bock, se <a href="#hjalpmedel">ovan</a>.</p>
     <p>Talmodellen (ungefär 700 MB) börjar laddas ner från Hugging Face av sig själv, medan du ger behörigheterna. Förloppet syns i fönstret och i menyn, först som ”Laddar ner modellen… 42 %” och sedan som ”Förbereder modellen… ~1 min” medan modellen görs klar för Macens Neural Engine. Första gången tar det ungefär en minut. Därefter behövs inget nätverk.</p>
-    <p>När allt är klart kan du prova i fältet Prova här: håll in <code>Höger ⌘</code>, prata och släpp. Sedan bor Sorla i menyraden, som en prick och några staplar.</p>
+    <p>Längst ner finns fältet Prova här. Det syns hela tiden men går att skriva i först när alla tre raderna har en bock. Då kan du prova: håll in <code>Höger ⌘</code>, prata och släpp. Sedan bor Sorla i menyraden, som en prick och några staplar.</p>
 
     <h2>Använda Sorla</h2>
     <p>Håll in <code>Höger ⌘</code> (standardtangenten), prata och släpp. Texten hamnar där markören står. Trycker du på en annan tangent medan du håller in avbryts inspelningen, så vanliga kortkommandon fungerar som vanligt. Korta tryck, under 0,3 sekunder, ignoreras.</p>
     <p>Alternativt läge: tryck en gång för att börja, en gång till för att sluta. Tangenten (<code>Höger ⌘</code>, <code>Höger ⌥</code>, <code>Höger ⌃</code>, <code>Fn</code> eller en egen kombination) och läget väljer du i Inställningar.</p>
     <p>En inspelning stoppas av sig själv efter fem minuter, och det du hunnit säga klistras in som vanligt. De sista tio sekunderna blir staplarna i indikatorn svagare.</p>
     <p>Du kan också välja <strong>Starta diktering</strong> i Sorla-menyn och sedan <strong>Stoppa diktering</strong>, till exempel med Röststyrning eller Reglagestyrning. Texten hamnar i appen du arbetade i.</p>
+
+    <h2 id="hinder">Om något hindrar dikteringen</h2>
+    <p>Trycker du på tangenten, eller väljer Starta diktering, när något saknas som bara du kan åtgärda, öppnar Sorla ett fönster som säger vad det är och vad du kan göra. I läget Håll in öppnas det först när du släpper tangenten, och aldrig för ett kortkommando som <code>Höger ⌘</code> + <code>C</code>, ett kort tryck eller en inspelning du avbryter. Pågår en annan diktering väntar fönstret tills den är klar.</p>
+    <ul>
+      <li><strong>Ställ in Sorla</strong>: samma lista som i välkomstfönstret, med Mikrofon, Hjälpmedel och talmodellen, och en knapp för det som saknas. Raderna uppdateras när du kommer tillbaka från Systeminställningar. Kunde Sorla känna igen texten men inte klistra in den för att Hjälpmedel saknas, står det att texten ligger i urklippet och att du kan trycka <code>⌘V</code>, så länge den faktiskt ligger där. Får modellen inte plats står det hur mycket ledigt utrymme som behövs, och <strong>Försök igen</strong> provar på nytt.</li>
+      <li><strong>Sorla kunde inte starta mikrofonen</strong>: kontrollera att en mikrofon är ansluten och vald under Ingång i inställningarna för Ljud. <strong>Öppna inställningar för Ljud</strong> tar dig dit. En tyst eller avstängd mikrofon ger inget fönster, bara den överstrukna mikrofonen i indikatorn som förut.</li>
+      <li><strong>Sorla behöver startas om</strong>: se <a href="#uppdateringar">Uppdateringar</a>.</li>
+    </ul>
+    <p>Väljer du <strong>Inte nu</strong> eller trycker på <code>Esc</code> visas samma fönster inte igen förrän du har startat om Sorla, eller om problemet först försvinner och sedan kommer tillbaka. Raden överst i Sorlas meny finns kvar och leder till samma hjälp. Sorla använder aldrig notiser.</p>
 
     <h2 id="senaste">Klistra in senaste transkriberingen</h2>
     <p>Om fokus var fel när du släppte tangenten: <code>⌃⌥V</code> klistrar in senaste texten där du står nu. Kortkommandot går att ändra i Inställningar. Texten finns kvar i fem minuter och glöms direkt om skärmen låses eller Macen går i vila. Vill du inte att Sorla håller kvar texten stänger du av <strong>Spara senaste transkriberingen</strong> i Inställningar. Då går det inte att klistra in senaste transkriberingen, men dikteringen klistrar in som vanligt. Inställningen gäller bara det Sorla själv sparar; urklippet styrs för sig, se <a href="#urklipp">Urklipp</a>.</p>
@@ -163,7 +172,7 @@
     <h2>Felsökning</h2>
     <details>
       <summary>Ingen text klistras in</summary>
-      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet — tryck <code>⌘V</code>. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Hjälpmedel inte får en bock</a>.</p>
+      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet — tryck <code>⌘V</code>. Sorla öppnar också fönstret <a href="#hinder">Ställ in Sorla</a>. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Hjälpmedel inte får en bock</a>.</p>
     </details>
     <details>
       <summary>Tom eller konstig text</summary>
@@ -179,13 +188,13 @@
     </details>
     <details>
       <summary>Nedladdningen av modellen misslyckas</summary>
-      <p>Kontrollera internetanslutning och ledigt utrymme, och välj ”Försök igen” i menyn.</p>
+      <p>Kontrollera internetanslutning och ledigt utrymme, och välj ”Försök igen” i menyn eller i fönstret Ställ in Sorla.</p>
     </details>
 
     <h2 id="medan-du-pratar">Varför syns inte texten medan jag pratar?</h2>
     <p>Talmodellen Klang Pianissimo är byggd för att lyssna på det du säger i sin helhet och är inte tränad för att skriva ut orden medan du pratar. Det går att köra modellen på bitar av ljudet, men då blir texten sämre, orden ändras hela tiden på skärmen och det kräver mycket mer av datorn. Sorla väntar därför tills du släpper tangenten. Från att du släpper tills texten står där tar det ungefär en halv sekund.</p>
 
-    <h2>Uppdateringar</h2>
+    <h2 id="uppdateringar">Uppdateringar</h2>
     <p>Allt om uppdateringar finns på ett ställe: avsnittet <strong>Uppdateringar</strong> i Inställningar. Där står vilken version du har av Sorla och av talmodellen, och vad den senaste sökningen gav, till exempel ”Senaste” eller ”1.1.0 finns”.</p>
     <p><strong>Sök nu</strong> frågar GitHub efter en ny version av Sorla och Hugging Face efter en ny talmodell på samma gång. <strong>Sök efter uppdateringar…</strong> i Sorlas meny öppnar Inställningar och gör samma sak. Går sökningen inte att genomföra, till exempel utan internet, står det vad som gick fel. Ett misslyckande visas aldrig som att du har den senaste versionen.</p>
     <p>Hittas en ny version av Sorla visas <strong>Installera och starta om</strong> i Inställningar och överst i Sorlas meny. Ett klick räcker. Sorla laddar ner just den version som sökningen hittade från GitHub, kontrollerar att den är signerad av Sorlas utvecklare, notariserad av Apple och har rätt versionsnummer, byter ut appen på samma plats och startar om på några sekunder. Pågår en diktering väntar Sorla tills texten är inklistrad. Eftersom appen ligger kvar på samma ställe finns behörigheterna kvar. Går något fel behålls versionen du har, och det står vad som hände.</p>
@@ -197,7 +206,7 @@
     </ul>
     <p><strong>Ladda ner</strong> finns kvar när Sorla inte kan byta ut sig själv: om appen ligger i en mapp du inte får ändra i, till exempel om du inte är administratör, eller om den körs direkt från Hämtade filer. Då står det varför under raden. Klicka på <strong>Ladda ner</strong>, avsluta Sorla, öppna den nya DMG-filen, dra Sorla till Program och välj <strong>Ersätt</strong>. Behörigheterna finns kvar.</p>
     <p>Har du installerat Sorla med Homebrew uppdaterar du med <code>brew upgrade --cask sorla</code>, så att Homebrew vet vilken version du har.</p>
-    <p>Byter du ut <code>Sorla.app</code> medan Sorla är igång kan den gamla Sorla inte klistra in längre. Menyradsikonen får då en liten pil, och nästa gång du trycker på tangenten visar indikatorn en pil i stället för att spela in och Sorla startar om sig själv i den nya versionen.</p>
+    <p>Byter du ut <code>Sorla.app</code> medan Sorla är igång kan den gamla Sorla inte klistra in längre. Menyradsikonen får då en liten pil, och nästa gång du trycker på tangenten visar indikatorn en pil i stället för att spela in. Ett fönster förklarar varför och frågar om Sorla ska startas om: <strong>Starta om Sorla</strong> eller <strong>Inte nu</strong>. Sorla startar bara om när du väljer det, och väntar tills en pågående diktering är inklistrad. Kan Sorla inte öppna sig själv igen, till exempel när den körs direkt från Hämtade filer, ber fönstret dig avsluta Sorla och öppna den från Program.</p>
 
     <h2>Avinstallera</h2>
     <p>Avsluta Sorla, flytta appen till papperskorgen och ta bort mappen <code class="path" data-copy="~/Library/Application Support/Sorla">~/Library/Application Support/Sorla</code>.</p>
