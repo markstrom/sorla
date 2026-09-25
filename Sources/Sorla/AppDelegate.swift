@@ -44,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Whether that text was kept as Paste Last's when the paste was blocked, so a text that expires later isn't
     // described as one that couldn't be saved.
     private var wasBlockedTextSaved = false
+    // The status row's and badge's checks, kept between a model download's progress ticks (#76).
+    private var statusChecks = StatusCheckCache()
     private var didRelaunchFail = false
     private var quietRestart: QuietRestart!
     private var announcer: DictationAnnouncer!
@@ -520,18 +522,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // Everything wrong right now, so a problem that was solved and came back is explained again.
     // Also what badges the menu bar icon (#76); a model status sink passes the new status in.
-    private func currentRecoveryProblems(model: ModelStatus? = nil) -> Set<RecoveryProblem> {
-        RecoveryProblem.current(
-            isMicrophoneAccessDenied: PermissionsManager.isMicrophoneAccessDenied(),
-            isAccessibilityTrusted: PermissionsManager.isAccessibilityTrusted(),
+    // The status row passes the checks it has just read, so they aren't read twice.
+    private func currentRecoveryProblems(model: ModelStatus? = nil, checks: StatusChecks? = nil) -> Set<RecoveryProblem> {
+        let checks = checks ?? readStatusChecks()
+        return RecoveryProblem.current(
+            isMicrophoneAccessDenied: checks.isMicrophoneAccessDenied,
+            isAccessibilityTrusted: checks.isAccessibilityTrusted,
             model: DictationGate.modelProblem(
-                isModelInstalled: modelManager.isInstalled,
+                isModelInstalled: checks.isModelInstalled,
                 isModelLoading: modelLoadingStatus == .loading,
                 didModelFailToLoad: modelLoadingStatus == .failed,
                 model: model ?? modelManager.status
             ),
             didMicrophoneFailToStart: didMicrophoneFailToStart,
             isAppReplaced: appReplacement.isReplaced
+        )
+    }
+
+    private func readStatusChecks() -> StatusChecks {
+        StatusChecks(
+            isMicrophoneAccessDenied: PermissionsManager.isMicrophoneAccessDenied(),
+            isAccessibilityTrusted: PermissionsManager.isAccessibilityTrusted(),
+            isModelInstalled: modelManager.isInstalled
         )
     }
 
@@ -832,12 +844,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil, install: AppInstallState? = nil) {
         let now = Date()
         if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
+        // Only the model status sink passes `model`; its progress ticks reuse the last checks.
+        let checks = statusChecks.checks(model: model) { readStatusChecks() }
         let row = MenuStatusRow.current(
-            microphoneDenied: PermissionsManager.isMicrophoneAccessDenied(),
-            accessibilityMissing: !PermissionsManager.isAccessibilityTrusted(),
+            microphoneDenied: checks.isMicrophoneAccessDenied,
+            accessibilityMissing: !checks.isAccessibilityTrusted,
             model: model ?? modelManager.status,
-            modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
-            modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
+            modelLoadFailed: checks.isModelInstalled && modelLoadingStatus == .failed,
+            modelLoading: checks.isModelInstalled && modelLoadingStatus == .loading,
             appReplaced: appReplacement.isReplaced,
             canRestart: canRestart,
             transient: transientStatus,
@@ -853,11 +867,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenuItem.title = row?.title ?? ""
         statusMenuItem.isHidden = row == nil
         // The badge and the row come from the same checks, so they change together.
-        updateIcon(model: model)
+        updateIcon(model: model, checks: checks)
     }
 
     private func modelStatusDidChange(_ status: ModelStatus) {
-        if status.isBusy, !modelManager.isInstalled, modelLoadingStatus != .loading {
+        // The file check last, so a download's progress ticks skip it once the model is marked as loading.
+        if status.isBusy, modelLoadingStatus != .loading, !modelManager.isInstalled {
             modelLoadingStatus = .loading
         }
         updateStatusMenuItem(model: status)
@@ -981,11 +996,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // A badge when something needs the user, from the same checks as the setup and recovery windows (#76).
-    private func updateIcon(model: ModelStatus? = nil) {
+    private func updateIcon(model: ModelStatus? = nil, checks: StatusChecks? = nil) {
         let icon = MenuBarIconState.current(
             isModelReady: modelLoadingStatus == .ready,
             phase: recordingController.phase,
-            problems: currentRecoveryProblems(model: model)
+            problems: currentRecoveryProblems(model: model, checks: checks)
         )
         statusItem.button?.image = MenuBarGlyph.image(icon)
     }
