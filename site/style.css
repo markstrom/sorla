@@ -105,7 +105,7 @@ em { font-style: italic; }
   width: min(64%, 260px); height: 36px; margin-left: calc(min(64%, 260px) / -2);
   display: flex; align-items: center; justify-content: space-between; padding: 2px 18px 0;
   background: #000; border-radius: 0 0 16px 16px;
-  animation: island 7s cubic-bezier(.3, .7, .2, 1) infinite;
+  animation: island 11s cubic-bezier(.3, .7, .2, 1) infinite;
 }
 .island .dot {
   width: 8px; height: 8px; border-radius: 50%; background: var(--dot);
@@ -134,14 +134,14 @@ em { font-style: italic; }
   font-size: clamp(15px, 3.4vw, 20px); line-height: 1.4;
 }
 .window p { position: relative; margin: 0; max-width: none; }
-/* Four sentences take turns, one per 7 s round; the island keeps its 7 s loop. */
-.said { position: absolute; left: 0; top: 0; opacity: 0; animation: said 28s ease-out infinite; }
-.said:nth-of-type(3) { animation-delay: 7s; }
-.said:nth-of-type(4) { animation-delay: 14s; }
-.said:nth-of-type(5) { animation-delay: 21s; }
+/* Four sentences take turns, one per 11 s round: about 3 s of speaking, then 6 s to read the text. */
+.said { position: absolute; left: 0; top: 0; opacity: 0; animation: said 44s ease-out infinite; }
+.said:nth-of-type(3) { animation-delay: 11s; }
+.said:nth-of-type(4) { animation-delay: 22s; }
+.said:nth-of-type(5) { animation-delay: 33s; }
 .stage:hover *, .stage:focus-within * { animation-play-state: paused; }
 .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 20px; }
-.waiting { position: absolute; left: 0; top: 0; animation: waiting 7s ease-out infinite; }
+.waiting { position: absolute; left: 0; top: 0; animation: waiting 11s ease-out infinite; }
 .caret {
   display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -0.18em;
   background: var(--accent); animation: blink 1s steps(1) infinite;
@@ -149,18 +149,18 @@ em { font-style: italic; }
 .stage figcaption { color: var(--ink-3); font-size: 13px; margin: 10px 2px 0; }
 
 @keyframes island {
-  0%, 4% { transform: translateY(-110%); }
-  10%, 56% { transform: translateY(0); }
-  63%, 100% { transform: translateY(-110%); }
+  0%, 2.55% { transform: translateY(-110%); }
+  6.36%, 35.64% { transform: translateY(0); }
+  40.09%, 100% { transform: translateY(-110%); }
 }
 @keyframes said {
-  0%, 15% { opacity: 0; }
-  16.5%, 23.5% { opacity: 1; }
+  0%, 9.55% { opacity: 0; }
+  10.5%, 24.05% { opacity: 1; }
   25%, 100% { opacity: 0; }
 }
 @keyframes waiting {
-  0%, 60% { opacity: 1; }
-  63%, 97% { opacity: 0; }
+  0%, 38.18% { opacity: 1; }
+  40.09%, 98.09% { opacity: 0; }
   100% { opacity: 1; }
 }
 @keyframes talk { from { transform: scaleY(0.2); } to { transform: scaleY(1); } }
