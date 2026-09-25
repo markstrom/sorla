@@ -85,7 +85,10 @@ actor HeldTranscriptionEngine: TranscriptionEngine {
 final class FakePasteEnvironment: PasteEnvironment {
     var frontmostProcessID: pid_t? = 100
     var isAccessibilityTrusted = true
+    // Access taken away between the check and the ⌘V.
+    var losesAccessBeforeThePaste = false
     private(set) var changeCount = 0
+    private(set) var snapshots = 0
     private(set) var contents: String?
     private(set) var writes: [String] = []
     private(set) var pastes: [String] = []
@@ -94,8 +97,11 @@ final class FakePasteEnvironment: PasteEnvironment {
 
     nonisolated init() {}
 
+    var canPaste: Bool { isAccessibilityTrusted }
+
     func snapshot() -> PasteboardSnapshot {
-        PasteboardSnapshot(items: contents.map { [.init(data: [.string: Data($0.utf8)])] } ?? [])
+        snapshots += 1
+        return PasteboardSnapshot(items: contents.map { [.init(data: [.string: Data($0.utf8)])] } ?? [])
     }
 
     func write(_ text: String, transient: Bool) -> Int {
@@ -120,6 +126,7 @@ final class FakePasteEnvironment: PasteEnvironment {
     }
 
     func paste() -> Bool {
+        if losesAccessBeforeThePaste { isAccessibilityTrusted = false }
         guard isAccessibilityTrusted else { return false }
         pastes.append(contents ?? "")
         events.append("paste \(contents ?? "")")
