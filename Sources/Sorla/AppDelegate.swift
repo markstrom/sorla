@@ -54,8 +54,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var bundleFolderWatch: DispatchSourceFileSystemObject?
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
+    // During setup it brings forward or opens the setup window instead, so Settings doesn't bury it (#80).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettings()
+        switch ReopenTarget.onReopen(
+            isSetupOpen: welcomeWindowController?.window?.isVisible == true,
+            hasCompletedOnboarding: appSettings.hasCompletedOnboarding,
+            microphone: PermissionsManager.microphoneAccess(),
+            problems: currentRecoveryProblems()
+        ) {
+        case .setup:
+            showWelcome()
+        case .settings:
+            showSettings()
+        }
         return false
     }
 
