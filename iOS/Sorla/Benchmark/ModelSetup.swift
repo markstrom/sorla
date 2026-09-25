@@ -133,6 +133,7 @@ final class ModelSetup: ObservableObject {
 
     func removeInstalledModel() async {
         guard !isBusy else { return }
+        await DictationRuntime.shared.coordinator.unloadModelIfIdle()
         try? FileManager.default.removeItem(at: ModelStorage.installedDirectory)
         refresh()
     }
@@ -164,6 +165,7 @@ final class ModelSetup: ObservableObject {
             }
             let downloadSeconds = ((steps.downloadsFinishedAt ?? .now) - start) / .seconds(1)
             let downloaded = DirectorySize.of(staging.downloadsDirectory)
+            await DictationRuntime.shared.coordinator.unloadModelIfIdle()
             let swap = ModelSwap(modelsDirectory: ModelStorage.modelsDirectory)
             try swap.install(staged)
             try swap.commit()

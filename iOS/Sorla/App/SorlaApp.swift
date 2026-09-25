@@ -6,12 +6,14 @@ struct SorlaApp: App {
     @StateObject private var benchmark = BenchmarkRunner()
 
     init() {
-        ModelStorage.excludeFromBackup()
+        DictationRuntime.shared.launch()
     }
 
     var body: some Scene {
         WindowGroup {
             TabView {
+                DictationView(runtime: .shared, log: DictationRuntime.shared.log, modelSetup: modelSetup)
+                    .tabItem { Label("Dictation", systemImage: "mic") }
                 ModelView(setup: modelSetup)
                     .tabItem { Label("Model", systemImage: "shippingbox") }
                 BenchmarkView(runner: benchmark)

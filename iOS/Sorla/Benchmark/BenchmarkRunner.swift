@@ -84,6 +84,8 @@ final class BenchmarkRunner: ObservableObject {
     }
 
     private func measure() async throws -> BenchmarkReport {
+        // The dictation engine may hold its own copy of the model; the baseline must be without it.
+        await DictationRuntime.shared.coordinator.unloadModelIfIdle()
         let uptime = DeviceConditions.processUptime()
         let isFirstLoad = !Self.hasLoadedInProcess
         let network = await NetworkStatus.current()

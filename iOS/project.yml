@@ -1,4 +1,4 @@
-# Feasibility prototype for Sorla on iPhone (#65 benchmark harness).
+# Feasibility prototype for Sorla on iPhone (#65 benchmark harness, #66 Action Button toggle).
 # Generate with `xcodegen generate --spec iOS/project.yml`; the .xcodeproj is never committed.
 # Bundle identifiers are placeholders and nothing here signs; real identifiers and signing are decided in #70.
 name: SorlaiOS
@@ -33,6 +33,7 @@ targets:
     platform: iOS
     sources:
       - path: Sorla
+      - path: Shared
       - path: Benchmark/Utterances
         type: folder
         buildPhase: resources
@@ -74,13 +75,30 @@ targets:
     dependencies:
       - package: FluidAudio
         product: FluidAudio
+      - target: SorlaLiveActivity
+        embed: true
     settings:
       base:
         PRODUCT_NAME: Sorla
         PRODUCT_BUNDLE_IDENTIFIER: com.sorla.ios
         INFOPLIST_FILE: Sorla/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) SORLA_APP
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
+
+  SorlaLiveActivity:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: LiveActivity
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: SorlaLiveActivity
+        PRODUCT_BUNDLE_IDENTIFIER: com.sorla.ios.LiveActivity
+        INFOPLIST_FILE: LiveActivity/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
 
   SorlaTests:
     type: bundle.unit-test
