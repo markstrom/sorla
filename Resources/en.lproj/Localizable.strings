@@ -142,7 +142,6 @@
 "Accessibility" = "Accessibility";
 "Device Control and Data Access" = "Device Control and Data Access";
 "So Sorla can paste where you type." = "So Sorla can paste where you type.";
-"If the switch is on but this doesn't show a checkmark, quit and reopen Sorla." = "If the switch is on but this doesn't show a checkmark, quit and reopen Sorla.";
 "In progress" = "In progress";
 "Try it here" = "Try it here";
 "Done" = "Done";
@@ -173,7 +172,7 @@
 "Keep last transcription" = "Keep last transcription";
 "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once." = "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once.";
 "Recording cancelled" = "Recording cancelled";
-"Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop." = "Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop.";
+"Hard to hold a key down? Choose Toggle under Mode in Settings." = "Hard to hold a key down? Choose Toggle under Mode in Settings.";
 "Sorla has been updated — Restart" = "Sorla has been updated — Restart";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla has been updated — Quit and open it from Applications";
 "Restart Sorla to paste again" = "Restart Sorla to paste again";
@@ -223,10 +222,8 @@
 "Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Your text is on the clipboard — close this window and press ⌘V where you were typing.";
 "Set Up Sorla" = "Set Up Sorla";
 
-/* Update defaults in Welcome (#73) */
-"Automatic update checks and installation are off. You can turn them on in Settings." = "Automatic update checks and installation are off. You can turn them on in Settings.";
-"Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings." = "Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings.";
-"Sorla checks for updates automatically but doesn't install them. You can change this in Settings." = "Sorla checks for updates automatically but doesn't install them. You can change this in Settings.";
-"Sorla checks for updates and installs them automatically. You can change this in Settings." = "Sorla checks for updates and installs them automatically. You can change this in Settings.";
-"Update Settings" = "Update Settings";
-"Open Updates in Settings" = "Open Updates in Settings";
+/* Welcome window rows and update switches (#73, #75) */
+"Switch already on? Quit and reopen Sorla." = "Switch already on? Quit and reopen Sorla.";
+"Needs action" = "Needs action";
+"Get fixes and new versions of the speech model without having to remember to check." = "Get fixes and new versions of the speech model without having to remember to check.";
+"Installs them when you haven't dictated for a while. Needs automatic checks." = "Installs them when you haven't dictated for a while. Needs automatic checks.";

@@ -113,8 +113,13 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(WelcomeChecklist.microphoneRow(.notDetermined), .needsAction(.requestMicrophone, buttonTitle: "Tillåt", note: nil))
             XCTAssertEqual(
                 WelcomeChecklist.accessibilityRow(isTrusted: false),
-                .needsAction(.openAccessibilitySettings, buttonTitle: "Öppna Systeminställningar", note: nil)
+                .needsAction(.openAccessibilitySettings, buttonTitle: "Öppna Systeminställningar", note: "Är reglaget redan på? Avsluta och öppna Sorla igen.")
             )
+            XCTAssertEqual(WelcomeRowStatus.done.accessibilityValue, "Klar")
+            XCTAssertEqual(WelcomeChecklist.microphoneRow(.denied).accessibilityValue, "Behöver åtgärdas")
+            XCTAssertEqual(WelcomeRowStatus.inProgress("x").accessibilityValue, "Pågår")
+            XCTAssertEqual(WelcomeRow.microphone.title, "Mikrofon")
+            XCTAssertEqual(WelcomeRow.model.purpose, "Pianissimo (svenska)")
             XCTAssertEqual(
                 WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .downloading(version: "1", fraction: 0.34, isUpdate: false)),
                 .inProgress("Laddar ner modellen… 34 %")
@@ -168,14 +173,9 @@ final class LocalizationTests: XCTestCase {
                 WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .failed(.insufficientDiskSpace(required: 1_376_514_942), isUpdate: false)),
                 .needsAction(.downloadModel, buttonTitle: "Försök igen", note: "Inte tillräckligt med ledigt utrymme (1,4 GB behövs).")
             )
-            XCTAssertEqual(
-                WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: false),
-                "Automatisk sökning efter och installation av uppdateringar är avstängda. Du kan slå på dem i Inställningar."
-            )
-            XCTAssertEqual(WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: true), "Automatisk sökning efter uppdateringar är avstängd, så inget installeras automatiskt förrän du slår på den i Inställningar.")
-            XCTAssertEqual(WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: false), "Sorla söker efter uppdateringar automatiskt men installerar dem inte. Du kan ändra det i Inställningar.")
-            XCTAssertEqual(WelcomeChecklist.updateSettingsButtonTitle, "Inställningar för uppdateringar")
-            XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Öppna Uppdateringar i Inställningar")
+            XCTAssertEqual(WelcomeChecklist.updatesHeading, "Uppdateringar")
+            XCTAssertEqual(WelcomeChecklist.autoCheckReason, "Få felrättningar och nya versioner av talmodellen utan att behöva komma ihåg att söka.")
+            XCTAssertEqual(WelcomeChecklist.autoInstallReason, "Installerar dem när du inte har dikterat på ett tag. Kräver automatisk sökning.")
         }
         XCTAssertEqual(try strings("sv")["Set Up Sorla"], "Ställ in Sorla")
     }
@@ -240,7 +240,7 @@ final class LocalizationTests: XCTestCase {
             )
             XCTAssertEqual(
                 WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
-                "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa."
+                "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar."
             )
         }
     }

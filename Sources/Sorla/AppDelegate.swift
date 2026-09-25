@@ -430,11 +430,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 appSettings: appSettings,
                 modelManager: modelManager,
                 modelLoadingStatus: modelLoadingStatus,
-                announce: { [weak self] text in self?.announce(text) },
-                openUpdateSettings: { [weak self] in
-                    self?.showSettings()
-                    self?.settingsWindowController?.revealUpdates()
-                }
+                announce: { [weak self] text in self?.announce(text) }
             )
             controller.onClose = { [weak self] in
                 self?.recoveryWindowClosed(.setup, byAction: false)

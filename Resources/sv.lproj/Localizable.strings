@@ -142,7 +142,6 @@
 "Accessibility" = "Hjälpmedel";
 "Device Control and Data Access" = "Enhetskontroll och dataåtkomst";
 "So Sorla can paste where you type." = "Så att Sorla kan klistra in där du skriver.";
-"If the switch is on but this doesn't show a checkmark, quit and reopen Sorla." = "Om reglaget är på men det här inte får en bock, avsluta och öppna Sorla igen.";
 "In progress" = "Pågår";
 "Try it here" = "Prova här";
 "Done" = "Klar";
@@ -173,7 +172,7 @@
 "Keep last transcription" = "Spara senaste transkriberingen";
 "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once." = "Håller din senaste text i minnet i upp till fem minuter så att du kan klistra in den igen med Klistra in senaste transkriberingen. Stänger du av det glöms texten direkt.";
 "Recording cancelled" = "Inspelningen avbröts";
-"Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop." = "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar: tryck en gång för att starta och en gång till för att stoppa.";
+"Hard to hold a key down? Choose Toggle under Mode in Settings." = "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar.";
 "Sorla has been updated — Restart" = "Sorla har uppdaterats – Starta om";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla har uppdaterats – Avsluta och öppna den från Program";
 "Restart Sorla to paste again" = "Starta om Sorla för att klistra in igen";
@@ -223,10 +222,8 @@
 "Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
 "Set Up Sorla" = "Ställ in Sorla";
 
-/* Update defaults in Welcome (#73) */
-"Automatic update checks and installation are off. You can turn them on in Settings." = "Automatisk sökning efter och installation av uppdateringar är avstängda. Du kan slå på dem i Inställningar.";
-"Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings." = "Automatisk sökning efter uppdateringar är avstängd, så inget installeras automatiskt förrän du slår på den i Inställningar.";
-"Sorla checks for updates automatically but doesn't install them. You can change this in Settings." = "Sorla söker efter uppdateringar automatiskt men installerar dem inte. Du kan ändra det i Inställningar.";
-"Sorla checks for updates and installs them automatically. You can change this in Settings." = "Sorla söker efter uppdateringar och installerar dem automatiskt. Du kan ändra det i Inställningar.";
-"Update Settings" = "Inställningar för uppdateringar";
-"Open Updates in Settings" = "Öppna Uppdateringar i Inställningar";
+/* Welcome window rows and update switches (#73, #75) */
+"Switch already on? Quit and reopen Sorla." = "Är reglaget redan på? Avsluta och öppna Sorla igen.";
+"Needs action" = "Behöver åtgärdas";
+"Get fixes and new versions of the speech model without having to remember to check." = "Få felrättningar och nya versioner av talmodellen utan att behöva komma ihåg att söka.";
+"Installs them when you haven't dictated for a while. Needs automatic checks." = "Installerar dem när du inte har dikterat på ett tag. Kräver automatisk sökning.";

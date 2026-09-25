@@ -25,15 +25,19 @@ final class RecoveryWindowTests: XCTestCase {
         }
     }
 
-    // #73: the Welcome window only reads the update toggles; it never sets them or starts a check.
-    func testTheWelcomeWindowNeverChangesUpdateSettingsOrChecks() throws {
+    // #73: the Welcome window's switches are the stored choices from Settings › Updates, install greyed out without
+    // checks as there (c32ba97); the window itself never sets them or starts a check.
+    func testTheWelcomeWindowsUpdateSwitchesAreTheSettingsOwn() throws {
         let welcome = try source("WelcomeView.swift") + source("WelcomeWindowController.swift")
-        XCTAssertTrue(welcome.contains("appSettings.autoCheckUpdates"))
-        XCTAssertFalse(welcome.contains("$appSettings.autoCheckUpdates"))
-        XCTAssertFalse(welcome.contains("$appSettings.autoInstallUpdates"))
+        XCTAssertTrue(welcome.contains("autoCheckUpdates: $appSettings.autoCheckUpdates"))
+        XCTAssertTrue(welcome.contains("autoInstallUpdates: $appSettings.autoInstallUpdates"))
+        XCTAssertTrue(welcome.contains(".disabled(!autoCheckUpdates)"))
+        XCTAssertTrue(welcome.contains("SettingsRow.autoCheckUpdates.title"))
+        XCTAssertTrue(welcome.contains("SettingsRow.autoInstallUpdates.title"))
         XCTAssertFalse(welcome.contains("autoCheckUpdates ="))
         XCTAssertFalse(welcome.contains("autoInstallUpdates ="))
         XCTAssertFalse(welcome.contains("checkNow"))
+        XCTAssertFalse(welcome.contains("updateChecker"))
     }
 
     // #72: a dialog's Return key waits a moment, so a key meant for the app the user was in doesn't answer it.

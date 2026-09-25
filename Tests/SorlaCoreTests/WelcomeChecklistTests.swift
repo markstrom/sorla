@@ -29,7 +29,7 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertEqual(WelcomeChecklist.accessibilityRow(isTrusted: true), .done)
         XCTAssertEqual(
             WelcomeChecklist.accessibilityRow(isTrusted: false),
-            .needsAction(.openAccessibilitySettings, buttonTitle: "Open System Settings", note: nil)
+            .needsAction(.openAccessibilitySettings, buttonTitle: "Open System Settings", note: "Switch already on? Quit and reopen Sorla.")
         )
     }
 
@@ -100,7 +100,7 @@ final class WelcomeChecklistTests: XCTestCase {
     func testTheToggleModeTipShowsOnlyInPushToTalk() {
         XCTAssertEqual(
             WelcomeChecklist.toggleModeTip(mode: .pushToTalk),
-            "Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop."
+            "Hard to hold a key down? Choose Toggle under Mode in Settings."
         )
         XCTAssertNil(WelcomeChecklist.toggleModeTip(mode: .toggle))
     }
@@ -167,25 +167,53 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: true))
     }
 
-    // #73: the note follows the two toggles and never says "off" about something that is on.
-    func testTheUpdatesNoteReflectsTheActualSettings() {
-        XCTAssertEqual(
-            WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: false),
-            "Automatic update checks and installation are off. You can turn them on in Settings."
-        )
-        XCTAssertEqual(
-            WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: false),
-            "Sorla checks for updates automatically but doesn't install them. You can change this in Settings."
-        )
-        XCTAssertEqual(
-            WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: true),
-            "Sorla checks for updates and installs them automatically. You can change this in Settings."
-        )
-        XCTAssertEqual(
-            WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: true),
-            "Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings."
-        )
-        XCTAssertEqual(WelcomeChecklist.updateSettingsButtonTitle, "Update Settings")
-        XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Open Updates in Settings")
+    // #75: the marker is a picture, so VoiceOver hears each row's state as its value.
+    func testEachRowSaysItsStateToVoiceOver() {
+        XCTAssertEqual(WelcomeRowStatus.done.accessibilityValue, "Done")
+        XCTAssertEqual(WelcomeChecklist.microphoneRow(.notDetermined).accessibilityValue, "Needs action")
+        XCTAssertEqual(modelRow(model: .preparing(version: "1", isUpdate: false)).accessibilityValue, "In progress")
+    }
+
+    func testNotesAndButtonTitlesComeFromTheStatus() {
+        XCTAssertNil(WelcomeRowStatus.done.note)
+        XCTAssertNil(WelcomeRowStatus.done.buttonTitle)
+        XCTAssertEqual(WelcomeRowStatus.inProgress("Preparing model… ~1 min").note, "Preparing model… ~1 min")
+        XCTAssertNil(WelcomeRowStatus.inProgress("x").buttonTitle)
+        XCTAssertEqual(modelRow(model: .notInstalled).note, "Not installed")
+        XCTAssertEqual(modelRow(model: .notInstalled).buttonTitle, "Download")
+        XCTAssertNil(WelcomeChecklist.microphoneRow(.denied).note)
+    }
+
+    // #75: the window reserves room for every state a row can reach, so these must cover what the rows really show.
+    func testEachRowListsTheStatesItCanShow() {
+        XCTAssertEqual(WelcomeRow.microphone.possibleStatuses, [.granted, .notDetermined, .denied].map(WelcomeChecklist.microphoneRow))
+        XCTAssertEqual(WelcomeRow.accessibility.possibleStatuses, [.done, WelcomeChecklist.accessibilityRow(isTrusted: false)])
+        let model = WelcomeRow.model.possibleStatuses
+        XCTAssertTrue(model.contains(.done))
+        XCTAssertTrue(model.contains(.inProgress("Downloading model… 100%")))
+        XCTAssertTrue(model.contains(.inProgress("Preparing model… ~1 min")))
+        XCTAssertTrue(model.contains(modelRow(isInstalled: true, loadFailed: true, model: .installed(version: "1"))))
+        XCTAssertTrue(model.contains(modelRow(model: .failed(.network, isUpdate: true))))
+        XCTAssertTrue(model.contains(modelRow(model: .notInstalled)))
+        XCTAssertTrue(model.contains { $0.note?.hasPrefix("Not enough disk space") == true })
+        let titles = Set(WelcomeRow.allCases.flatMap(\.possibleStatuses).compactMap(\.buttonTitle))
+        XCTAssertEqual(titles, ["Allow", "Open System Settings", "Download", "Try Again"])
+    }
+
+    func testRowTitlesAndPurposes() {
+        XCTAssertEqual(WelcomeRow.microphone.title, "Microphone")
+        XCTAssertEqual(WelcomeRow.model.title, "Model")
+        XCTAssertEqual(WelcomeRow.accessibility.purpose, "So Sorla can paste where you type.")
+        XCTAssertEqual(WelcomeRow.model.purpose, "Pianissimo (Swedish)")
+        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+            XCTAssertEqual(WelcomeRow.accessibility.title, "Device Control and Data Access")
+        }
+    }
+
+    // #73: each update switch says why someone would turn it on.
+    func testTheUpdateSwitchesExplainWhyToTurnThemOn() {
+        XCTAssertEqual(WelcomeChecklist.updatesHeading, "Updates")
+        XCTAssertEqual(WelcomeChecklist.autoCheckReason, "Get fixes and new versions of the speech model without having to remember to check.")
+        XCTAssertEqual(WelcomeChecklist.autoInstallReason, "Installs them when you haven't dictated for a while. Needs automatic checks.")
     }
 }
