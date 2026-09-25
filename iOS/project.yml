@@ -1,6 +1,6 @@
 # Feasibility prototype for Sorla on iPhone (#65 benchmark harness, #66 Action Button toggle).
 # Generate with `xcodegen generate --spec iOS/project.yml`; the .xcodeproj is never committed.
-# Bundle identifiers are placeholders and nothing here signs; real identifiers and signing are decided in #70.
+# The bundle identifiers are registered for device testing; the final identifiers for TestFlight are decided in #70.
 name: SorlaiOS
 
 options:
@@ -16,7 +16,7 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: V8K5F8X64N
     CODE_SIGN_STYLE: Automatic
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
