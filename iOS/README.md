@@ -38,4 +38,13 @@ If several simulators share the name, add `,OS=<version>` to the destination.
 
 ## Identifiers and signing
 
-The bundle identifiers are placeholders (`com.sorla.ios`, `com.sorla.ios.LiveActivity`) and no team is set. Real identifiers, signing, entitlements and the privacy manifest are decided in #70. To run on a device before then, set a team locally in Xcode and don't commit it.
+The bundle identifiers `com.sorla.ios` and `com.sorla.ios.LiveActivity` are registered to the team for device testing, and `project.yml` sets the team. The final identifiers, entitlements and privacy manifest for TestFlight are decided in #70.
+
+Build and install from the command line with automatic provisioning through the App Store Connect API key (the key is passed by path, never committed):
+
+```sh
+xcodebuild -project iOS/SorlaiOS.xcodeproj -scheme Sorla -configuration Release \
+  -destination 'generic/platform=iOS' -allowProvisioningUpdates \
+  -authenticationKeyPath <key.p8> -authenticationKeyID <key id> -authenticationKeyIssuerID <issuer> build
+xcrun devicectl device install app --device <udid> <DerivedData>/Build/Products/Release-iphoneos/Sorla.app
+```
