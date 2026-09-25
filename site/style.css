@@ -137,11 +137,12 @@ em { font-style: italic; }
   font-size: clamp(15px, 3.4vw, 20px); line-height: 1.4;
 }
 .window p { position: relative; margin: 0; max-width: none; }
-/* Four sentences take turns, one per 11 s round: about 3 s of speaking, then 6 s to read the text. */
-.said { position: absolute; left: 0; top: 0; opacity: 0; animation: said 44s ease-out infinite; }
+/* Five sentences take turns, one per 11 s round: about 3 s of speaking, then 6 s to read the text. */
+.said { position: absolute; left: 0; top: 0; opacity: 0; animation: said 55s ease-out infinite; }
 .said:nth-of-type(3) { animation-delay: 11s; }
 .said:nth-of-type(4) { animation-delay: 22s; }
 .said:nth-of-type(5) { animation-delay: 33s; }
+.said:nth-of-type(6) { animation-delay: 44s; }
 .stage:hover *, .stage:focus-within * { animation-play-state: paused; }
 .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 20px; }
 .waiting { position: absolute; left: 0; top: 0; animation: waiting 11s ease-out infinite; }
@@ -157,9 +158,9 @@ em { font-style: italic; }
   40.09%, 100% { transform: translateY(-110%); }
 }
 @keyframes said {
-  0%, 9.55% { opacity: 0; }
-  10.5%, 24.05% { opacity: 1; }
-  25%, 100% { opacity: 0; }
+  0%, 7.64% { opacity: 0; }
+  8.4%, 19.24% { opacity: 1; }
+  20%, 100% { opacity: 0; }
 }
 @keyframes waiting {
   0%, 38.18% { opacity: 1; }
