@@ -48,7 +48,13 @@ public struct AppInstallJournal {
 public final class AppUpdater: ObservableObject {
     @Published public private(set) var state: AppInstallState = .idle
     public let location: AppInstallLocation
-    public var automaticChecks: Bool
+    // Automatic installs need both; turning checks off stops a waiting install as turning installs off does (#73).
+    public var automaticChecks: Bool {
+        didSet {
+            guard automaticChecks != oldValue else { return }
+            if case .ready = state { scheduleAutomaticInstall(atLaunch: false) }
+        }
+    }
     public var automaticInstalls: Bool {
         didSet {
             guard automaticInstalls != oldValue else { return }

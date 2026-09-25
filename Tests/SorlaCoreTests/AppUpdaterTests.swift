@@ -303,6 +303,32 @@ final class AppUpdaterTests: XCTestCase {
         assertRelaunchedInto("1.1.0")
     }
 
+    // #73: automatic installs need automatic checks too, so turning checks off stops the wait and keeps the choice.
+    func testTurningAutomaticChecksOffStopsTheWait() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        await clock.waitForSleeps(1)
+
+        updater.automaticChecks = false
+        await updater.automaticWait?.value
+        await clock.advance(by: .seconds(600))
+        XCTAssertNil(updater.automaticWait)
+        XCTAssertTrue(relauncher.starts.isEmpty)
+        XCTAssertTrue(updater.automaticInstalls, "the stored choice is left alone")
+        XCTAssertEqual(updater.state, .ready(version: "1.1.0"), "Install and Relaunch still works by hand")
+    }
+
+    func testWithoutAutomaticChecksAPendingInstallIsNotTakenUpAtLaunch() async {
+        journal.pendingRelease = pin
+        let updater = makeUpdater(automaticChecks: false, automaticInstalls: true)
+        updater.start()
+        await settle(updater)
+        XCTAssertTrue(downloader.requests.isEmpty)
+        XCTAssertTrue(relauncher.starts.isEmpty)
+        XCTAssertEqual(updater.state, .idle)
+    }
+
     // Quiet when the wait ends, then recording from the moment the copy next to Sorla is done.
     func testADictationDuringTheStagingCopyKeepsTheDownloadForTheNextTry() async {
         let recording = DictationActivity(isRecording: true)

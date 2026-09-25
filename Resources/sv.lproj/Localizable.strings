@@ -224,7 +224,7 @@
 
 /* Update defaults in Welcome (#73) */
 "Automatic update checks and installation are off. You can turn them on in Settings." = "Automatisk sökning efter och installation av uppdateringar är avstängda. Du kan slå på dem i Inställningar.";
-"Automatic update checks are off, so nothing is installed automatically. You can turn them on in Settings." = "Automatisk sökning efter uppdateringar är avstängd, så inget installeras automatiskt. Du kan slå på den i Inställningar.";
+"Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings." = "Automatisk sökning efter uppdateringar är avstängd, så inget installeras automatiskt förrän du slår på den i Inställningar.";
 "Sorla checks for updates automatically but doesn't install them. You can change this in Settings." = "Sorla söker efter uppdateringar automatiskt men installerar dem inte. Du kan ändra det i Inställningar.";
 "Sorla checks for updates and installs them automatically. You can change this in Settings." = "Sorla söker efter uppdateringar och installerar dem automatiskt. Du kan ändra det i Inställningar.";
 "Update Settings" = "Inställningar för uppdateringar";

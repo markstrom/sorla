@@ -170,7 +170,7 @@ final class WelcomeChecklistTests: XCTestCase {
         )
         XCTAssertEqual(
             WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: true),
-            "Automatic update checks are off, so nothing is installed automatically. You can turn them on in Settings."
+            "Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings."
         )
         XCTAssertEqual(WelcomeChecklist.updateSettingsButtonTitle, "Update Settings")
         XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Open Updates in Settings")

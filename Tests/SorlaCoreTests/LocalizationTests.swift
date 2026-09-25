@@ -168,6 +168,7 @@ final class LocalizationTests: XCTestCase {
                 WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: false),
                 "Automatisk sökning efter och installation av uppdateringar är avstängda. Du kan slå på dem i Inställningar."
             )
+            XCTAssertEqual(WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: true), "Automatisk sökning efter uppdateringar är avstängd, så inget installeras automatiskt förrän du slår på den i Inställningar.")
             XCTAssertEqual(WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: false), "Sorla söker efter uppdateringar automatiskt men installerar dem inte. Du kan ändra det i Inställningar.")
             XCTAssertEqual(WelcomeChecklist.updateSettingsButtonTitle, "Inställningar för uppdateringar")
             XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Öppna Uppdateringar i Inställningar")

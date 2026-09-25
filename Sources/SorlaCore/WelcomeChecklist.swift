@@ -127,9 +127,9 @@ public enum WelcomeChecklist {
         switch (autoCheck, autoInstall) {
         case (false, false):
             return String(localized: "Automatic update checks and installation are off. You can turn them on in Settings.", bundle: Localization.bundle)
-        // Installing needs the checks, so the stored choice does nothing yet.
+        // Installing needs the checks, in Settings and for both the app and the model, so the stored choice waits.
         case (false, true):
-            return String(localized: "Automatic update checks are off, so nothing is installed automatically. You can turn them on in Settings.", bundle: Localization.bundle)
+            return String(localized: "Automatic update checks are off, so nothing is installed automatically until you turn them on in Settings.", bundle: Localization.bundle)
         case (true, false):
             return String(localized: "Sorla checks for updates automatically but doesn't install them. You can change this in Settings.", bundle: Localization.bundle)
         case (true, true):

@@ -12,6 +12,7 @@ public final class ModelManager: ObservableObject {
             scheduleAutomaticChecks(checkFirst: automaticChecks)
         }
     }
+    // The stored choice; it only takes effect while automatic checks are on, as the disabled toggle in Settings shows (#73).
     public var automaticDownloads: Bool
     public var onInstalled: ((_ wasFirstInstall: Bool) -> Void)?
     public var onFailure: ((SorlaIssue) -> Void)?
@@ -58,6 +59,9 @@ public final class ModelManager: ObservableObject {
         self.idlePollInterval = idlePollInterval
         self.sleep = sleep
     }
+
+    // Without automatic checks a found update is offered, also after Check Now, never installed unasked.
+    var installsAutomatically: Bool { automaticChecks && automaticDownloads }
 
     public var isInstalled: Bool { PianissimoModel.hasRequiredFiles(at: swap.installed) }
 
@@ -113,7 +117,7 @@ public final class ModelManager: ObservableObject {
                 installedVersion: self.installedVersion,
                 isInstalled: true,
                 latest: latest.release,
-                autoDownload: self.automaticDownloads,
+                autoDownload: self.installsAutomatically,
                 failedVersion: userInitiated ? nil : self.failedUpdate.version
             )
             Self.logger.info("model update check: installed \(self.installedVersion ?? "unknown", privacy: .public), latest \(latest.release.version, privacy: .public), decision \(String(describing: decision), privacy: .public)")
@@ -322,7 +326,7 @@ public final class ModelManager: ObservableObject {
     // Only automatic checks with automatic downloads resume a leftover update, and never one that failed here.
     private func removeUnneededStaging(installedVersion: String?) {
         let modelsDirectory = installer.modelsDirectory
-        var removed = automaticChecks && automaticDownloads
+        var removed = installsAutomatically
             ? ModelStaging.removeStale(in: modelsDirectory, installedVersion: installedVersion)
             : ModelStaging.removeEverything(in: modelsDirectory)
         if let failedVersion = failedUpdate.version {
