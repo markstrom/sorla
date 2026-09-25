@@ -1,7 +1,7 @@
 import XCTest
 @testable import Sorla
 
-// Lightweight checks of the setup and recovery windows' wiring (#61, #72); VoiceOver itself still needs a person.
+// Lightweight checks of the setup and recovery windows' wiring (#61, #72, #73); VoiceOver itself still needs a person.
 final class RecoveryWindowTests: XCTestCase {
     private static let sources = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
@@ -22,6 +22,17 @@ final class RecoveryWindowTests: XCTestCase {
                 XCTAssertTrue(button.contains(".accessibilityInputLabels("), "\(file): a button without input labels: \(button.prefix(60))")
             }
         }
+    }
+
+    // #73: the Welcome window only reads the update toggles; it never sets them or starts a check.
+    func testTheWelcomeWindowNeverChangesUpdateSettingsOrChecks() throws {
+        let welcome = try source("WelcomeView.swift") + source("WelcomeWindowController.swift")
+        XCTAssertTrue(welcome.contains("appSettings.autoCheckUpdates"))
+        XCTAssertFalse(welcome.contains("$appSettings.autoCheckUpdates"))
+        XCTAssertFalse(welcome.contains("$appSettings.autoInstallUpdates"))
+        XCTAssertFalse(welcome.contains("autoCheckUpdates ="))
+        XCTAssertFalse(welcome.contains("autoInstallUpdates ="))
+        XCTAssertFalse(welcome.contains("checkNow"))
     }
 
     // #72: a dialog's Return key waits a moment, so a key meant for the app the user was in doesn't answer it.

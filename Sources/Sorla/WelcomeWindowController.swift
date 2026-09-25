@@ -14,7 +14,8 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         appSettings: AppSettings,
         modelManager: ModelManager,
         modelLoadingStatus: ModelLoadingStatus,
-        announce: @escaping (String) -> Void
+        announce: @escaping (String) -> Void,
+        openUpdateSettings: @escaping () -> Void
     ) {
         self.state = WelcomeState(modelLoadingStatus: modelLoadingStatus)
         self.appSettings = appSettings
@@ -35,6 +36,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
             appSettings: appSettings,
             modelManager: modelManager,
             perform: { [weak self] action in self?.perform(action) },
+            openUpdateSettings: openUpdateSettings,
             announce: announce,
             onDone: { [weak self] in self?.close() }
         ))

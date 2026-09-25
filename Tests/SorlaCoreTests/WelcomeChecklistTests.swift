@@ -153,4 +153,26 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: false))
         XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: true))
     }
+
+    // #73: the note follows the two toggles and never says "off" about something that is on.
+    func testTheUpdatesNoteReflectsTheActualSettings() {
+        XCTAssertEqual(
+            WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: false),
+            "Automatic update checks and installation are off. You can turn them on in Settings."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: false),
+            "Sorla checks for updates automatically but doesn't install them. You can change this in Settings."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: true),
+            "Sorla checks for updates and installs them automatically. You can change this in Settings."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: true),
+            "Automatic update checks are off, so nothing is installed automatically. You can turn them on in Settings."
+        )
+        XCTAssertEqual(WelcomeChecklist.updateSettingsButtonTitle, "Update Settings")
+        XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Open Updates in Settings")
+    }
 }

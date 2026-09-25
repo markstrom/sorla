@@ -141,7 +141,7 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    // #72: the recovery windows.
+    // #72, #73: the recovery windows and the Welcome window's update note.
     func testSwedishRecoveryWindows() throws {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(RecoveryDialog.microphoneStart.title, "Sorla kunde inte starta mikrofonen")
@@ -164,6 +164,13 @@ final class LocalizationTests: XCTestCase {
                 WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .failed(.insufficientDiskSpace(required: 1_376_514_942), isUpdate: false)),
                 .needsAction(.downloadModel, buttonTitle: "Försök igen", note: "Inte tillräckligt med ledigt utrymme (1,4 GB behövs).")
             )
+            XCTAssertEqual(
+                WelcomeChecklist.updatesNote(autoCheck: false, autoInstall: false),
+                "Automatisk sökning efter och installation av uppdateringar är avstängda. Du kan slå på dem i Inställningar."
+            )
+            XCTAssertEqual(WelcomeChecklist.updatesNote(autoCheck: true, autoInstall: false), "Sorla söker efter uppdateringar automatiskt men installerar dem inte. Du kan ändra det i Inställningar.")
+            XCTAssertEqual(WelcomeChecklist.updateSettingsButtonTitle, "Inställningar för uppdateringar")
+            XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Öppna Uppdateringar i Inställningar")
         }
         XCTAssertEqual(try strings("sv")["Set Up Sorla"], "Ställ in Sorla")
     }

@@ -39,6 +39,7 @@ struct WelcomeView: View {
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var modelManager: ModelManager
     let perform: (WelcomeAction) -> Void
+    let openUpdateSettings: () -> Void
     // Goes through the app's queue, which holds speech back while the microphone is recording.
     let announce: (String) -> Void
     let onDone: () -> Void
@@ -98,6 +99,10 @@ struct WelcomeView: View {
 
             Divider()
 
+            updates
+
+            Divider()
+
             Text(readinessLine)
             .font(isReady ? .headline : .callout)
             .foregroundStyle(isReady ? .primary : .secondary)
@@ -140,6 +145,21 @@ struct WelcomeView: View {
             isTryItFocused = true
             announce(readinessLine)
         }
+    }
+
+    // Secondary: says what the update toggles really do and leads to them, without changing either (#73).
+    private var updates: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(verbatim: WelcomeChecklist.updatesNote(autoCheck: appSettings.autoCheckUpdates, autoInstall: appSettings.autoInstallUpdates))
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button(WelcomeChecklist.updateSettingsButtonTitle, action: openUpdateSettings)
+                .accessibilityLabel(Text(verbatim: WelcomeChecklist.updateSettingsButtonName))
+                .accessibilityInputLabels([Text(verbatim: WelcomeChecklist.updateSettingsButtonTitle), Text(verbatim: WelcomeChecklist.updateSettingsButtonName)])
+        }
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder

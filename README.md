@@ -48,7 +48,7 @@ Sorla also builds on:
 1. Download the DMG from [the website](https://sorla.zerolabs.se) or the [latest release](https://github.com/markstrom/sorla/releases/latest).
 2. Open it and drag **Sorla** to **Applications**.
 3. Open Sorla from the Applications folder.
-4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both, downloads the model and lets you try dictating in the window itself.
+4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both, downloads the model and lets you try dictating in the window itself. It also says whether automatic updates are on (both are off by default), with a button to Settings › Updates.
 5. Hold Right ⌘ and speak.
 
 Or with [Homebrew](https://brew.sh):

@@ -117,6 +117,24 @@ public enum WelcomeChecklist {
         return String(localized: "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V.", bundle: Localization.bundle)
     }
 
+    // What the two update toggles really do right now; both are off until the user turns them on (#73).
+    public static func updatesNote(autoCheck: Bool, autoInstall: Bool) -> String {
+        switch (autoCheck, autoInstall) {
+        case (false, false):
+            return String(localized: "Automatic update checks and installation are off. You can turn them on in Settings.", bundle: Localization.bundle)
+        // Installing needs the checks, so the stored choice does nothing yet.
+        case (false, true):
+            return String(localized: "Automatic update checks are off, so nothing is installed automatically. You can turn them on in Settings.", bundle: Localization.bundle)
+        case (true, false):
+            return String(localized: "Sorla checks for updates automatically but doesn't install them. You can change this in Settings.", bundle: Localization.bundle)
+        case (true, true):
+            return String(localized: "Sorla checks for updates and installs them automatically. You can change this in Settings.", bundle: Localization.bundle)
+        }
+    }
+
+    public static var updateSettingsButtonTitle: String { String(localized: "Update Settings", bundle: Localization.bundle) }
+    public static var updateSettingsButtonName: String { String(localized: "Open Updates in Settings", bundle: Localization.bundle) }
+
     private static var openSystemSettings: String { String(localized: "Open System Settings", bundle: Localization.bundle) }
     private static var tryAgain: String { String(localized: "Try Again", bundle: Localization.bundle) }
     private static var preparing: String { String(localized: "Preparing model… ~1 min", bundle: Localization.bundle) }
