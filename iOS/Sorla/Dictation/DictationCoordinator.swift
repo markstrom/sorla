@@ -4,6 +4,8 @@ import Foundation
 @MainActor
 protocol DictationRecorder: AnyObject {
     var onCaptureEnded: ((CaptureEnd) -> Void)? { get set }
+    // Text-free device diagnostics (session setup, engine restarts), logged as `diagnostic.<detail>`.
+    var onDiagnostic: ((String) -> Void)? { get set }
     func start() throws
     func stop() throws -> [Float]
     func cancel()
@@ -88,6 +90,7 @@ final class DictationCoordinator {
         self.now = now
         self.waitForTimeLimit = waitForTimeLimit
         recorder.onCaptureEnded = { [weak self] reason in self?.endCapture(reason) }
+        recorder.onDiagnostic = { [weak self] detail in self?.diagnose(detail) }
     }
 
     func toggle() async -> DictationOutcome {

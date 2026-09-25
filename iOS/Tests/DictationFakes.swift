@@ -4,7 +4,10 @@ import Foundation
 @MainActor
 final class FakeRecorder: DictationRecorder {
     var onCaptureEnded: ((CaptureEnd) -> Void)?
+    var onDiagnostic: ((String) -> Void)?
     var startError: Error?
+    // What the real recorder reports about the session when it starts.
+    var startDiagnostic: String? = "session: category playAndRecord"
     var samples: [Float] = FakeRecorder.speech(seconds: 2)
     private(set) var starts = 0
     private(set) var stops = 0
@@ -12,6 +15,7 @@ final class FakeRecorder: DictationRecorder {
     private(set) var isCapturing = false
 
     func start() throws {
+        if let startDiagnostic { onDiagnostic?(startDiagnostic) }
         if let startError { throw startError }
         starts += 1
         isCapturing = true
@@ -26,6 +30,10 @@ final class FakeRecorder: DictationRecorder {
     func cancel() {
         cancels += 1
         isCapturing = false
+    }
+
+    func diagnose(_ detail: String) {
+        onDiagnostic?(detail)
     }
 
     // What an interruption or route change looks like to the coordinator.
@@ -200,6 +208,98 @@ final class ManualTimeLimit {
         let waiting = waiters
         waiters = []
         waiting.forEach { $0.resume() }
+    }
+}
+
+// The audio session as the recorder drives it; every call lands in a shared log so order can be checked.
+@MainActor
+final class FakeAudioSession: DictationAudioSession {
+    var activationError: Error?
+    var snapshotValue = AudioSessionSnapshot(
+        category: .playAndRecord, mode: .default, options: [.mixWithOthers, .allowBluetoothHFP],
+        inputPort: .builtInMic, sampleRate: 48_000, inputChannels: 1
+    )
+    private(set) var configurations: [DictationSessionConfiguration] = []
+    private(set) var isActive = false
+    let calls: CallLog
+
+    init(calls: CallLog) {
+        self.calls = calls
+    }
+
+    func configure(_ configuration: DictationSessionConfiguration) throws {
+        calls.append("configure")
+        configurations.append(configuration)
+    }
+
+    func activate() throws {
+        calls.append("activate")
+        if let activationError { throw activationError }
+        isActive = true
+    }
+
+    func deactivate() {
+        calls.append("deactivate")
+        isActive = false
+    }
+
+    func snapshot() -> AudioSessionSnapshot {
+        snapshotValue
+    }
+}
+
+final class CallLog {
+    private(set) var entries: [String] = []
+    func append(_ entry: String) { entries.append(entry) }
+}
+
+// A microphone that delivers exactly the frames a test hands it, on the test's thread.
+final class FakeAudioInput: AudioInput {
+    var sampleRate: Double = 16_000
+    var prepareError: Error?
+    var restartSucceeds = true
+    private(set) var prepares = 0
+    private(set) var restarts = 0
+    private(set) var isRunning = false
+    private var onFrames: ((UnsafeBufferPointer<Float>) -> Void)?
+    let calls: CallLog
+
+    init(calls: CallLog) {
+        self.calls = calls
+    }
+
+    func prepare() throws -> Double {
+        calls.append("prepareInput")
+        if let prepareError { throw prepareError }
+        prepares += 1
+        return sampleRate
+    }
+
+    func start(onFrames: @escaping (UnsafeBufferPointer<Float>) -> Void) throws {
+        calls.append("startInput")
+        self.onFrames = onFrames
+        isRunning = true
+    }
+
+    func stop() {
+        isRunning = false
+        onFrames = nil
+    }
+
+    func restart() -> Bool {
+        restarts += 1
+        if !restartSucceeds {
+            stop()
+        }
+        return restartSucceeds
+    }
+
+    func deliver(_ frames: [Float]) {
+        frames.withUnsafeBufferPointer { onFrames?($0) }
+    }
+
+    func deliver(seconds: Double, level: Float) {
+        deliver(Array(repeating: level, count: Int(seconds * sampleRate)))
     }
 }
 

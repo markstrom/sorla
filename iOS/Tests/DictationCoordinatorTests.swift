@@ -88,6 +88,31 @@ final class DictationCoordinatorTests: XCTestCase {
         XCTAssertNil(system.sessionMarker)
     }
 
+    func testTheRecordersSessionSetupIsLoggedBeforeStarted() async {
+        _ = await coordinator.toggle()
+
+        XCTAssertEqual(system.metrics.map(\.outcome), ["diagnostic.session: category playAndRecord", "started"])
+    }
+
+    func testTheSessionSetupIsLoggedEvenWhenTheMicrophoneFailsToStart() async {
+        recorder.startError = CocoaError(.featureUnsupported)
+
+        _ = await coordinator.toggle()
+
+        let outcomes = system.metrics.map(\.outcome)
+        XCTAssertEqual(outcomes.first, "diagnostic.session: category playAndRecord")
+        XCTAssertTrue(outcomes[1].hasPrefix("diagnostic.audioStart: "))
+        XCTAssertEqual(outcomes.last, "failed.audioStartFailed")
+    }
+
+    func testRecorderDiagnosticsWhileListeningAreLogged() async {
+        _ = await coordinator.toggle()
+
+        recorder.diagnose("audioRestart: first second silent, started over on a new engine")
+
+        XCTAssertEqual(system.metrics.last?.outcome, "diagnostic.audioRestart: first second silent, started over on a new engine")
+    }
+
     func testTheAudioRowSaysWhereTheSoundWasAndHowLongItListened() async {
         let clock = ManualClock()
         let timeLimit = self.timeLimit!

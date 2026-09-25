@@ -4,42 +4,63 @@ import AVFoundation
 @MainActor
 final class LiveDictationRecorder: DictationRecorder {
     var onCaptureEnded: ((CaptureEnd) -> Void)?
+    var onDiagnostic: ((String) -> Void)?
 
-    private let recorder = AudioRecorder()
+    private let session: DictationAudioSession
+    private let recorder: AudioRecorder
+    private let center: NotificationCenter
     private var observers: [NSObjectProtocol] = []
 
+    init(
+        session: DictationAudioSession = SystemDictationAudioSession(),
+        input: AudioInput = EngineAudioInput(),
+        resample: @escaping ([Float], Double) throws -> [Float] = { try AudioRecorder.resample($0, sampleRate: $1) },
+        center: NotificationCenter = .default
+    ) {
+        self.session = session
+        self.center = center
+        recorder = AudioRecorder(input: input, resample: resample)
+    }
+
+    // Category and mode are set before activation.
     func start() throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .default, options: [.allowBluetoothHFP])
-        try session.setActive(true)
+        do {
+            try session.configure(.dictation)
+            try session.activate()
+        } catch {
+            diagnoseSession()
+            session.deactivate()
+            throw error
+        }
         do {
             try recorder.start()
         } catch {
-            deactivate()
+            diagnoseSession()
+            session.deactivate()
             throw error
         }
+        diagnoseSession()
         observe()
     }
 
     func stop() throws -> [Float] {
         stopObserving()
-        defer { deactivate() }
+        defer { session.deactivate() }
         return try recorder.stop()
     }
 
     func cancel() {
         stopObserving()
         recorder.cancel()
-        deactivate()
+        session.deactivate()
     }
 
-    private func deactivate() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    private func diagnoseSession() {
+        onDiagnostic?("session: \(session.snapshot().summary)")
     }
 
     // A call, Siri or a lost route ends capture; what was heard so far is kept for the next trigger.
     private func observe() {
-        let center = NotificationCenter.default
         observers = [
             center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
                 guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -57,7 +78,7 @@ final class LiveDictationRecorder: DictationRecorder {
     }
 
     private func stopObserving() {
-        observers.forEach(NotificationCenter.default.removeObserver)
+        observers.forEach(center.removeObserver)
         observers = []
     }
 }
