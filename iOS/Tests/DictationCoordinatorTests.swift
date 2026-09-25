@@ -88,6 +88,37 @@ final class DictationCoordinatorTests: XCTestCase {
         XCTAssertNil(system.sessionMarker)
     }
 
+    func testTheAudioRowSaysWhereTheSoundWasAndHowLongItListened() async {
+        let clock = ManualClock()
+        let timeLimit = self.timeLimit!
+        coordinator = DictationCoordinator(
+            recorder: recorder,
+            transcriber: FakeTranscriber(immediateReply: .text("Hej")),
+            system: system,
+            limitWatch: limitWatch,
+            now: { clock.now },
+            waitForTimeLimit: { await timeLimit.wait($0) }
+        )
+        let silence = [Float](repeating: 0, count: 16_000)
+        recorder.samples = silence + FakeRecorder.speech(seconds: 1) + silence
+        _ = await coordinator.toggle()
+        clock.advance(by: .seconds(5))
+
+        _ = await coordinator.toggle()
+
+        let audio = system.metrics.first { $0.outcome.hasPrefix("diagnostic.audio:") }?.outcome
+        XCTAssertNotNil(audio)
+        XCTAssertTrue(audio?.hasSuffix("sound 1.0–2.0 s of 3.0 s, listened 5.0 s") ?? false, audio ?? "")
+    }
+
+    func testTheAudioRowSaysWhenThereWasNoSoundAtAll() {
+        XCTAssertEqual(
+            DictationCoordinator.levels(of: Array(repeating: 0, count: 32_000), listenedSeconds: 9),
+            "audio: 32000 samples, peak -inf dBFS, rms -inf dBFS, no sound in 2.0 s, listened 9.0 s"
+        )
+        XCTAssertEqual(DictationCoordinator.levels(of: [], listenedSeconds: 3), "audio: no samples, listened 3.0 s")
+    }
+
     func testAMicrophoneThatFailsToStartEndsTheLiveActivity() async {
         recorder.startError = CocoaError(.featureUnsupported)
 
@@ -145,13 +176,41 @@ final class DictationCoordinatorTests: XCTestCase {
         XCTAssertEqual(calls, 0)
     }
 
-    func testDigitalSilenceIsNotTranscribed() async {
+    func testDigitalSilenceIsASilentMicrophoneNotNothingHeard() async {
         recorder.samples = Array(repeating: 0, count: 32_000)
         _ = await coordinator.toggle()
 
         let outcome = await coordinator.toggle()
 
-        XCTAssertEqual(outcome, .nothingHeard)
+        XCTAssertEqual(outcome, .failed(.silentInput))
+        XCTAssertEqual(outcome.message, "The microphone delivered no sound.")
+        XCTAssertNil(outcome.textToCopy)
+        let calls = await transcriber.transcribeCalls
+        XCTAssertEqual(calls, 0)
+        XCTAssertEqual(system.metrics.last?.outcome, "failed.silentInput")
+        XCTAssertTrue(system.metrics.contains { $0.outcome.hasPrefix("diagnostic.audio: 32000 samples, peak -inf dBFS") })
+        XCTAssertFalse(system.isActivityShowing)
+        XCTAssertNil(system.sessionMarker)
+    }
+
+    func testInputBelowMinus90dBFSIsASilentMicrophone() async {
+        recorder.samples = Array(repeating: 1e-5, count: 32_000)
+        _ = await coordinator.toggle()
+
+        let outcome = await coordinator.toggle()
+
+        XCTAssertEqual(outcome, .failed(.silentInput))
+    }
+
+    func testCapturedSilenceAfterAnInterruptionIsASilentMicrophoneToo() async {
+        recorder.samples = Array(repeating: 0, count: 32_000)
+        _ = await coordinator.toggle()
+        recorder.endCapture(.interrupted)
+
+        let outcome = await coordinator.toggle()
+
+        XCTAssertEqual(outcome, .failed(.silentInput))
+        XCTAssertEqual(system.metrics.last?.captureEnd, "interrupted")
     }
 
     func testAFailedTranscriptionIsReportedWithoutText() async {

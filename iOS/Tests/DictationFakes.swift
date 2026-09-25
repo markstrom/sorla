@@ -202,3 +202,12 @@ final class ManualTimeLimit {
         waiting.forEach { $0.resume() }
     }
 }
+
+// A clock that moves only when the test moves it.
+final class ManualClock {
+    private(set) var now = ContinuousClock.now
+
+    func advance(by duration: Duration) {
+        now = now.advanced(by: duration)
+    }
+}

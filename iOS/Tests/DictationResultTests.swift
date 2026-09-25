@@ -28,6 +28,8 @@ final class DictationResultTests: XCTestCase {
         XCTAssertEqual(DictationOutcome.transcribed("Hemligt").kind, "transcribed")
         XCTAssertFalse(DictationOutcome.transcribed("Hemligt").message.contains("Hemligt"))
         XCTAssertEqual(DictationOutcome.failed(.timedOut).kind, "failed.timedOut")
+        XCTAssertEqual(DictationOutcome.failed(.silentInput).kind, "failed.silentInput")
+        XCTAssertEqual(DictationResultEntity(.failed(.silentInput)).outcome, .failed)
     }
 }
 
@@ -41,8 +43,19 @@ final class SpeechCheckTests: XCTestCase {
         XCTAssertEqual(SpeechCheck.assess(samples), .nothingToTranscribe)
     }
 
-    func testExactZerosAreNothingToTranscribe() {
-        XCTAssertEqual(SpeechCheck.assess(Array(repeating: 0, count: 32_000)), .nothingToTranscribe)
+    func testExactZerosAreASilentInput() {
+        XCTAssertEqual(SpeechCheck.assess(Array(repeating: 0, count: 32_000)), .silentInput)
+    }
+
+    func testResidueBelowMinus90dBFSIsASilentInput() {
+        var samples = Array(repeating: Float(0), count: 32_000)
+        samples[100] = 3e-5
+        samples[200] = -3e-5
+        XCTAssertEqual(SpeechCheck.assess(samples), .silentInput)
+    }
+
+    func testShortSilenceIsNothingToTranscribeRatherThanASilentInput() {
+        XCTAssertEqual(SpeechCheck.assess(Array(repeating: 0, count: SpeechCheck.minimumSampleCount - 1)), .nothingToTranscribe)
     }
 
     func testQuietButRealAudioIsTranscribed() {

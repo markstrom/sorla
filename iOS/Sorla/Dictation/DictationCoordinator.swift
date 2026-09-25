@@ -67,6 +67,8 @@ final class DictationCoordinator {
     private let waitForTimeLimit: @MainActor (Duration) async -> Void
 
     private var capturedSamples: [Float]?
+    private var listeningStartedAt: ContinuousClock.Instant?
+    private var listenedSeconds: Double?
     private var captureEnd: CaptureEnd?
     private var pending: PendingTranscription?
     private var preload: Task<Void, Never>?
@@ -148,6 +150,8 @@ final class DictationCoordinator {
             return report(.failed(.audioStartFailed))
         }
         system.sessionMarker = Date()
+        listeningStartedAt = now()
+        listenedSeconds = nil
         phase = .listening
         limitWatch.start(onWarning: {}, onLimit: { [weak self] in self?.endCapture(.limitReached) })
         preloadModel()
@@ -162,21 +166,24 @@ final class DictationCoordinator {
         let backgroundRemaining = system.backgroundTimeRemaining
         let modelWasReady = isModelReady
         let samples: [Float]
-        do {
-            samples = try capturedSamples ?? recorder.stop()
-        } catch {
-            samples = []
+        if let capturedSamples {
+            samples = capturedSamples
+        } else {
+            noteListeningEnded()
+            samples = (try? recorder.stop()) ?? []
         }
         capturedSamples = nil
         phase = .transcribing
         system.updateActivity(.transcribing)
         system.beginBackgroundTask { [weak self] in self?.pending?.resolve(.failed(.backgroundTimeExpired)) }
 
-        diagnose(Self.levels(of: samples))
+        diagnose(Self.levels(of: samples, listenedSeconds: listenedSeconds))
         let outcome: DictationOutcome
         switch SpeechCheck.assess(samples) {
         case .nothingToTranscribe:
             outcome = .nothingHeard
+        case .silentInput:
+            outcome = .failed(.silentInput)
         case .transcribable:
             outcome = await transcribe(samples)
         }
@@ -193,6 +200,7 @@ final class DictationCoordinator {
     private func endCapture(_ reason: CaptureEnd) {
         guard phase == .listening else { return }
         limitWatch.stop()
+        noteListeningEnded()
         capturedSamples = (try? recorder.stop()) ?? []
         captureEnd = reason
         phase = .captured(reason)
@@ -242,6 +250,8 @@ final class DictationCoordinator {
         system.endBackgroundTask()
         system.record(metric ?? self.metric(outcome))
         captureEnd = nil
+        listeningStartedAt = nil
+        listenedSeconds = nil
         return outcome
     }
 
@@ -255,17 +265,39 @@ final class DictationCoordinator {
         system.record(DictationMetric(date: Date(), outcome: "diagnostic.\(detail)", appWasActive: system.isAppActive, captureEnd: nil))
     }
 
-    static func levels(of samples: [Float]) -> String {
-        guard !samples.isEmpty else { return "audio: no samples" }
+    private func noteListeningEnded() {
+        guard let listeningStartedAt else { return }
+        listenedSeconds = (now() - listeningStartedAt) / .seconds(1)
+    }
+
+    // Where in the recording there was sound tells a silent start from input that went silent later
+    // (e.g. on going to the background), and audio shorter than the listening time tells of lost buffers.
+    static func levels(of samples: [Float], listenedSeconds: Double? = nil) -> String {
+        let listened = listenedSeconds.map { String(format: ", listened %.1f s", $0) } ?? ""
+        guard !samples.isEmpty else { return "audio: no samples\(listened)" }
         var peak: Float = 0
         var sumOfSquares: Float = 0
-        for sample in samples {
-            peak = max(peak, abs(sample))
+        var firstSound: Int?
+        var lastSound: Int?
+        for (index, sample) in samples.enumerated() {
+            let magnitude = abs(sample)
+            peak = max(peak, magnitude)
             sumOfSquares += sample * sample
+            if magnitude >= SpeechCheck.silentInputPeak {
+                if firstSound == nil { firstSound = index }
+                lastSound = index
+            }
         }
         let rms = (sumOfSquares / Float(samples.count)).squareRoot()
         func dBFS(_ value: Float) -> String { value > 0 ? String(format: "%.1f", 20 * log10(value)) : "-inf" }
-        return "audio: \(samples.count) samples, peak \(dBFS(peak)) dBFS, rms \(dBFS(rms)) dBFS"
+        func seconds(_ index: Int) -> String { String(format: "%.1f", Double(index) / Double(SpeechCheck.sampleRate)) }
+        let sound: String
+        if let firstSound, let lastSound {
+            sound = "sound \(seconds(firstSound))–\(seconds(lastSound + 1)) s of \(seconds(samples.count)) s"
+        } else {
+            sound = "no sound in \(seconds(samples.count)) s"
+        }
+        return "audio: \(samples.count) samples, peak \(dBFS(peak)) dBFS, rms \(dBFS(rms)) dBFS, \(sound)\(listened)"
     }
 
     private func metric(_ outcome: DictationOutcome) -> DictationMetric {
