@@ -254,7 +254,7 @@ final class CallLog {
 }
 
 // A microphone that delivers exactly the frames a test hands it, on the test's thread.
-final class FakeAudioInput: AudioInput {
+final class FakeAudioInput: DictationAudioInput {
     var sampleRate: Double = 16_000
     var prepareError: Error?
     var restartSucceeds = true
