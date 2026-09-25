@@ -26,3 +26,8 @@ docs/superpowers/
 AuthKey_*
 release.env
 .netrc
+
+# iOS prototype: generated test utterances and local build output
+iOS/Benchmark/Utterances/*
+!iOS/Benchmark/Utterances/.gitkeep
+iOS/build/
