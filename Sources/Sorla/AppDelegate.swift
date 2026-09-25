@@ -303,7 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .store(in: &cancellables)
 
         // Coming back from System Settings activates some app, so a permission granted or taken away there shows
-        // on the icon then; together with menu open and the setup window's checks this needs no polling (#76).
+        // on the icon then; with menu open and the setup window's own checks the badge needs no polling of its own (#76).
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in

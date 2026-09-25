@@ -10,7 +10,7 @@ final class KeycapsTests: XCTestCase {
     func testFindsEachKeyInTheSentence() {
         XCTAssertEqual(found(["Right ⌘"], in: "Sorla is ready. Hold Right ⌘ to dictate."), ["Right ⌘"])
         XCTAssertEqual(found(["Fn"], in: "Sorla är redo. Håll Fn för att diktera."), ["Fn"])
-        XCTAssertEqual(found(["⌘V"], in: "Close this window and press ⌘V where you were typing."), ["⌘V"])
+        XCTAssertEqual(found(["⌃⌥V"], in: "Click where you want to type and choose Paste Last Transcription (⌃⌥V)."), ["⌃⌥V"])
     }
 
     func testTheLongerShortcutWinsAndNothingOverlaps() {
