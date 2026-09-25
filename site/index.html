@@ -46,7 +46,7 @@
     <p class="lede">Håll in en tangent, prata svenska och släpp. Texten hamnar där markören står, i vilken app som helst.</p>
     <div class="hero-cta">
       <a class="cta" href="https://github.com/markstrom/sorla/releases/latest/download/Sorla.dmg">Ladda ner Sorla 1.1.0</a>
-      <p class="quiet">Gratis och öppen källkod · macOS 14 eller senare · <a href="#ladda-ner">Mer om nedladdningen</a></p>
+      <p class="quiet">Gratis och öppen källkod. Kräver en Mac med Apple Silicon (M1 eller senare) och macOS 14 eller senare. <a href="#ladda-ner">Mer om nedladdningen</a></p>
     </div>
 
     <figure class="stage" tabindex="0">
@@ -66,11 +66,11 @@
     </ol>
 
     <h2 id="integritet">Allt stannar på din Mac</h2>
-    <p>Taligenkänningen körs helt på din Mac, i Apples Neural Engine. Inget konto, inget moln, ingen analys.</p>
+    <p>Taligenkänningen körs helt på din Mac, i Apples Neural Engine. Inget konto, inget moln, ingen spårning.</p>
     <ul>
       <li>Ljudet från mikrofonen behandlas i minnet och sparas aldrig.</li>
-      <li>Sorla går ut på nätet en gång: för att ladda ner talmodellen. Efter nya versioner av modellen letar den bara när du ber om det, eller om du själv slår på det.</li>
-      <li>När modellen väl är nedladdad fungerar Sorla utan internet.</li>
+      <li>Internet används bara för att ladda ner talmodellen och för uppdateringar som du själv ber om eller slår på.</li>
+      <li>Själva dikteringen fungerar utan internet när modellen är installerad.</li>
     </ul>
     <p><a href="/privacy">Läs integritetspolicyn</a></p>
 
@@ -84,7 +84,7 @@
       <li><strong>Håll eller tryck.</strong> Håll in tangenten medan du pratar, eller tryck en gång för att börja och en gång till för att sluta.</li>
       <li><strong>Din tangent.</strong> <code>Höger ⌘</code> från början. Välj en annan tangent eller en egen tangentkombination.</li>
       <li><strong>Hamnade det fel?</strong> <code>⌃⌥V</code> klistrar in den senaste texten igen, där du står nu.</li>
-      <li><strong>Urklippet orört.</strong> Det du hade kopierat ligger kvar när texten är inklistrad.</li>
+      <li><strong>Urklippet läggs tillbaka.</strong> Sorla lånar urklippet för att klistra in och lägger sedan tillbaka det du hade kopierat.</li>
       <li><strong>En liten indikator.</strong> Högst upp på skärmen: en röd prick och staplar som rör sig med rösten. Den ser likadan ut med och utan notch. Ett mjukt ljud när den startar och slutar.</li>
       <li><strong>Med VoiceOver.</strong> Ett ljud när inspelningen börjar och slutar, och VoiceOver säger hur det gick. Allt går också att starta från menyn. Mer i <a href="/support#voiceover">Sorla med VoiceOver</a>.</li>
       <li><strong>Ett välkomstfönster.</strong> Första gången visar det vad som behövs och hur långt nedladdningen har kommit.</li>
@@ -95,7 +95,7 @@
     <h2 id="ladda-ner">Ladda ner</h2>
     <p>Sorla kommer som en DMG-fil. Installera, ge två behörigheter, mikrofon samt enhetskontroll och dataåtkomst (hjälpmedel i äldre macOS), håll in <code>Höger ⌘</code> och prata. Första gången leder ett välkomstfönster dig genom stegen.</p>
     <a class="cta" href="https://github.com/markstrom/sorla/releases/latest/download/Sorla.dmg">Ladda ner Sorla 1.1.0</a>
-    <p class="quiet">Signerad och granskad av Apple (notariserad). <a href="/support#oppna">Första gången: så öppnar du Sorla</a> · <a href="https://github.com/markstrom/sorla/releases/latest">Versionsinformation på GitHub</a></p>
+    <p class="quiet">Signerad av utvecklaren och notariserad, det vill säga automatiskt kontrollerad av Apple mot känd skadlig kod. Det är ingen granskning eller rekommendation från Apple. <a href="/support#oppna">Första gången: så öppnar du Sorla</a> · <a href="https://github.com/markstrom/sorla/releases/latest">Versionsinformation på GitHub</a></p>
     <p class="quiet">Använder du Homebrew:</p>
     <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>brew install --cask markstrom/tap/sorla</code></p>
     <dl>
