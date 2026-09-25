@@ -143,6 +143,8 @@ struct WelcomeView: View {
             case .needsAction(let action, let buttonTitle, _):
                 Button(buttonTitle) { perform(action) }
                     .accessibilityLabel(Text(verbatim: WelcomeChecklist.buttonName(status) ?? buttonTitle))
+                    // Voice Control users say what they see, so the visible title must still match.
+                    .accessibilityInputLabels([Text(verbatim: buttonTitle), Text(verbatim: WelcomeChecklist.buttonName(status) ?? buttonTitle)])
             }
         }
         .accessibilityElement(children: .contain)
