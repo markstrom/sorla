@@ -41,6 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var recoveryDialogController: RecoveryDialogController?
     // The last paste macOS would have dropped, for the recovery window to say what happened to the text.
     private var blockedPaste: BlockedPaste?
+    // Whether that text was kept as Paste Last's when the paste was blocked, so a text that expires later isn't
+    // described as one that couldn't be saved.
+    private var wasBlockedTextSaved = false
     private var didRelaunchFail = false
     private var quietRestart: QuietRestart!
     private var announcer: DictationAnnouncer!
@@ -459,7 +462,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             welcomeWindowController = controller
         }
-        welcomeWindowController?.state.isPasteBlocked = blockedPaste == .accessibility
+        welcomeWindowController?.state.blockedPasteWasSaved = blockedPaste == .accessibility ? wasBlockedTextSaved : nil
         rememberFrontmostApp()
         welcomeWindowController?.show(forRecovery: forRecovery)
     }
@@ -543,9 +546,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Found only once the text was recognized, so the window comes after it (#72).
     private func pasteWasBlocked(_ blocked: BlockedPaste) {
         blockedPaste = blocked
+        wasBlockedTextSaved = recordingController.lastTranscript() != nil
         if blocked == .accessibility {
             // The window that follows says how to paste it once access is there.
-            presentCue(.blockedPaste(isTextKept: recordingController.lastTranscript() != nil), pasteLast: nil)
+            presentCue(.blockedPaste(isTextKept: wasBlockedTextSaved), pasteLast: nil)
         }
         performRecovery(recoveryDecision(for: blocked.problem))
     }

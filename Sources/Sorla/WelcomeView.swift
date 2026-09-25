@@ -12,11 +12,12 @@ final class WelcomeState: ObservableObject {
     // What was dictated into Try it here. Emptied whenever the window opens or closes, so an old test isn't taken
     // for a new result and no dictated text stays on screen (#78).
     @Published var tryItText = ""
-    // Set when a blocked paste opened the window (#72); what it says depends on whether Paste Last still has a text.
-    @Published var isPasteBlocked = false {
-        didSet { refreshTextKept() }
+    // Set when a blocked paste opened the window (#72), to whether its text was saved then; nil otherwise.
+    @Published var blockedPasteWasSaved: Bool? {
+        didSet { refreshBlockedPasteNote() }
     }
-    @Published private(set) var isTextKept = false
+    // What the note says also follows whether Paste Last still has the text.
+    @Published private(set) var blockedPasteNote: BlockedPasteNote?
     private let hasKeptText: () -> Bool
     // The window's checks are the app's too: the menu bar icon's badge follows them (#76).
     var onPermissionsChange: (() -> Void)?
@@ -35,7 +36,7 @@ final class WelcomeState: ObservableObject {
 
     func didClose() {
         isRecovery = false
-        isPasteBlocked = false
+        blockedPasteWasSaved = nil
         tryItText = ""
     }
 
@@ -45,14 +46,15 @@ final class WelcomeState: ObservableObject {
         let changed = microphone != self.microphone || isAccessibilityTrusted != self.isAccessibilityTrusted
         if microphone != self.microphone { self.microphone = microphone }
         if isAccessibilityTrusted != self.isAccessibilityTrusted { self.isAccessibilityTrusted = isAccessibilityTrusted }
-        refreshTextKept()
+        refreshBlockedPasteNote()
         if changed { onPermissionsChange?() }
     }
 
-    // Paste Last's expiry, a lock or the setting turned off end what Sorla keeps, and then the window says so.
-    private func refreshTextKept() {
-        let isTextKept = isPasteBlocked && hasKeptText()
-        if isTextKept != self.isTextKept { self.isTextKept = isTextKept }
+    // Paste Last's expiry, a lock or the setting turned off end what Sorla keeps, and then the window says so,
+    // without claiming a text it had saved couldn't be.
+    private func refreshBlockedPasteNote() {
+        let note = blockedPasteWasSaved.map { BlockedPasteNote(wasSaved: $0, isTextKept: hasKeptText()) }
+        if note != blockedPasteNote { blockedPasteNote = note }
     }
 }
 
@@ -101,7 +103,7 @@ struct WelcomeView: View {
                     loadFailed: state.modelLoadingStatus == .failed,
                     model: modelManager.status
                 ),
-                blockedPaste: state.isPasteBlocked ? BlockedPasteNote(isTextKept: state.isTextKept) : nil,
+                blockedPaste: state.blockedPasteNote,
                 pasteLast: PasteLastRoute.current(
                     shortcut: KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description,
                     isVoiceOverRunning: isVoiceOverEnabled

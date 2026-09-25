@@ -112,11 +112,12 @@ final class WelcomeTryItTests: XCTestCase {
         let state = WelcomeState(modelLoadingStatus: .ready)
         state.willShow(forRecovery: true, isAlreadyOpen: false)
         state.tryItText = "Dikterad text"
-        state.isPasteBlocked = true
+        state.blockedPasteWasSaved = true
         state.didClose()
         XCTAssertEqual(state.tryItText, "")
         XCTAssertFalse(state.isRecovery)
-        XCTAssertFalse(state.isPasteBlocked)
+        XCTAssertNil(state.blockedPasteWasSaved)
+        XCTAssertNil(state.blockedPasteNote)
     }
 
     // The field's text lives in the state the controller clears, not in view state that outlives a close.
@@ -137,11 +138,17 @@ final class WelcomeBlockedPasteTests: XCTestCase {
     func testTheNoteFollowsWhetherPasteLastStillHasTheText() {
         var hasText = true
         let state = WelcomeState(modelLoadingStatus: .ready, isTextKept: { hasText })
-        XCTAssertFalse(state.isTextKept, "nothing was blocked")
-        state.isPasteBlocked = true
-        XCTAssertTrue(state.isTextKept)
+        XCTAssertNil(state.blockedPasteNote, "nothing was blocked")
+        state.blockedPasteWasSaved = true
+        XCTAssertEqual(state.blockedPasteNote, .kept)
         hasText = false
         state.refresh()
-        XCTAssertFalse(state.isTextKept)
+        XCTAssertEqual(state.blockedPasteNote, .noLongerKept, "saved, then expired or forgotten: not \"couldn't be saved\"")
+    }
+
+    func testATextThatWasNeverSavedSaysSo() {
+        let state = WelcomeState(modelLoadingStatus: .ready, isTextKept: { false })
+        state.blockedPasteWasSaved = false
+        XCTAssertEqual(state.blockedPasteNote, .notSaved)
     }
 }

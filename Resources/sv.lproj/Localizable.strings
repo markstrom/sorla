@@ -236,5 +236,6 @@
 "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu." = "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen i Sorlas meny.";
 "A test dictation in Try it here replaces the saved text." = "En provdiktering i Prova här ersätter den sparade texten.";
 "The text couldn't be saved. Grant the permission and dictate again." = "Texten kunde inte sparas. Ge behörigheten och diktera igen.";
+"The text is no longer saved. Grant the permission and dictate again." = "Texten finns inte längre kvar. Ge behörigheten och diktera igen.";
 "Couldn't paste — the text wasn't saved" = "Kunde inte klistra in – texten sparades inte";
 "The text can't be kept across the restart, so dictate it again afterwards." = "Texten kan inte sparas över omstarten, så diktera den igen efteråt.";

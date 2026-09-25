@@ -4,10 +4,17 @@ import Foundation
 // text is only where Paste Last keeps it: five minutes, forgotten at a lock, and not at all with the setting off.
 public enum BlockedPasteNote: Equatable, Sendable, CaseIterable {
     case kept
-    case notKept
+    // Keep last transcription was off when the paste was blocked.
+    case notSaved
+    // Saved, then gone: the five minutes ran out, the Mac locked or the setting was turned off.
+    case noLongerKept
 
-    public init(isTextKept: Bool) {
-        self = isTextKept ? .kept : .notKept
+    public init(wasSaved: Bool, isTextKept: Bool) {
+        switch (wasSaved, isTextKept) {
+        case (true, true): self = .kept
+        case (true, false): self = .noLongerKept
+        case (false, _): self = .notSaved
+        }
     }
 
     // Without a shortcut, or with VoiceOver (#64), the menu item is named instead of the keys.
@@ -15,8 +22,10 @@ public enum BlockedPasteNote: Equatable, Sendable, CaseIterable {
         switch self {
         case .kept:
             return Self.keptMessage(pasteLast) + " " + String(localized: "A test dictation in Try it here replaces the saved text.", bundle: Localization.bundle)
-        case .notKept:
+        case .notSaved:
             return String(localized: "The text couldn't be saved. Grant the permission and dictate again.", bundle: Localization.bundle)
+        case .noLongerKept:
+            return String(localized: "The text is no longer saved. Grant the permission and dictate again.", bundle: Localization.bundle)
         }
     }
 

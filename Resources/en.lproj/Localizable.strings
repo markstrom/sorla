@@ -236,5 +236,6 @@
 "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu.";
 "A test dictation in Try it here replaces the saved text." = "A test dictation in Try it here replaces the saved text.";
 "The text couldn't be saved. Grant the permission and dictate again." = "The text couldn't be saved. Grant the permission and dictate again.";
+"The text is no longer saved. Grant the permission and dictate again." = "The text is no longer saved. Grant the permission and dictate again.";
 "Couldn't paste — the text wasn't saved" = "Couldn't paste — the text wasn't saved";
 "The text can't be kept across the restart, so dictate it again afterwards." = "The text can't be kept across the restart, so dictate it again afterwards.";

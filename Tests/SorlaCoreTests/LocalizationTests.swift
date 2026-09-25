@@ -193,7 +193,8 @@ final class LocalizationTests: XCTestCase {
                 BlockedPasteNote.kept.message(pasteLast: nil),
                 "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen i Sorlas meny. En provdiktering i Prova här ersätter den sparade texten."
             )
-            XCTAssertEqual(BlockedPasteNote.notKept.message(pasteLast: .shortcut("⌃⌥V")), "Texten kunde inte sparas. Ge behörigheten och diktera igen.")
+            XCTAssertEqual(BlockedPasteNote.notSaved.message(pasteLast: .shortcut("⌃⌥V")), "Texten kunde inte sparas. Ge behörigheten och diktera igen.")
+            XCTAssertEqual(BlockedPasteNote.noLongerKept.message(pasteLast: .shortcut("⌃⌥V")), "Texten finns inte längre kvar. Ge behörigheten och diktera igen.")
             XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Klar")
