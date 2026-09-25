@@ -151,6 +151,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteShortcut: nil), "Ingen mikrofon hittades")
             XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Inspelningen avbröts")
+            XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteShortcut: nil), "Inget att klistra in")
             XCTAssertEqual(DictationCue.restarting.announcement(pasteShortcut: nil), "Sorla har uppdaterats – startar om")
             XCTAssertEqual(
                 DictationCue.textOnClipboardUntilRestart.announcement(pasteShortcut: nil),

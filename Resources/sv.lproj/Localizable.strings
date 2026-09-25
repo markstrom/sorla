@@ -201,3 +201,4 @@
 "Sorla couldn't replace itself, so this version is kept. Download the update instead." = "Sorla kunde inte ersätta sig själv, så den här versionen finns kvar. Ladda ner uppdateringen i stället.";
 "Sorla couldn't restart, so this version is kept. Try again later." = "Sorla kunde inte starta om, så den här versionen finns kvar. Försök igen senare.";
 "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself." = "Laddar ner nya versioner av Sorla och talmodellen i bakgrunden. Sorla installerar sin uppdatering när du inte har dikterat på tio minuter, eller nästa gång den startar, och startar om av sig själv.";
+"Nothing to paste" = "Inget att klistra in";

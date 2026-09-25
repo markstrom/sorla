@@ -10,6 +10,8 @@ public enum DictationCue: Equatable, Sendable {
     // Sorla was replaced on disk, so its own pastes won't work again until it restarts.
     case textOnClipboardUntilRestart
     case releaseKeys
+    // Paste Last asked for with nothing kept: it expired, was forgotten at a lock, or nothing was dictated yet.
+    case nothingToPaste
     case cancelled
     // Pressed on a replaced Sorla that can reopen itself: it restarts instead of recording.
     case restarting
@@ -41,6 +43,7 @@ public enum DictationCue: Equatable, Sendable {
         case .noText: return "minus"
         case .textOnClipboard, .textOnClipboardUntilRestart: return "doc.on.clipboard"
         case .releaseKeys: return "keyboard"
+        case .nothingToPaste: return "clipboard"
         case .cancelled: return "xmark"
         case .restarting: return "arrow.clockwise"
         case .waitingForModel: return "hourglass"
@@ -68,6 +71,8 @@ public enum DictationCue: Equatable, Sendable {
                 return String(localized: "Let go of the keys and try again", bundle: Localization.bundle)
             }
             return String(localized: "Let go of the keys and press \(pasteShortcut) again", bundle: Localization.bundle)
+        case .nothingToPaste:
+            return String(localized: "Nothing to paste", bundle: Localization.bundle)
         case .cancelled:
             return String(localized: "Recording cancelled", bundle: Localization.bundle)
         case .restarting:
@@ -82,7 +87,7 @@ public enum DictationCue: Equatable, Sendable {
         switch self {
         case .microphoneMuted: return .microphoneMuted
         case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText, .releaseKeys, .cancelled, .restarting, .waitingForModel, .failed: return nil
+        case .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restarting, .waitingForModel, .failed: return nil
         }
     }
 }

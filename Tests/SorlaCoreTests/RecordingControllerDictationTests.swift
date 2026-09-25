@@ -456,6 +456,37 @@ final class RecordingControllerDictationTests: XCTestCase {
         controller.cancelRecording()
     }
 
+    // MARK: - Paste Last with nothing kept says so (#60)
+
+    func testPasteLastWithNothingKeptSaysThereIsNothingToPaste() {
+        controller.pasteLastTranscript()
+
+        XCTAssertEqual(events, ["cue \(DictationCue.nothingToPaste.symbolName)"])
+        XCTAssertEqual(paste.writes, [])
+        XCTAssertNil(controller.pasteLastRequest)
+    }
+
+    func testPasteLastAfterALockForgotTheTextSaysThereIsNothingToPaste() async {
+        await deliverOneDictation("A")
+        controller.forgetLastTranscript()
+        let writesBefore = paste.writes
+
+        controller.pasteLastTranscript()
+
+        XCTAssertEqual(events, ["cue \(DictationCue.nothingToPaste.symbolName)"])
+        XCTAssertEqual(paste.writes, writesBefore)
+    }
+
+    // The dictation in progress will paste its own text, so the request goes quietly.
+    func testPasteLastDuringADictationStaysQuiet() {
+        record()
+
+        controller.pasteLastTranscript()
+
+        XCTAssertEqual(events, [])
+        controller.cancelRecording()
+    }
+
     // MARK: - VoiceOver waits for the microphone (#17)
 
     private var voiceOver = true

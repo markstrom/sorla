@@ -3,8 +3,8 @@ import XCTest
 
 final class DictationCueTests: XCTestCase {
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .cancelled, .restarting, .waitingForModel(""), .failed("")]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .nothingToPaste, .cancelled, .restarting, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
@@ -12,6 +12,8 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteShortcut: nil), "Nothing heard")
         XCTAssertEqual(DictationCue.noText.announcement(pasteShortcut: nil), "No text")
         XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Recording cancelled")
+        XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteShortcut: "⌃⌥V"), "Nothing to paste")
+        XCTAssertNil(DictationCue.nothingToPaste.issue(pasteShortcut: "⌃⌥V"))
     }
 
     func testTheClipboardCueNamesThePasteLastShortcutOrFallsBackToCommandV() {

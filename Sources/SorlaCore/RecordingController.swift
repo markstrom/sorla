@@ -489,6 +489,10 @@ public final class RecordingController {
             isPasteLastInFlight: isPasteLastInFlight
         ), let text = lastTranscript else {
             logger.info("paste-last skipped (no transcript, or a dictation or paste-last in progress)")
+            // A dictation in progress pastes its own text, so only an idle request is told there's nothing.
+            if lastTranscript == nil, phase == .idle {
+                onCue?(.nothingToPaste)
+            }
             return
         }
         isPasteLastInFlight = true

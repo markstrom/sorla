@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Esc cancels a dictation started from the menu while Settings was open (#55).
+- Paste Last with nothing kept (it expired, or the Mac locked) now says "Nothing to paste" with VoiceOver and shows a brief cue, instead of doing nothing (#60).
 
 ## 1.1.0 — 2026-09-24
 
