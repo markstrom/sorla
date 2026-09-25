@@ -162,10 +162,24 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false).actionTitle, "Avsluta Sorla")
             AccessibilityPaneName.$systemMajorVersion.withValue(26) {
                 XCTAssertEqual(
-                    WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                    BlockedPasteNote.onClipboardNeedsAccess.message,
                     "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
                 )
+                XCTAssertEqual(
+                    BlockedPasteNote.savedNeedsAccess.message,
+                    "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Sorla sparar texten i några minuter och har låtit urklippet vara som det var."
+                )
             }
+            XCTAssertEqual(BlockedPasteNote.readyToPaste.message, "Sorla kan klistra in nu. Texten är klar.")
+            XCTAssertEqual(BlockedPasteNote.onClipboard.message, "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.")
+            XCTAssertEqual(BlockedPasteNote.gone.message, "Texten finns inte längre kvar. Diktera den igen.")
+            XCTAssertEqual(BlockedPasteNote.pasteTitle, "Klistra in där du skrev")
+            XCTAssertEqual(BlockedPasteNote.pasteName, "Stäng fönstret och klistra in texten där du skrev")
+            XCTAssertEqual(BlockedPasteNote.copyTitle, "Kopiera texten")
+            XCTAssertEqual(BlockedPasteNote.copyName, "Kopiera texten till urklipp")
+            XCTAssertEqual(BlockedPasteNote.pasteLastHint(shortcut: "⌃⌥V"), "Klistra in senaste transkriberingen (⌃⌥V) fungerar nu också.")
+            XCTAssertEqual(BlockedPasteNote.pasteLastHint(shortcut: nil), "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.")
+            XCTAssertEqual(BlockedPasteNote.readyAnnouncement, "Sorla kan klistra in nu: Klistra in där du skrev.")
             XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Klar")
@@ -195,7 +209,7 @@ final class LocalizationTests: XCTestCase {
                 XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Behörigheten Enhetskontroll och dataåtkomst behövs för att klistra in")
                 XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Enhetskontroll och dataåtkomst i Systeminställningar")
                 XCTAssertEqual(
-                    WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                    BlockedPasteNote.onClipboardNeedsAccess.message,
                     "Texten är klar, men Sorla behöver behörigheten Enhetskontroll och dataåtkomst för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
                 )
             }
@@ -215,6 +229,7 @@ final class LocalizationTests: XCTestCase {
         try Localization.$bundle.withValue(swedish) {
             XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteShortcut: nil), "Inget hördes")
             XCTAssertEqual(DictationCue.noText.announcement(pasteShortcut: nil), "Ingen text")
+            XCTAssertEqual(DictationCue.textKept.announcement(pasteShortcut: nil), "Kunde inte klistra in – Sorla har sparat texten")
             XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteShortcut: nil), "Mikrofonen verkar vara avstängd")
             XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: "⌃⌥V"), "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: "⌃⌥V"), "Släpp tangenterna och tryck ⌃⌥V igen")

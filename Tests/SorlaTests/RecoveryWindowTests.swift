@@ -73,6 +73,30 @@ final class RecoveryWindowTests: XCTestCase {
         XCTAssertNotEqual(model.presentation, first)
     }
 
+    // The restart dialog drops its clipboard sentence once the user copies something else; that isn't a new
+    // presentation, so an armed Return stays armed and an unarmed one isn't armed early.
+    @MainActor
+    func testNewWordingForTheDialogOnScreenLeavesReturnAsItWas() async {
+        let model = RecoveryDialogModel(dialog: .microphoneStart)
+        let withText = RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true)
+        let withoutText = RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false)
+        model.present(withText)
+        let presentation = model.presentation
+        await model.armDefaultButton(for: presentation, after: .zero) { _ in }
+        model.update(withoutText)
+        XCTAssertEqual(model.dialog, withoutText)
+        XCTAssertEqual(model.presentation, presentation)
+        XCTAssertTrue(model.isDefaultButtonArmed)
+    }
+
+    // #72: the paste button waits like the dialogs, and the window never offers it before access is there.
+    func testThePasteButtonIsArmedLikeTheDialogs() throws {
+        let welcome = try source("WelcomeView.swift")
+        XCTAssertTrue(welcome.contains("try? await Task.sleep(for: RecoveryDialog.defaultButtonDelay)"))
+        XCTAssertTrue(welcome.contains(".keyboardShortcut(isPasteArmed && !isTryItFocused ? .defaultAction : nil)"))
+        XCTAssertTrue(welcome.contains(".accessibilityFocused($isPasteFocused)"))
+    }
+
     // A wait left over from an earlier presentation doesn't arm the new one early.
     @MainActor
     func testAnEarlierPresentationsWaitDoesNotArmTheNewOne() async {

@@ -77,11 +77,15 @@ public struct BlockedPaste: Equatable, Sendable {
     }
 
     public let reason: Reason
-    public let clipboardChangeCount: Int
+    // The clipboard's change count once the text was put there; nil while Sorla keeps the text to itself.
+    public let clipboardChangeCount: Int?
+    // Which kept transcript it is, so a newer dictation isn't taken for it; nil when nothing was kept.
+    public let transcriptRevision: Int?
 
-    public init(reason: Reason, clipboardChangeCount: Int) {
+    public init(reason: Reason, clipboardChangeCount: Int?, transcriptRevision: Int? = nil) {
         self.reason = reason
         self.clipboardChangeCount = clipboardChangeCount
+        self.transcriptRevision = transcriptRevision
     }
 
     public var problem: RecoveryProblem {
@@ -91,6 +95,16 @@ public struct BlockedPaste: Equatable, Sendable {
     // Only then may a window say the text is on the clipboard.
     public func isOnClipboard(changeCount: Int) -> Bool {
         changeCount == clipboardChangeCount
+    }
+
+    // Sorla still holds this very text for Paste Last.
+    public func isKept(currentRevision: Int?) -> Bool {
+        transcriptRevision != nil && transcriptRevision == currentRevision
+    }
+
+    // After the user chose Copy Text.
+    public func copied(clipboardChangeCount: Int) -> BlockedPaste {
+        BlockedPaste(reason: reason, clipboardChangeCount: clipboardChangeCount, transcriptRevision: transcriptRevision)
     }
 }
 

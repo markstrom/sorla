@@ -430,6 +430,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 appSettings: appSettings,
                 modelManager: modelManager,
                 modelLoadingStatus: modelLoadingStatus,
+                transcriptRevision: { [weak self] in self?.recordingController.lastTranscriptRevision() },
+                pasteBlockedText: { [weak self] in self?.pasteBlockedText() },
+                copyBlockedText: { [weak self] in self?.copyBlockedText() },
                 announce: { [weak self] text in self?.announce(text) }
             )
             controller.onClose = { [weak self] in
@@ -442,21 +445,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         welcomeWindowController?.show(forRecovery: forRecovery)
     }
 
-    private func presentRecoveryDialog(_ surface: RecoverySurface) {
-        let dialog: RecoveryDialog
+    // Once access is there, the text Sorla kept goes back where the user was typing, by the Paste Last path:
+    // the window closes, that app comes forward, keys are let go, and the clipboard is put back afterwards (#72).
+    private func pasteBlockedText() {
+        welcomeWindowController?.close()
+        guard let previousApp else {
+            Self.logger.info("blocked text not pasted (no app to paste into)")
+            return
+        }
+        recordingController.pasteLastTranscript {
+            guard await Self.activate(previousApp, timeout: Self.activationTimeout) else { return .abandoned }
+            return await ModifierRelease.wait(isHeld: {
+                !NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+            })
+        }
+    }
+
+    // Only this click puts the kept text on the clipboard; after it the window may say so.
+    private func copyBlockedText() {
+        guard let blocked = blockedPaste,
+              let changeCount = recordingController.copyLastTranscript(revision: blocked.transcriptRevision)
+        else { return }
+        blockedPaste = blocked.copied(clipboardChangeCount: changeCount)
+        welcomeWindowController?.state.blockedPaste = blockedPaste
+    }
+
+    private func recoveryDialog(for surface: RecoverySurface) -> RecoveryDialog? {
         switch surface {
         case .microphoneStart:
-            dialog = .microphoneStart
+            return .microphoneStart
         case .restart:
             let isTextOnClipboard = blockedPaste.map { $0.reason == .appReplaced && $0.isOnClipboard(changeCount: NSPasteboard.general.changeCount) } ?? false
-            dialog = .restart(canRestart: canRestart, isTextOnClipboard: isTextOnClipboard)
+            return .restart(canRestart: canRestart, isTextOnClipboard: isTextOnClipboard)
         case .setup:
+            return nil
+        }
+    }
+
+    private func presentRecoveryDialog(_ surface: RecoverySurface) {
+        guard let dialog = recoveryDialog(for: surface) else {
             return presentWelcome(forRecovery: true)
         }
         if recoveryDialogController == nil {
             let controller = RecoveryDialogController()
             controller.onAction = { [weak self] action in self?.performRecoveryAction(action) }
             controller.onClose = { [weak self] surface, byAction in self?.recoveryWindowClosed(surface, byAction: byAction) }
+            controller.currentDialog = { [weak self] surface in self?.recoveryDialog(for: surface) }
             recoveryDialogController = controller
         }
         rememberFrontmostApp()
@@ -516,6 +550,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Found only once the text was recognized, so the window comes after it (#72).
     private func pasteWasBlocked(_ blocked: BlockedPaste) {
         blockedPaste = blocked
+        if blocked.reason == .accessibility {
+            // Paste Last needs the same access, so only ⌘V is named, and only while the text is on the clipboard.
+            presentCue(.blockedPaste(isTextOnClipboard: blocked.isOnClipboard(changeCount: NSPasteboard.general.changeCount)), pasteShortcut: nil)
+        }
         performRecovery(recoveryDecision(for: blocked.problem))
     }
 

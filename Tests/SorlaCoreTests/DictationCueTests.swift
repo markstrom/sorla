@@ -3,8 +3,8 @@ import XCTest
 
 final class DictationCueTests: XCTestCase {
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .textKept, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "doc.text", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
@@ -66,7 +66,12 @@ final class DictationCueTests: XCTestCase {
     }
 
     func testMissingAccessibilityShowsTheClipboardCue() {
-        XCTAssertEqual(DictationCue(issue: .accessibilityAccessNeeded), .textOnClipboard)
+        XCTAssertNil(DictationCue(issue: .accessibilityAccessNeeded), "the blocked paste's cue depends on where the text is")
+        XCTAssertEqual(DictationCue.blockedPaste(isTextOnClipboard: true), .textOnClipboard)
+        XCTAssertEqual(DictationCue.blockedPaste(isTextOnClipboard: false), .textKept)
+        XCTAssertEqual(DictationCue.textKept.announcement(pasteShortcut: "⌃⌥V"), "Couldn't paste — Sorla has kept your text")
+        XCTAssertFalse(DictationCue.textKept.announcement(pasteShortcut: nil).contains("clipboard"))
+        XCTAssertNil(DictationCue.textKept.issue(pasteShortcut: nil))
     }
 
     // These have their own cue, or aren't the result of a dictation, so the menu row is enough.

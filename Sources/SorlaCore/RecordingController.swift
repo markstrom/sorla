@@ -459,6 +459,17 @@ public final class RecordingController {
         recentTranscript.text(at: now)
     }
 
+    public func lastTranscriptRevision(at now: Date = Date()) -> Int? {
+        recentTranscript.text(at: now) == nil ? nil : recentTranscript.revision
+    }
+
+    // Copy Text in the window about a blocked paste: the clipboard only changes because the user asked (#72).
+    // Returns the clipboard's change count, or nil when that text is no longer kept.
+    public func copyLastTranscript(revision: Int?) -> Int? {
+        guard let revision, revision == lastTranscriptRevision(), let text = lastTranscript() else { return nil }
+        return pasteEnvironment.write(text, transient: false)
+    }
+
     // One one-shot expiry per transcript, replaced by the next one, so nothing runs while idle.
     private func keepLastTranscript(_ text: String) {
         guard keepsLastTranscript else { return }
@@ -538,7 +549,8 @@ public final class RecordingController {
         let changeCount = pasteEnvironment.write(text, transient: false)
         logger.info("paste skipped (Sorla was replaced on disk)")
         onIssue?(.appReplaced)
-        onPasteBlocked?(BlockedPaste(reason: .appReplaced, clipboardChangeCount: changeCount))
+        // Only the clipboard outlives the restart this needs, so the text stays there whatever the setting.
+        onPasteBlocked?(BlockedPaste(reason: .appReplaced, clipboardChangeCount: changeCount, transcriptRevision: lastTranscriptRevision()))
         return true
     }
 
@@ -571,7 +583,6 @@ public final class RecordingController {
             onPaste?()
         } else {
             onIssue?(.accessibilityAccessNeeded)
-            onPasteBlocked?(BlockedPaste(reason: .accessibility, clipboardChangeCount: changeCountAfterWrite))
         }
         return PasteOutcome(pasted: pasted, generation: generation, changeCountAfterWrite: changeCountAfterWrite, keepClipboardContent: keepClipboardContent)
     }
@@ -589,12 +600,8 @@ public final class RecordingController {
 
     // Once the paste has had time to land, puts back the user's clipboard unless it was superseded or changed.
     private func restoreClipboard(after outcome: PasteOutcome) {
+        guard outcome.pasted else { return keepBlockedText(after: outcome) }
         guard let generation = outcome.generation else { return }
-        guard outcome.pasted else {
-            clipboardOwnership.cancel(generation: generation)
-            logger.info("clipboard kept (not pasted)")
-            return
-        }
         pendingClipboardRestores += 1
         clipboardRestore = Task { @MainActor in
             defer { self.pendingClipboardRestores -= 1 }
@@ -616,6 +623,27 @@ public final class RecordingController {
                 }
             }
         }
+    }
+
+    // Nothing reached the app (#72). With "Put back what you had copied" on, the user's clipboard goes back at once
+    // and only Sorla holds the text, for Paste Last and the window's buttons; with it off, or with nothing kept
+    // (Keep last transcription off), the text stays on the clipboard for the user's own ⌘V.
+    private func keepBlockedText(after outcome: PasteOutcome) {
+        let revision = lastTranscriptRevision()
+        var clipboardChangeCount: Int? = outcome.changeCountAfterWrite
+        if let generation = outcome.generation {
+            if revision != nil, case .evaluate(let original) = clipboardOwnership.finish(generation: generation) {
+                if pasteEnvironment.changeCount == outcome.changeCountAfterWrite {
+                    pasteEnvironment.restore(original)
+                    clipboardChangeCount = nil
+                    logger.info("clipboard restored (paste blocked, text kept)")
+                }
+            } else {
+                clipboardOwnership.cancel(generation: generation)
+                logger.info("clipboard kept (not pasted)")
+            }
+        }
+        onPasteBlocked?(BlockedPaste(reason: .accessibility, clipboardChangeCount: clipboardChangeCount, transcriptRevision: revision))
     }
 
     static let pasteSettleTime: Duration = .milliseconds(500)

@@ -168,6 +168,25 @@ final class RecoveryProblemTests: XCTestCase {
         XCTAssertEqual(blocked.problem, .accessibility)
         XCTAssertEqual(BlockedPaste(reason: .appReplaced, clipboardChangeCount: 1).problem, .restartRequired)
     }
+
+    // #72: with the user's clipboard put back, the text is on it only after Copy Text.
+    func testAKeptTextIsOnTheClipboardOnlyOnceCopied() {
+        let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 3)
+        XCTAssertFalse(blocked.isOnClipboard(changeCount: 0))
+        XCTAssertFalse(blocked.isOnClipboard(changeCount: 9))
+        let copied = blocked.copied(clipboardChangeCount: 9)
+        XCTAssertTrue(copied.isOnClipboard(changeCount: 9))
+        XCTAssertEqual(copied.transcriptRevision, 3)
+    }
+
+    // A newer dictation, the expiry, a lock or Keep last transcription off all end what the window may offer.
+    func testAKeptTextIsOnlyTheSameTranscript() {
+        let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 3)
+        XCTAssertTrue(blocked.isKept(currentRevision: 3))
+        XCTAssertFalse(blocked.isKept(currentRevision: 4))
+        XCTAssertFalse(blocked.isKept(currentRevision: nil))
+        XCTAssertFalse(BlockedPaste(reason: .accessibility, clipboardChangeCount: 1).isKept(currentRevision: nil))
+    }
 }
 
 // A push-to-talk press is refused on the key-down but only reported once the release makes it a dictation.

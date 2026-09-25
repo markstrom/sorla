@@ -54,14 +54,14 @@ final class WelcomeLayoutTests: XCTestCase {
         microphone: MicrophoneAccess = .granted,
         isTrusted: Bool = true,
         model: WelcomeRowStatus = .done,
-        isTextOnClipboard: Bool = false
+        blockedPaste: BlockedPasteNote? = nil
     ) -> WelcomeContent {
         WelcomeContent(
             microphone: WelcomeChecklist.microphoneRow(microphone),
             accessibility: WelcomeChecklist.accessibilityRow(isTrusted: isTrusted),
             model: model,
-            isTextOnClipboard: isTextOnClipboard,
-            isAccessibilityTrusted: isTrusted,
+            blockedPaste: blockedPaste,
+            pasteLastShortcut: "⌃⌥V",
             readyLine: WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
             toggleModeTip: WelcomeChecklist.toggleModeTip(mode: .pushToTalk)
         )
@@ -103,14 +103,15 @@ final class WelcomeLayoutTests: XCTestCase {
         }
     }
 
-    // #72, #75: granting access while the note about the clipboard shows changes its wording, not its size.
-    func testTheClipboardNoteKeepsItsSizeWhenAccessIsGranted() throws {
+    // #72, #75: granting access, copying the text or losing it changes the note's wording and buttons, not its size.
+    func testTheBlockedPasteNoteKeepsItsSizeInEveryState() throws {
         try inEachLanguage { language in
-            XCTAssertEqual(
-                size(content(isTrusted: false, isTextOnClipboard: true)),
-                size(content(isTrusted: true, isTextOnClipboard: true)),
-                language
-            )
+            let expected = size(content(isTrusted: false, blockedPaste: .savedNeedsAccess))
+            for note in BlockedPasteNote.allCases {
+                for isTrusted in [false, true] {
+                    XCTAssertEqual(size(content(isTrusted: isTrusted, blockedPaste: note)), expected, "\(language): \(note), trusted \(isTrusted)")
+                }
+            }
         }
     }
 
@@ -127,6 +128,10 @@ final class WelcomeLayoutTests: XCTestCase {
     func testEveryButtonFitsWithItsFullTitleInBothLanguages() throws {
         try inEachLanguage { language in
             let titles = WelcomeRow.allCases.flatMap(\.possibleStatuses).compactMap(\.buttonTitle)
+            for title in [BlockedPasteNote.pasteTitle, BlockedPasteNote.copyTitle] {
+                let width = NSHostingView(rootView: Button(title) {}).fittingSize.width
+                XCTAssertLessThanOrEqual(width, WelcomePage.width / 2, "\(language): \(title)")
+            }
             XCTAssertFalse(titles.isEmpty)
             for title in titles {
                 let width = NSHostingView(rootView: Button(title) {}).fittingSize.width

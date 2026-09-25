@@ -144,29 +144,6 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Done")
     }
 
-    // #72: the window opened for a blocked paste only claims the clipboard while the text is there,
-    // and never suggests Paste Last, which needs the same access.
-    func testABlockedPasteIsExplainedOnlyWhileTheTextIsOnTheClipboard() {
-        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
-            XCTAssertEqual(
-                WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
-                "The text is ready, but Sorla needs the Accessibility permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
-            )
-        }
-        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
-            XCTAssertEqual(
-                WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
-                "The text is ready, but Sorla needs the Device Control and Data Access permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
-            )
-        }
-        XCTAssertEqual(
-            WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: true),
-            "Your text is on the clipboard — close this window and press ⌘V where you were typing."
-        )
-        XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: false))
-        XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: true))
-    }
-
     // #75: the marker is a picture, so VoiceOver hears each row's state as its value.
     func testEachRowSaysItsStateToVoiceOver() {
         XCTAssertEqual(WelcomeRowStatus.done.accessibilityValue, "Done")

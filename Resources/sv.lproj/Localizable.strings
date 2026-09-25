@@ -227,3 +227,16 @@
 "Needs action" = "Behöver åtgärdas";
 "Get fixes and new versions of the speech model without having to remember to check." = "Få felrättningar och nya versioner av talmodellen utan att behöva komma ihåg att söka.";
 "Installs them when you haven't dictated for a while. Needs automatic checks." = "Installerar dem när du inte har dikterat på ett tag. Kräver automatisk sökning.";
+
+/* A blocked paste in Set Up Sorla (#72) */
+"The text is ready, but Sorla needs the %@ permission to paste it. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "Texten är klar, men Sorla behöver behörigheten %@ för att klistra in den. Sorla sparar texten i några minuter och har låtit urklippet vara som det var.";
+"Sorla can paste now. Your text is ready." = "Sorla kan klistra in nu. Texten är klar.";
+"The text is no longer kept. Dictate it again." = "Texten finns inte längre kvar. Diktera den igen.";
+"Paste Last Transcription in Sorla's menu also works now." = "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.";
+"Paste Last Transcription (%@) also works now." = "Klistra in senaste transkriberingen (%@) fungerar nu också.";
+"Paste Where You Were Typing" = "Klistra in där du skrev";
+"Close this window and paste the text where you were typing" = "Stäng fönstret och klistra in texten där du skrev";
+"Copy Text" = "Kopiera texten";
+"Copy the text to the clipboard" = "Kopiera texten till urklipp";
+"Sorla can paste now: %@." = "Sorla kan klistra in nu: %@.";
+"Couldn't paste — Sorla has kept your text" = "Kunde inte klistra in – Sorla har sparat texten";

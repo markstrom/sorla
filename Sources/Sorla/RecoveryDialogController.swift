@@ -20,6 +20,13 @@ final class RecoveryDialogModel: ObservableObject {
         isDefaultButtonArmed = false
     }
 
+    // New wording for the dialog on screen, such as the clipboard sentence going once the user copies something else;
+    // it isn't a new presentation, so Return stays as it was.
+    func update(_ dialog: RecoveryDialog) {
+        guard dialog != self.dialog else { return }
+        self.dialog = dialog
+    }
+
     // Only the latest presentation arms Return, once it has been on screen for the delay.
     func armDefaultButton(for presentation: Int, after delay: Duration, sleep: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async {
         await sleep(delay)
@@ -34,9 +41,12 @@ final class RecoveryDialogController: NSWindowController, NSWindowDelegate {
     var onAction: ((RecoveryDialog.Action) -> Void)?
     // Whether the dialog's own action closed it; "Not now", Esc and the close button count as a "Not now".
     var onClose: ((RecoverySurface, _ byAction: Bool) -> Void)?
+    // What the dialog should say now; checked every second, since only then may it still mention the clipboard.
+    var currentDialog: ((RecoverySurface) -> RecoveryDialog?)?
     private let model = RecoveryDialogModel(dialog: .microphoneStart)
     private var surface: RecoverySurface?
     private var isClosingByAction = false
+    private var refreshTimer: Timer?
 
     init() {
         let window = SorlaWindow(
@@ -73,6 +83,18 @@ final class RecoveryDialogController: NSWindowController, NSWindowDelegate {
         window?.title = dialog.title
         if window?.isVisible != true { window?.center() }
         (window as? SorlaWindow)?.present()
+        startRefreshing()
+    }
+
+    private func startRefreshing() {
+        guard refreshTimer == nil else { return }
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let surface = self.surface, let dialog = self.currentDialog?(surface) else { return }
+                self.model.update(dialog)
+                self.window?.title = dialog.title
+            }
+        }
     }
 
     private func performAction() {
@@ -84,6 +106,8 @@ final class RecoveryDialogController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
         guard let surface else { return }
         self.surface = nil
         onClose?(surface, isClosingByAction)
