@@ -73,6 +73,9 @@ public struct ClipboardOwnershipTracker {
 public protocol PasteEnvironment: AnyObject {
     var frontmostProcessID: pid_t? { get }
     var changeCount: Int { get }
+    // Whether macOS lets Sorla post the ⌘V at all. Asked before anything is written, so a paste it would drop never
+    // touches the clipboard (#72).
+    var canPaste: Bool { get }
     func snapshot() -> PasteboardSnapshot
     @discardableResult
     func write(_ text: String, transient: Bool) -> Int
@@ -86,6 +89,7 @@ public final class SystemPasteEnvironment: PasteEnvironment {
 
     public var frontmostProcessID: pid_t? { NSWorkspace.shared.frontmostApplication?.processIdentifier }
     public var changeCount: Int { NSPasteboard.general.changeCount }
+    public var canPaste: Bool { AXIsProcessTrusted() }
     public func snapshot() -> PasteboardSnapshot { PasteService.snapshot() }
     public func write(_ text: String, transient: Bool) -> Int { PasteService.writeToPasteboard(text, transient: transient) }
     public func restore(_ snapshot: PasteboardSnapshot) { PasteService.restore(snapshot) }

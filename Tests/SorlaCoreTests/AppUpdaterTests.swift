@@ -18,6 +18,7 @@ final class AppUpdaterTests: XCTestCase {
     private var quits = 0
     private var quitGoesAhead = true
     private var updatedTo: [String] = []
+    private var reportedFailures: [String] = []
     private let pin = AppInstallFixtures.pin
     private let bundle = AppInstallFixtures.bundle
     private let backup = AppInstallFixtures.backup
@@ -71,6 +72,7 @@ final class AppUpdaterTests: XCTestCase {
             }
         )
         updater.onUpdated = { [unowned self] in self.updatedTo.append($0) }
+        updater.onRequestedInstallFailed = { [unowned self] in self.reportedFailures.append($0) }
         return updater
     }
 
@@ -131,6 +133,7 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertTrue(relauncher.starts.isEmpty)
         XCTAssertEqual(quits, 0)
         XCTAssertNil(journal.record)
+        XCTAssertEqual(reportedFailures, [AppInstallFailure.verification.message])
     }
 
     func testAHelperThatWontStartPutsTheOldAppBack() async {
@@ -144,6 +147,7 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(disk.item(bundle.path), .app(FakeApp(version: "1.0.0")))
         XCTAssertEqual(quits, 0)
         XCTAssertNil(journal.record)
+        XCTAssertEqual(reportedFailures, [AppInstallFailure.relaunch.message])
     }
 
     // Quitting called off: the helper is stopped and the old app goes back, so this Sorla keeps pasting.
@@ -189,6 +193,7 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertTrue(relauncher.starts.isEmpty)
         XCTAssertEqual(quits, 0)
         XCTAssertNil(journal.record)
+        XCTAssertEqual(reportedFailures, [])
     }
 
     // A rebuild with the same version is only told apart by the running app's replacement check.
@@ -298,6 +303,32 @@ final class AppUpdaterTests: XCTestCase {
         assertRelaunchedInto("1.1.0")
     }
 
+    // #73: automatic installs need automatic checks too, so turning checks off stops the wait and keeps the choice.
+    func testTurningAutomaticChecksOffStopsTheWait() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        await clock.waitForSleeps(1)
+
+        updater.automaticChecks = false
+        await updater.automaticWait?.value
+        await clock.advance(by: .seconds(600))
+        XCTAssertNil(updater.automaticWait)
+        XCTAssertTrue(relauncher.starts.isEmpty)
+        XCTAssertTrue(updater.automaticInstalls, "the stored choice is left alone")
+        XCTAssertEqual(updater.state, .ready(version: "1.1.0"), "Install and Relaunch still works by hand")
+    }
+
+    func testWithoutAutomaticChecksAPendingInstallIsNotTakenUpAtLaunch() async {
+        journal.pendingRelease = pin
+        let updater = makeUpdater(automaticChecks: false, automaticInstalls: true)
+        updater.start()
+        await settle(updater)
+        XCTAssertTrue(downloader.requests.isEmpty)
+        XCTAssertTrue(relauncher.starts.isEmpty)
+        XCTAssertEqual(updater.state, .idle)
+    }
+
     // Quiet when the wait ends, then recording from the moment the copy next to Sorla is done.
     func testADictationDuringTheStagingCopyKeepsTheDownloadForTheNextTry() async {
         let recording = DictationActivity(isRecording: true)
@@ -372,6 +403,8 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(updater.state, .failed(version: "1.1.0", .download))
         XCTAssertNil(journal.pendingRelease)
         XCTAssertEqual(disk.paths, [bundle.path])
+        // Nobody asked for it, so it stays in the menu and Settings instead of being read out.
+        XCTAssertEqual(reportedFailures, [])
     }
 
     // MARK: - After the relaunch

@@ -12,6 +12,7 @@ final class ModelManagerTests: XCTestCase {
     private var reloads = 0
     private var installs: [Bool] = []
     private var failures: [SorlaIssue] = []
+    private var reported: [String] = []
     private let clock = TestClock()
     private let day: Duration = .seconds(86_400)
 
@@ -55,6 +56,7 @@ final class ModelManagerTests: XCTestCase {
         )
         manager.onInstalled = { [unowned self] firstInstall in self.installs.append(firstInstall) }
         manager.onFailure = { [unowned self] issue in self.failures.append(issue) }
+        manager.onRequestedWorkFailed = { [unowned self] text in self.reported.append(text) }
         return manager
     }
 
@@ -123,6 +125,7 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
 
         XCTAssertEqual(failures, [.modelDownloadFailed])
+        XCTAssertEqual(reported, ["Model download failed. Couldn't reach Hugging Face. Check your internet connection."])
         XCTAssertFalse(FileManager.default.fileExists(atPath: swap.installed.path))
 
         await PublishedModelFixture(version: "1.0.0").publish(on: network)
@@ -130,6 +133,18 @@ final class ModelManagerTests: XCTestCase {
         manager.downloadModel()
         await manager.work?.value
         XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+    }
+
+    func testALaterLaunchWithoutAModelFailsQuietly() async throws {
+        await network.fail(PublishedModelFixture.manifestURL)
+        let manager = makeManager()
+
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
+
+        XCTAssertEqual(failures, [.modelDownloadFailed])
+        XCTAssertEqual(reported, [])
     }
 
     func testAutomaticCheckAtLaunchFindsTheInstalledVersionUpToDate() async throws {
@@ -252,7 +267,7 @@ final class ModelManagerTests: XCTestCase {
     func testCheckNowWithAutomaticDownloadInstallsTheUpdate() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await manager.work?.value
@@ -262,11 +277,29 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(reloads, 1)
     }
 
+    // #73: with automatic checks off the install toggle is disabled in Settings, so Check Now offers the update instead.
+    func testWithoutAutomaticChecksCheckNowOffersTheUpdateEvenWithInstallsOn() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        let manager = makeManager(autoCheck: false, autoDownload: true)
+
+        manager.checkNow()
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .updateAvailable(version: "1.1.0"))
+        XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
+        XCTAssertEqual(reloads, 0)
+        XCTAssertTrue(manager.automaticDownloads, "the stored choice is left alone")
+
+        manager.downloadModel()
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"), "the user can still install it")
+    }
+
     func testAFailedUpdateKeepsTheOldModel() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         await preparer.failSelfTest()
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await manager.work?.value
@@ -275,13 +308,29 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
         XCTAssertEqual(reloads, 0)
         XCTAssertEqual(failures, [.modelUpdateFailed])
+        XCTAssertEqual(reported, ["Model update failed. The new model didn't pass its self-test."])
+    }
+
+    // #62: nobody asked for a background update, so its failure stays in the menu and Settings.
+    func testAnAutomaticUpdateThatFailsIsNotReadOut() async throws {
+        try installModel(version: "1.0.0")
+        await PublishedModelFixture(version: "1.1.0").publish(on: network)
+        await preparer.failSelfTest()
+        let manager = makeManager(autoCheck: true, autoDownload: true)
+
+        manager.start()
+        await finishTimerCheck(manager, sleeps: 1)
+
+        XCTAssertEqual(manager.status, .failed(.selfTestFailed, isUpdate: true))
+        XCTAssertEqual(failures, [.modelUpdateFailed])
+        XCTAssertEqual(reported, [])
     }
 
     func testTheSwapWaitsUntilDictationIsIdle() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         isIdle = false
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await clock.waitForSleeps(1)
@@ -303,7 +352,7 @@ final class ModelManagerTests: XCTestCase {
         let older = phases.beginRecording()
         phases.release(older)
         phases.cancel(phases.beginRecording())
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await clock.waitForSleeps(1)
@@ -323,7 +372,7 @@ final class ModelManagerTests: XCTestCase {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         reloadResults = [false, true]
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await manager.work?.value
@@ -341,7 +390,7 @@ final class ModelManagerTests: XCTestCase {
         let published = PublishedModelFixture(version: "1.1.0")
         await published.publish(on: network)
         reloadResults = [false, true]
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
         manager.checkNow()
         await manager.work?.value
         XCTAssertEqual(manager.status, .failed(.installFailed, isUpdate: true))
@@ -362,7 +411,7 @@ final class ModelManagerTests: XCTestCase {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         reloadResults = [false, false]
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await manager.work?.value
@@ -392,7 +441,7 @@ final class ModelManagerTests: XCTestCase {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.1.0").publish(on: network)
         reloadResults = [false, true]
-        let failedRun = makeManager(autoDownload: true)
+        let failedRun = makeManager(autoCheck: true, autoDownload: true)
         failedRun.checkNow()
         await failedRun.work?.value
         XCTAssertEqual(failedRun.status, .failed(.installFailed, isUpdate: true))
@@ -419,7 +468,7 @@ final class ModelManagerTests: XCTestCase {
         let published = PublishedModelFixture(version: "1.1.0")
         await published.publish(on: network)
         await network.fail(published.url(for: "README.md"))
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
 
         manager.checkNow()
         await manager.work?.value
@@ -448,11 +497,13 @@ final class ModelManagerTests: XCTestCase {
         manager.retryLoadingModel()
         await manager.work?.value
         XCTAssertEqual(failures, [.modelNotLoaded])
+        XCTAssertEqual(reported, ["Model couldn't be loaded"])
         manager.retryLoadingModel()
         await manager.work?.value
 
         XCTAssertEqual(reloads, 2)
         XCTAssertEqual(failures, [.modelNotLoaded])
+        XCTAssertEqual(reported, ["Model couldn't be loaded"])
     }
 
     func testRetryingTheLoadFirstFinishesAnInterruptedSwap() async throws {
@@ -499,7 +550,7 @@ final class ModelManagerTests: XCTestCase {
         let published = PublishedModelFixture(version: "1.1.0")
         await published.publish(on: network)
         await network.holdDownloads()
-        let manager = makeManager(autoDownload: true)
+        let manager = makeManager(autoCheck: true, autoDownload: true)
         manager.checkNow()
         await network.waitForHeldDownload()
         let requestsBefore = await network.requests
@@ -561,7 +612,7 @@ final class ModelManagerTests: XCTestCase {
         var stagingExistedDuringReload: Bool?
         var versionDuringReload: String?
         let installed = swap.installed
-        let manager = makeManager(autoDownload: true, onReload: {
+        let manager = makeManager(autoCheck: true, autoDownload: true, onReload: {
             stagingExistedDuringReload = FileManager.default.fileExists(atPath: staging.directory.path)
             versionDuringReload = PianissimoModel.installedVersion(at: installed)
         })

@@ -20,6 +20,8 @@ Minimise the time from activation to correctly pasted text. Judge speed and accu
 ### 4. Calm, with clear feedback
 Sorla must not steal focus or demand attention outside the dictation flow. The user must be able to tell when the app is listening, processing and done. Errors that block or put the result at risk must be visible and recoverable. Discretion must not become ambiguity.
 
+A narrow exception: when an explicit attempt to use the core function — a dictation or a paste — is blocked by a known problem that needs a concrete action from the user, Sorla may open an in-app recovery window that explains the problem and offers that action. It opens only after the attempt (for push-to-talk, on release), one at a time, never over a recording, and not again for the same problem in the same run once the user has said "Not now". The welcome window at launch remains allowed. Ordinary success, update offers, silence, empty recognition, a single failed transcription and the deliberate clipboard fallback after switching apps do not qualify. Sorla never uses macOS notifications or asks for notification permission.
+
 ### 5. Defaults before settings
 Solve problems with well-considered default behaviour before introducing new choices. A setting should exist when real user needs call for different behaviours that can't be reconciled in one good default. Don't expose technical decisions the product can make itself.
 
@@ -27,7 +29,7 @@ Solve problems with well-considered default behaviour before introducing new cho
 Sorla transcribes; it does not edit. Punctuation and capitalisation may make speech readable, but features must not change the user's meaning, tone or choice of words. Rewriting, summarising, translating and added content are outside its job.
 
 ### 7. Preserve the work and enable recovery
-Preserve the clipboard and focus. Existing text may only be replaced as the user intends, for example through an active selection. If pasting fails, the latest transcription must be reusable without dictating again. Limit storage and recovery to what the current flow needs.
+Preserve the clipboard and focus. Existing text may only be replaced as the user intends, for example through an active selection. If pasting fails, the latest transcription must be reusable without dictating again through Paste Last Transcription, unless the user has turned off keeping it or Sorla must restart. Limit storage and recovery to what the current flow needs.
 
 ### 8. Depth before breadth
 Prioritise accuracy, reliability and accessibility over more features, models and languages. An addition must solve a demonstrated problem, not just widen the offering. The benefit doesn't have to reach the majority: making the core function accessible to a smaller group can weigh heavily.

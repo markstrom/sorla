@@ -456,6 +456,37 @@ final class RecordingControllerDictationTests: XCTestCase {
         controller.cancelRecording()
     }
 
+    // MARK: - Paste Last with nothing kept says so (#60)
+
+    func testPasteLastWithNothingKeptSaysThereIsNothingToPaste() {
+        controller.pasteLastTranscript()
+
+        XCTAssertEqual(events, ["cue \(DictationCue.nothingToPaste.symbolName)"])
+        XCTAssertEqual(paste.writes, [])
+        XCTAssertNil(controller.pasteLastRequest)
+    }
+
+    func testPasteLastAfterALockForgotTheTextSaysThereIsNothingToPaste() async {
+        await deliverOneDictation("A")
+        controller.forgetLastTranscript()
+        let writesBefore = paste.writes
+
+        controller.pasteLastTranscript()
+
+        XCTAssertEqual(events, ["cue \(DictationCue.nothingToPaste.symbolName)"])
+        XCTAssertEqual(paste.writes, writesBefore)
+    }
+
+    // The dictation in progress will paste its own text, so the request goes quietly.
+    func testPasteLastDuringADictationStaysQuiet() {
+        record()
+
+        controller.pasteLastTranscript()
+
+        XCTAssertEqual(events, [])
+        controller.cancelRecording()
+    }
+
     // MARK: - VoiceOver waits for the microphone (#17)
 
     private var voiceOver = true
@@ -489,6 +520,27 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertFalse(controller.isMicrophoneOpen)
         XCTAssertEqual(announced.map(\.text), ["Pasting text"])
         XCTAssertEqual(announced.map(\.microphoneRunning), [false])
+        withExtendedLifetime(announcer) {}
+    }
+
+    // #63: said when the limit ends a recording, after the tail and before the result.
+    func testTheLimitAnnouncementWaitsForTheTailAndComesBeforeTheResult() async {
+        let announcer = makeAnnouncer()
+        record()
+        controller.stopRecordingAndTranscribe()
+        announcer.announce(RecordingLimit.stopAnnouncement)
+        XCTAssertTrue(announced.isEmpty)
+
+        await clock.waitForSleeps(1)
+        await clock.advance(by: tail)
+        await engine.waitForCalls(1)
+        XCTAssertEqual(announced.map(\.text), ["Recording stopped at the five-minute limit"])
+        XCTAssertEqual(announced.map(\.microphoneRunning), [false])
+
+        await engine.finish(0, with: "A")
+        await controller.dictationJobs[1]?.value
+        await controller.deliveries?.value
+        XCTAssertEqual(announced.map(\.text), ["Recording stopped at the five-minute limit", "Pasting text"])
         withExtendedLifetime(announcer) {}
     }
 
@@ -594,21 +646,26 @@ final class RecordingControllerDictationTests: XCTestCase {
 
     // MARK: - Replaced on disk (#7)
 
-    func testAfterSorlaIsReplacedADictationIsLeftOnTheClipboardAndKept() async {
+    // macOS would drop the ⌘V, and the text can't outlive the restart anyway, so the clipboard isn't touched (#72).
+    func testAfterSorlaIsReplacedADictationLeavesTheClipboardAloneAndIsKept() async {
         controller.isAppReplaced = { true }
+        paste.copy("mine")
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
         let job = await dictate(call: 0)
         await engine.finish(0, with: "A")
         await job.value
         await controller.deliveries?.value
 
-        XCTAssertEqual(paste.events, ["write A"], "no ⌘V that macOS would drop")
-        XCTAssertEqual(paste.lastWriteWasTransient, false)
+        XCTAssertEqual(paste.events, [], "no write, and no ⌘V that macOS would drop")
+        XCTAssertEqual(paste.contents, "mine")
         XCTAssertEqual(events, ["issue \(SorlaIssue.appReplaced.menuTitle)"])
+        XCTAssertEqual(blocked, [.appReplaced])
         XCTAssertEqual(controller.lastTranscript(), "A")
         XCTAssertEqual(controller.phase, .idle)
     }
 
-    func testPasteLastAfterSorlaIsReplacedLeavesTheTextOnTheClipboard() async {
+    func testPasteLastAfterSorlaIsReplacedLeavesTheClipboardAlone() async {
         await deliverOneDictation("A")
         controller.isAppReplaced = { true }
         let issued = expectation(description: "issue")
@@ -620,7 +677,7 @@ final class RecordingControllerDictationTests: XCTestCase {
         controller.pasteLastTranscript()
         await fulfillment(of: [issued], timeout: 5)
 
-        XCTAssertEqual(paste.events, ["write A", "paste A", "restore", "write A"])
+        XCTAssertEqual(paste.events, ["write A", "paste A", "restore"])
         XCTAssertEqual(events, ["issue \(SorlaIssue.appReplaced.menuTitle)"])
         XCTAssertEqual(controller.lastTranscript(), "A")
     }
@@ -632,6 +689,147 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         XCTAssertEqual(checks, 1)
         XCTAssertEqual(paste.pastes, ["A"])
+    }
+
+    // MARK: - A blocked paste never touches the clipboard (#72)
+
+    private func dictateBlocked(_ text: String) async -> [BlockedPaste] {
+        paste.isAccessibilityTrusted = false
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: text)
+        await job.value
+        await controller.deliveries?.value
+        return blocked
+    }
+
+    // Access is checked before anything is written, so the clipboard is never touched: not even briefly, where a
+    // clipboard history could see the text, and whatever "Put back what you had copied" says.
+    private func assertTheClipboardIsLeftAlone(keepClipboardContent: Bool, file: StaticString = #filePath, line: UInt = #line) async {
+        controller.keepClipboardContent = keepClipboardContent
+        paste.copy("mine")
+        let changeCount = paste.changeCount
+        let blocked = await dictateBlocked("A")
+
+        XCTAssertEqual(events, ["issue \(SorlaIssue.accessibilityAccessNeeded.menuTitle)"], file: file, line: line)
+        XCTAssertEqual(blocked, [.accessibility], file: file, line: line)
+        XCTAssertEqual(paste.events, [], "no write, no ⌘V and nothing to put back", file: file, line: line)
+        XCTAssertEqual(paste.changeCount, changeCount, file: file, line: line)
+        XCTAssertEqual(paste.snapshots, 0, "the clipboard isn't even read", file: file, line: line)
+        XCTAssertEqual(paste.contents, "mine", file: file, line: line)
+        XCTAssertEqual(controller.lastTranscript(), "A", "kept for Paste Last", file: file, line: line)
+        XCTAssertEqual(controller.phase, .idle, file: file, line: line)
+        XCTAssertNil(controller.clipboardRestore, file: file, line: line)
+    }
+
+    func testWithoutAccessibilityTheClipboardIsLeftAlone() async {
+        await assertTheClipboardIsLeftAlone(keepClipboardContent: true)
+    }
+
+    func testWithoutAccessibilityTheClipboardIsLeftAloneWithTheSettingOffToo() async {
+        await assertTheClipboardIsLeftAlone(keepClipboardContent: false)
+    }
+
+    func testPasteLastWithoutAccessibilityLeavesTheClipboardAlone() async {
+        await deliverOneDictation("A")
+        let changeCount = paste.changeCount
+        let eventsBefore = paste.events
+        paste.isAccessibilityTrusted = false
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+
+        controller.pasteLastTranscript()
+        await controller.pasteLastRequest?.value
+
+        XCTAssertEqual(blocked, [.accessibility])
+        XCTAssertEqual(paste.events, eventsBefore)
+        XCTAssertEqual(paste.changeCount, changeCount)
+        XCTAssertEqual(controller.lastTranscript(), "A")
+    }
+
+    // Access taken away between the check and the ⌘V: what was written is taken back when there is a copy of the
+    // user's clipboard to put back.
+    func testAccessLostAtThePasteStillPutsTheClipboardBack() async {
+        paste.copy("mine")
+        paste.losesAccessBeforeThePaste = true
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+        let job = await dictate(call: 0)
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(blocked, [.accessibility])
+        XCTAssertEqual(paste.events, ["write A", "restore"])
+        XCTAssertEqual(paste.contents, "mine")
+    }
+
+    // Only "Put back what you had copied" needs a copy of the clipboard, so with it off the clipboard isn't read.
+    func testWithTheSettingOffAPasteDoesNotReadTheClipboard() async {
+        controller.keepClipboardContent = false
+        paste.copy("mine")
+        await deliverOneDictation("A")
+
+        XCTAssertEqual(paste.snapshots, 0)
+        XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertEqual(paste.contents, "A")
+    }
+
+    // With nothing kept the text is gone; the clipboard still isn't the place for it.
+    func testWithoutAccessibilityOrAKeptTextTheClipboardIsStillLeftAlone() async {
+        controller.keepsLastTranscript = false
+        paste.copy("mine")
+        let blocked = await dictateBlocked("A")
+
+        XCTAssertEqual(blocked, [.accessibility])
+        XCTAssertEqual(paste.contents, "mine")
+        XCTAssertEqual(paste.writes, [])
+        XCTAssertNil(controller.lastTranscript())
+    }
+
+    // An empty clipboard stays empty.
+    func testWithoutAccessibilityAnEmptyClipboardStaysEmpty() async {
+        _ = await dictateBlocked("A")
+        XCTAssertNil(paste.contents)
+    }
+
+    // Once access is there, Paste Last pastes the kept text and puts the clipboard back as usual.
+    func testAfterAccessArrivesPasteLastPastesTheKeptText() async {
+        paste.copy("mine")
+        _ = await dictateBlocked("A")
+        paste.isAccessibilityTrusted = true
+
+        controller.pasteLastTranscript()
+        await controller.pasteLastRequest?.value
+        XCTAssertEqual(paste.pastes, ["A"])
+        await clock.waitForSleeps(2)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+        XCTAssertEqual(paste.contents, "mine")
+    }
+
+    // A test in Set Up Sorla's Try it here is a dictation like any other: it becomes the latest transcription.
+    func testATestAfterABlockedPasteBecomesTheLatestTranscription() async {
+        _ = await dictateBlocked("Det jag ville skriva")
+        paste.isAccessibilityTrusted = true
+        let job = await dictate(call: 1)
+        await engine.finish(1, with: "Ett prov")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.pastes, ["Ett prov"])
+        XCTAssertEqual(controller.lastTranscript(), "Ett prov")
+        await clock.waitForSleeps(3)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+    }
+
+    func testAPastedDictationReportsNoBlock() async {
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+        await deliverOneDictation("A")
+        XCTAssertEqual(blocked, [])
     }
 
     // MARK: - An update waits for everything in flight, not just the indicator (#29)

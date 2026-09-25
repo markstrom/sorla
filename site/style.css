@@ -1,5 +1,6 @@
 /* Sorla. The Mac's own typeface, near-black and one warm accent taken
-   from the record dot. No web fonts, no scripts. */
+   from the record dot. No web fonts; two small first-party scripts
+   (copy buttons, the demo's pause button) that the pages work without. */
 :root {
   --bg: #F7F5F1;
   --surface: #EEEBE5;
@@ -14,6 +15,8 @@
   --bar: rgba(255, 255, 255, 0.55);
   --window: #FFFFFF;
   --window-ink: #17150F;
+  --window-bar: #F1EFEB;
+  --window-rule: rgba(0, 0, 0, 0.09);
   --dot: #FF3B30;
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -34,6 +37,8 @@
     --bar: rgba(0, 0, 0, 0.35);
     --window: #222022;
     --window-ink: #EDEBE7;
+    --window-bar: #2D2B2D;
+    --window-rule: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -70,8 +75,11 @@ nav img { width: 28px; height: 28px; display: block; }
 nav .name { font-weight: 650; font-size: 20px; letter-spacing: -0.01em; }
 nav .links { margin-left: auto; display: flex; gap: 20px; font-size: 15px; flex-wrap: wrap; }
 nav .links a { color: var(--ink-2); }
-nav .links a[aria-current] { color: var(--ink); }
+/* The current page is underlined, not only darker (WCAG 1.4.1). */
+nav .links a[aria-current] { color: var(--ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
 
+/* Long Swedish compounds may break rather than push the page sideways (WCAG 1.4.10, 1.4.12). */
+h1, h2, h3 { overflow-wrap: break-word; hyphens: auto; }
 h1 {
   font-size: clamp(40px, 10vw, 68px); line-height: 1.02; font-weight: 700;
   letter-spacing: -0.035em; margin: 0 0 18px; text-wrap: balance;
@@ -88,7 +96,9 @@ em { font-style: italic; }
 
 .eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); font-weight: 650; margin: 0 0 12px; }
 .lede { font-size: 21px; line-height: 1.45; color: var(--ink-2); margin: 0 0 36px; max-width: 34ch; text-wrap: pretty; }
-.quiet { color: var(--ink-3); font-size: 14px; }
+.quiet { color: var(--ink-3); font-size: 15px; }
+/* Small print that still has to be read: requirements, signing, where to go next. */
+.meta { color: var(--ink-2); font-size: 16px; }
 
 /* The indicator, drawn: a black island hanging from the menu bar, a red
    dot on the left, white bars on the right. The loop is one dictation:
@@ -127,27 +137,50 @@ em { font-style: italic; }
 .island .bars i:nth-child(7) { animation-duration: 0.95s; animation-delay: -0.8s; }
 
 .window {
-  position: absolute; left: 10%; right: 10%; bottom: 16%; top: 36%;
+  position: absolute; left: 10%; right: 10%; bottom: 16%; top: 32%; overflow: hidden;
   background: var(--window); color: var(--window-ink); border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.06);
-  padding: clamp(14px, 4vw, 26px);
   font-size: clamp(15px, 3.4vw, 20px); line-height: 1.4;
 }
-.window p { position: relative; margin: 0; max-width: none; }
+/* A title bar with the three window buttons and an untitled document's name, so the white box reads as a document. */
+.titlebar {
+  position: relative; display: flex; align-items: center; justify-content: center; height: 26px;
+  background: var(--window-bar); border-bottom: 1px solid var(--window-rule);
+  font-size: 12px; line-height: 1; color: var(--ink-3);
+}
+.lights { position: absolute; left: 10px; top: 50%; display: flex; gap: 6px; transform: translateY(-50%); }
+.lights i { width: 9px; height: 9px; border-radius: 50%; background: #FF5F57; }
+.lights i:nth-child(2) { background: #FEBC2E; }
+.lights i:nth-child(3) { background: #28C840; }
+.window p { position: relative; margin: clamp(12px, 3.2vw, 22px) clamp(14px, 4vw, 26px); max-width: none; }
 /* Five sentences take turns, one per 11 s round: about 3 s of speaking, then 6 s to read the text. */
 .said { position: absolute; left: 0; top: 0; opacity: 0; animation: said 55s ease-out infinite; }
 .said:nth-of-type(3) { animation-delay: 11s; }
 .said:nth-of-type(4) { animation-delay: 22s; }
 .said:nth-of-type(5) { animation-delay: 33s; }
 .said:nth-of-type(6) { animation-delay: 44s; }
-.stage:hover *, .stage:focus-within * { animation-play-state: paused; }
+.stage:hover *, .stage:focus-within *, .stage.is-paused * { animation-play-state: paused; }
 .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 20px; }
 .waiting { position: absolute; left: 0; top: 0; animation: waiting 11s ease-out infinite; }
 .caret {
   display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -0.18em;
   background: var(--accent); animation: blink 1s steps(1) infinite;
 }
-.stage figcaption { color: var(--ink-3); font-size: 13px; margin: 10px 2px 0; }
+.stage figcaption { color: var(--ink-2); font-size: 15px; margin: 10px 2px 0; }
+/* The pause button sits beside the caption, outside the demo, so pressing it doesn't itself hold the demo still. */
+.demo { position: relative; margin: 0 0 12px; }
+.demo .stage { margin: 0; }
+.demo.has-toggle figcaption { padding-right: 104px; min-height: 34px; }
+.demo-toggle {
+  position: absolute; right: 0; bottom: 0; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 34px; padding: 4px 14px 4px 10px; border-radius: 999px;
+  border: 1px solid var(--rule); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.demo-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.demo-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.demo-toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.demo-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 @keyframes island {
   0%, 2.55% { transform: translateY(-110%); }
@@ -171,6 +204,8 @@ em { font-style: italic; }
 @media (prefers-reduced-motion: reduce) {
   .island, .island .dot, .island .bars i, .said, .caret { animation: none; }
   .waiting { display: none; }
+  .demo-toggle { display: none; }
+  .demo.has-toggle figcaption { padding-right: 0; min-height: 0; }
   .said:nth-of-type(2) { opacity: 1; }
   .island .bars i:nth-child(1), .island .bars i:nth-child(7) { transform: scaleY(0.3); }
   .island .bars i:nth-child(2), .island .bars i:nth-child(6) { transform: scaleY(0.55); }
@@ -200,12 +235,13 @@ dd { margin: 2px 0 0; color: var(--ink-2); }
 }
 .hero-cta { margin: -12px 0 36px; }
 .hero-cta .cta { margin-top: 0; }
-.hero-cta p { margin: 10px 0 0; }
+.hero-cta p { margin: 12px 0 0; }
 .cta:hover { text-decoration: none; filter: brightness(1.08); }
 .cta[aria-disabled="true"] { background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule); cursor: default; filter: none; }
 
 .credits { margin-top: 72px; font-size: 14px; color: var(--ink-3); }
-.credits a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 0.15em; }
+.credits a { color: var(--ink-2); text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 0.15em; }
+
 
 table { border-collapse: collapse; margin: 16px 0; width: 100%; max-width: 60ch; font-size: 15px; }
 th, td { text-align: left; vertical-align: top; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); }
@@ -243,7 +279,7 @@ a code { color: var(--accent); }
   h2 { font-size: 23px; margin-top: 56px; }
   .steps { grid-template-columns: 1fr; }
   .screen { aspect-ratio: 1 / 1; }
-  .window { top: 30%; bottom: 10%; }
+  .window { top: 26%; bottom: 8%; }
 }
 
 details { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); }
@@ -257,14 +293,29 @@ details p { margin: 8px 0 4px; }
 .note { padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--rule); max-width: 60ch; }
 .policy h2.lead-section { font-size: 26px; letter-spacing: -0.015em; margin-top: 56px; }
 .policy h3 { font-size: 16px; margin-top: 24px; }
+.policy h4 { font-size: 16px; font-weight: 650; margin: 20px 0 4px; }
+/* Help page: sections by task, a table of contents and numbered install steps. */
+.help h2 { font-size: 26px; letter-spacing: -0.015em; margin: 64px 0 12px; }
+.help h3 { font-size: 19px; margin: 36px 0 6px; }
+.help h4 { font-size: 16px; margin: 24px 0 4px; }
+.help .toc { padding: 14px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--rule); max-width: 60ch; margin: 0 0 12px; }
+.help .toc h2 { margin: 0 0 6px; font-size: 16px; letter-spacing: 0; }
+.toc ul { margin: 0; padding-left: 22px; }
+.toc li { margin: 4px 0; }
+.help ol > li { margin: 12px 0; }
+@media (max-width: 600px) { .help h2 { font-size: 23px; margin-top: 52px; } }
 .command { overflow-x: auto; margin: 8px 0; padding: 2px 0; }
 .command:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
-@media (max-width: 400px) { code.path { white-space: normal; overflow-wrap: anywhere; } }
+@media (max-width: 400px) {
+  code.path { white-space: normal; overflow-wrap: anywhere; }
+  /* The longest demo sentence needs a taller screen on the narrowest phones. */
+  .screen { aspect-ratio: 5 / 6; }
+}
 @media (max-width: 600px) { .policy h2.lead-section { font-size: 23px; } }
 
 /* In-page links (e.g. "Mer om nedladdningen") glide unless the reader prefers less motion. */
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
-h2[id] { scroll-margin-top: 16px; }
+[id] { scroll-margin-top: 16px; }
 
 /* Terminal commands: one click selects the whole command; copy.js adds a Copy button beside it. */
 .command code { user-select: all; -webkit-user-select: all; }

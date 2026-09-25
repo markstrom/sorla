@@ -290,6 +290,45 @@ final class TriggerMonitorTests: XCTestCase {
         XCTAssertFalse(isWatchingKeys)
     }
 
+    // MARK: - Settings gives the keys back (#14)
+
+    func testAfterSettingsLetsGoTheNextPressStartsAFreshDictation() {
+        let pushToTalk = makeMonitor(mode: .pushToTalk)
+        pushToTalk.handle(.triggerDown(at: 0))
+        pushToTalk.isSuspended = true
+        pushToTalk.isSuspended = false
+        pushToTalk.handle(.triggerDown(at: 5))
+        pushToTalk.handle(.triggerUp(at: 6))
+        XCTAssertEqual([starts, finishes, cancels], [2, 1, 1])
+
+        // Without the reset, the first tap after Settings would stop a dictation that no longer exists.
+        let toggle = makeMonitor(mode: .toggle)
+        toggle.handle(.triggerDown(at: 10))
+        toggle.handle(.triggerUp(at: 10.05))
+        toggle.isSuspended = true
+        toggle.isSuspended = false
+        toggle.handle(.triggerDown(at: 15))
+        toggle.handle(.triggerUp(at: 15.05))
+        XCTAssertEqual([starts, finishes, cancels], [4, 1, 2])
+        XCTAssertTrue(isWatchingKeys, "Esc must reach the new recording")
+    }
+
+    // Start Dictation from the menu while Settings is key hands focus back to the previous app, which resumes the monitor.
+    func testAMenuStartedDictationBegunWhileSettingsIsKeyIsWatchedOnceSettingsLetsGo() {
+        for trigger in [TriggerKey.rightCommand, .customShortcut] {
+            keyWatches = []
+            keyWatchRemovals = 0
+            let monitor = makeMonitor(trigger: trigger, mode: .pushToTalk)
+            monitor.isSuspended = true
+            monitor.recordingDidStartElsewhere()
+            XCTAssertFalse(isWatchingKeys, "\(trigger)")
+
+            monitor.isSuspended = false
+            XCTAssertTrue(isWatchingKeys, "\(trigger): Esc must reach the recording")
+        }
+        XCTAssertEqual(cancels, 0)
+    }
+
     func testAPressThatCouldNotStartStopsWatching() {
         startSucceeds = false
         let monitor = makeMonitor(mode: .pushToTalk)

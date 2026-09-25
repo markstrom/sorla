@@ -33,21 +33,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         didSet { welcomeWindowController?.state.modelLoadingStatus = modelLoadingStatus }
     }
     private var transientStatus: TransientMenuStatus?
-    private var isRefusedDictationHeld = false
+    private var heldRefusal = HeldRefusal()
     private var isStartingRecording = false
-    private var startFailure: DictationCue?
+    private var startFailure: DictationRefusal?
+    private var didMicrophoneFailToStart = false
+    private var recovery = RecoveryPrompts()
+    private var recoveryDialogController: RecoveryDialogController?
+    // The last paste macOS would have dropped, for the recovery window to say what happened to the text.
+    private var blockedPaste: BlockedPaste?
+    // Whether that text was kept as Paste Last's when the paste was blocked, so a text that expires later isn't
+    // described as one that couldn't be saved.
+    private var wasBlockedTextSaved = false
+    // The status row's and badge's checks, kept between a model download's progress ticks (#76).
+    private var statusChecks = StatusCheckCache()
+    private var didRelaunchFail = false
+    private var quietRestart: QuietRestart!
     private var announcer: DictationAnnouncer!
     private let recordingLimit = RecordingLimitWatch()
     private var appReplacement = AppReplacementCheck(executableURL: Bundle.main.executableURL)
     private var bundleFolderWatch: DispatchSourceFileSystemObject?
-    private var pendingRestart: Task<Void, Never>?
-    // Long enough for the restart arrow to be seen and for VoiceOver to say why.
-    private static let restartCueHold: Duration = .seconds(1.5)
-    private static let quietPollInterval: Duration = .milliseconds(250)
 
     // Opening Sorla again from Finder or Spotlight shows Settings, since the menu bar icon may be hidden behind the notch.
+    // During setup it brings forward or opens the setup window instead, so Settings doesn't bury it (#80).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettings()
+        switch ReopenTarget.onReopen(
+            isSetupOpen: welcomeWindowController?.window?.isVisible == true,
+            hasCompletedOnboarding: appSettings.hasCompletedOnboarding,
+            microphone: PermissionsManager.microphoneAccess(),
+            problems: currentRecoveryProblems()
+        ) {
+        case .setup:
+            showWelcome()
+        case .settings:
+            showSettings()
+        }
         return false
     }
 
@@ -69,6 +88,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         recordingController.keepClipboardContent = appSettings.keepClipboardContent
         recordingController.keepsLastTranscript = appSettings.keepLastTranscription
+        quietRestart = QuietRestart(
+            activity: { [weak self] in self?.recordingController.activity ?? .quiet },
+            restart: { [weak self] in self?.restart() ?? false }
+        )
 
         modelManager = ModelManager(
             installer: ModelInstaller(
@@ -172,8 +195,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .idle:
                 indicator.hide()
             }
+            // Checked once a dictation is done, not on the way to its text.
+            if phase == .idle {
+                let current = self.currentRecoveryProblems()
+                self.recovery.forgetResolved(current: current)
+                self.performRecovery(self.recovery.dictationBecameIdle(current: current))
+                // A later dictation that pasted, or a text that expired meanwhile, ends an old blocked paste (#72).
+                self.forgetBlockedPasteUnlessExplained()
+            }
             self.appUpdater.dictationActivityChanged()
-            self.updateIcon()
             self.updateStatusMenuItem()
         }
         recordingController.onSpectrum = { [weak self] spectrum in
@@ -193,7 +223,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onModelReadyChange = { [weak self] isReady in
             guard let self else { return }
             self.modelLoadingStatus = isReady ? .ready : .loading
-            self.updateIcon()
             self.updateStatusMenuItem()
         }
         recordingController.onIssue = { [weak self] issue in
@@ -202,21 +231,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.isAppReplaced = { [weak self] in
             self?.checkForReplacement() ?? false
         }
+        recordingController.onPasteBlocked = { [weak self] blocked in
+            self?.pasteWasBlocked(blocked)
+        }
 
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in
                 guard let self else { return false }
-                self.startFailure = nil
-                // Also the restart waits for the release, so Right ⌘ + C on a replaced Sorla doesn't restart it.
-                if let refusal = self.restartRefusal() ?? self.modelRefusal() {
+                // Also the restart dialog waits for the release, so Right ⌘ + C on a replaced Sorla opens nothing.
+                if let refusal = self.gateRefusal() {
                     return self.refuse(refusal)
                 }
-                self.isStartingRecording = true
-                let started = self.recordingController.startRecording()
-                self.isStartingRecording = false
-                guard started else {
+                guard self.startRecording() else {
                     guard let failure = self.startFailure else { return false }
-                    return self.refuse(failure)
+                    return self.refuse(failure, isStartFailure: true)
                 }
                 // In push-to-talk a press only becomes a dictation after the minimum hold, so ⌘-shortcuts stay silent.
                 self.scheduleStartSound(after: self.appSettings.recordingMode == .pushToTalk ? PushToTalkGesture.defaultMinimumHold : 0)
@@ -224,10 +252,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             },
             onFinish: { [weak self] in
                 guard let self else { return }
-                if self.isRefusedDictationHeld {
-                    self.isRefusedDictationHeld = false
-                    if let refusal = self.restartRefusal() ?? self.modelRefusal() ?? self.startFailure { self.refuseDictation(refusal) }
-                    self.startFailure = nil
+                if self.heldRefusal.isHeld {
+                    if let refusal = self.heldRefusal.release(currentGateRefusal: self.gateRefusal()) { self.refuseDictation(refusal) }
                     return
                 }
                 self.finishRecording()
@@ -279,6 +305,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .store(in: &cancellables)
         updatePasteLastShortcut(keepLastTranscription: appSettings.keepLastTranscription)
 
+        // VoiceOver may take ⌃⌥V (VO-V) for itself, so while it runs Sorla's messages name the menu item instead (#64).
+        NSWorkspace.shared.publisher(for: \.isVoiceOverEnabled)
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.voiceOverDidChange()
+            }
+            .store(in: &cancellables)
+
+        // Coming back from System Settings activates some app, so a permission granted or taken away there shows
+        // on the icon then; with menu open and the setup window's own checks the badge needs no polling of its own (#76).
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusMenuItem()
+            }
+            .store(in: &cancellables)
+
         // Someone else at the Mac shouldn't be able to paste what was last dictated, or keep the microphone open.
         Publishers.MergeMany(
             NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification),
@@ -302,6 +347,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         modelManager.onFailure = { [weak self] issue in
             self?.handleIssue(issue)
+        }
+        modelManager.onRequestedWorkFailed = { [weak self] text in
+            self?.announce(text)
         }
         modelManager.$status
             .removeDuplicates()
@@ -333,6 +381,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.transientStatus = TransientMenuStatus(updatedTo: version, at: Date())
             self?.updateStatusMenuItem()
         }
+        appUpdater.onRequestedInstallFailed = { [weak self] message in
+            self?.announce(message)
+        }
         appUpdater.start()
 
         appSettings.$autoCheckUpdates
@@ -360,7 +411,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Read before the app check stamps today's date, so the model's launch check is on the same daily schedule.
         let isCheckDue = updateChecker.isAutomaticCheckDue
         updateChecker.checkAppIfDue()
-        modelManager.start(isCheckDue: isCheckDue)
+        modelManager.start(isCheckDue: isCheckDue, isFirstRun: !appSettings.hasCompletedOnboarding)
         if modelManager.isInstalled {
             recordingController.prepare()
         }
@@ -402,16 +453,149 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsWindowController?.show()
     }
 
+    // At launch or from the menu; a blocked attempt opens the same window through the recovery rules (#72).
     private func showWelcome() {
+        recovery.opened(.setup)
+        presentWelcome(forRecovery: false)
+    }
+
+    private func presentWelcome(forRecovery: Bool) {
         if welcomeWindowController == nil {
-            welcomeWindowController = WelcomeWindowController(
+            let controller = WelcomeWindowController(
                 appSettings: appSettings,
                 modelManager: modelManager,
-                modelLoadingStatus: modelLoadingStatus
+                modelLoadingStatus: modelLoadingStatus,
+                isTextKept: { [weak self] in self?.recordingController.lastTranscript() != nil },
+                announce: { [weak self] text in self?.announce(text) }
             )
+            controller.onClose = { [weak self] in
+                self?.recoveryWindowClosed(.setup, byAction: false)
+            }
+            // The window checks the permissions while it is open, and the icon's badge follows what it finds (#76).
+            controller.state.onPermissionsChange = { [weak self] in
+                self?.updateStatusMenuItem()
+            }
+            welcomeWindowController = controller
+        }
+        welcomeWindowController?.state.blockedPasteWasSaved = blockedPaste == .accessibility ? wasBlockedTextSaved : nil
+        rememberFrontmostApp()
+        welcomeWindowController?.show(forRecovery: forRecovery)
+    }
+
+    private func recoveryDialog(for surface: RecoverySurface) -> RecoveryDialog? {
+        switch surface {
+        case .microphoneStart:
+            return .microphoneStart
+        case .restart:
+            return .restart(canRestart: canRestart, isPasteBlocked: blockedPaste == .appReplaced)
+        case .setup:
+            return nil
+        }
+    }
+
+    private func presentRecoveryDialog(_ surface: RecoverySurface) {
+        guard let dialog = recoveryDialog(for: surface) else {
+            return presentWelcome(forRecovery: true)
+        }
+        if recoveryDialogController == nil {
+            let controller = RecoveryDialogController()
+            controller.onAction = { [weak self] action in self?.performRecoveryAction(action) }
+            controller.onClose = { [weak self] surface, byAction in self?.recoveryWindowClosed(surface, byAction: byAction) }
+            recoveryDialogController = controller
         }
         rememberFrontmostApp()
-        welcomeWindowController?.show()
+        recoveryDialogController?.show(dialog, for: surface)
+    }
+
+    private func performRecoveryAction(_ action: RecoveryDialog.Action) {
+        switch action {
+        case .openSoundSettings:
+            if let url = SorlaIssue.noInputDevice.settingsURL { NSWorkspace.shared.open(url) }
+        case .restart:
+            requestRestart()
+        case .quit:
+            quit()
+        }
+    }
+
+    private func recoveryWindowClosed(_ surface: RecoverySurface, byAction: Bool) {
+        recovery.closed(surface, current: currentRecoveryProblems(), byAction: byAction)
+        forgetBlockedPasteUnlessExplained()
+    }
+
+    // The explanation belongs to the attempt that opened the window: once no window shows it or waits to, after
+    // "Not now", a close or a dictation that came after, it is forgotten (#72).
+    private func forgetBlockedPasteUnlessExplained() {
+        guard let blocked = blockedPaste, !recovery.willExplain(blocked.problem) else { return }
+        blockedPaste = nil
+        wasBlockedTextSaved = false
+    }
+
+    // Everything wrong right now, so a problem that was solved and came back is explained again.
+    // Also what badges the menu bar icon (#76); a model status sink passes the new status in.
+    // The status row passes the checks it has just read, so they aren't read twice.
+    private func currentRecoveryProblems(model: ModelStatus? = nil, checks: StatusChecks? = nil) -> Set<RecoveryProblem> {
+        let checks = checks ?? readStatusChecks()
+        return RecoveryProblem.current(
+            isMicrophoneAccessDenied: checks.isMicrophoneAccessDenied,
+            isAccessibilityTrusted: checks.isAccessibilityTrusted,
+            model: DictationGate.modelProblem(
+                isModelInstalled: checks.isModelInstalled,
+                isModelLoading: modelLoadingStatus == .loading,
+                didModelFailToLoad: modelLoadingStatus == .failed,
+                model: model ?? modelManager.status
+            ),
+            didMicrophoneFailToStart: didMicrophoneFailToStart,
+            isAppReplaced: appReplacement.isReplaced
+        )
+    }
+
+    private func readStatusChecks() -> StatusChecks {
+        StatusChecks(
+            isMicrophoneAccessDenied: PermissionsManager.isMicrophoneAccessDenied(),
+            isAccessibilityTrusted: PermissionsManager.isAccessibilityTrusted(),
+            isModelInstalled: modelManager.isInstalled
+        )
+    }
+
+    private func recoveryDecision(for problem: RecoveryProblem) -> RecoveryPrompts.Decision {
+        // Already asked for: the restart happens once the dictation in flight has landed.
+        if problem == .restartRequired, quietRestart.isPending { return .none }
+        // A dictation still being transcribed would lose its paste to the window's focus, so the window waits for it.
+        return recovery.attemptBlocked(by: problem, current: currentRecoveryProblems(), isDictationBusy: recordingController.phase != .idle)
+    }
+
+    private func performRecovery(_ decision: RecoveryPrompts.Decision) {
+        switch decision {
+        case .present(let surface), .refresh(let surface):
+            Self.logger.info("recovery window: \(String(describing: surface), privacy: .public)")
+            presentRecoveryDialog(surface)
+        case .waitForIdle, .none:
+            break
+        }
+    }
+
+    // Found only once the text was recognized, so the window comes after it (#72).
+    private func pasteWasBlocked(_ blocked: BlockedPaste) {
+        blockedPaste = blocked
+        wasBlockedTextSaved = recordingController.lastTranscript() != nil
+        if blocked == .accessibility {
+            // The window that follows says how to paste it once access is there.
+            presentCue(.blockedPaste(isTextKept: wasBlockedTextSaved), pasteLast: nil)
+        }
+        performRecovery(recoveryDecision(for: blocked.problem))
+        // After "Not now" no window opens, so nothing is kept for one opened later for another reason.
+        forgetBlockedPasteUnlessExplained()
+    }
+
+    // Starts the microphone, noting how a failure went so a refusal can name it.
+    private func startRecording() -> Bool {
+        startFailure = nil
+        isStartingRecording = true
+        let started = recordingController.startRecording()
+        isStartingRecording = false
+        if started { didMicrophoneFailToStart = false }
+        return started
     }
 
     // For people who can't use the trigger key; the menu doesn't take focus, so the text lands in the frontmost app.
@@ -421,17 +605,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             finishRecording()
             return
         }
-        startFailure = nil
-        if let refusal = restartRefusal() ?? modelRefusal() {
+        if let refusal = gateRefusal() {
             refuseDictation(refusal)
             return
         }
-        isStartingRecording = true
-        let started = recordingController.startRecording()
-        isStartingRecording = false
-        guard started else {
+        guard startRecording() else {
             if let failure = startFailure { refuseDictation(failure) }
-            startFailure = nil
             return
         }
         triggerMonitor?.recordingDidStartElsewhere()
@@ -452,14 +631,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Self.logger.info("recording stopped at the length limit")
         triggerMonitor?.recordingDidEndElsewhere()
         finishRecording()
+        // Held until the microphone has closed, so it comes before the result's own announcement.
+        announce(RecordingLimit.stopAnnouncement)
     }
 
     // The cue comes once the microphone is closed, so VoiceOver isn't recorded into anything.
     private func cancelRecording(announce: Bool) {
         let wasRecording = recordingController.isRecording
         let wasStartHeard = startSound.stop()
-        isRefusedDictationHeld = false
-        startFailure = nil
+        heldRefusal.discard()
         recordingController.cancelRecording()
         if announce, wasRecording, wasStartHeard {
             presentCue(.cancelled)
@@ -499,8 +679,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .showUpdates:
             showSettings()
             settingsWindowController?.revealUpdates()
-        case .reloadModel:
-            modelManager.retryLoadingModel()
         case .openSettings:
             showSettings()
         case .openSoundSettings:
@@ -511,7 +689,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             transientStatus = nil
             updateStatusMenuItem()
         case .restart:
-            restart()
+            requestRestart()
         case .quit:
             quit()
         case .dismiss:
@@ -530,7 +708,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bundleFolderWatch?.cancel()
         bundleFolderWatch = nil
         updateStatusMenuItem()
-        updateIcon()
         return true
     }
 
@@ -548,40 +725,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         bundleFolderWatch = source
     }
 
-    private func restartRefusal() -> DictationCue? {
-        DictationGate.restartRefusal(isAppReplaced: checkForReplacement(), canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL))
+    // A copy whose relaunch already failed is told to quit and reopen instead, and records as one that can't restart.
+    private var canRestart: Bool {
+        !didRelaunchFail && AppRelaunch.canReopen(Bundle.main.bundleURL)
     }
 
-    // An earlier dictation still in flight lands on the clipboard first, so no words are lost to the restart.
-    private func restartWhenQuiet() {
-        guard pendingRestart == nil else { return }
-        pendingRestart = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.restartCueHold)
-            while self?.recordingController.activity.isQuiet == false {
-                try? await Task.sleep(for: Self.quietPollInterval)
-            }
-            self?.restart()
-            self?.pendingRestart = nil
+    // What refuses a press before the microphone is tried.
+    private func gateRefusal() -> DictationRefusal? {
+        DictationGate.restartRefusal(isAppReplaced: checkForReplacement(), canRestart: canRestart) ?? modelRefusal()
+    }
+
+    // Only when the user asks, and once any dictation in flight has landed, so no words are lost to the restart (#72).
+    private func requestRestart() {
+        quietRestart.request { [weak self] in
+            guard let self else { return }
+            self.didRelaunchFail = true
+            self.updateStatusMenuItem()
+            // Asked for just now, so the truthful fallback is shown whatever was dismissed before.
+            self.recovery.opened(.restart)
+            self.presentRecoveryDialog(.restart)
         }
     }
 
     // The helper waits for this process to exit before opening the new copy; if quitting is called off, so is the helper.
-    private func restart() {
+    // Returns false only when the relaunch couldn't be set up.
+    private func restart() -> Bool {
         Self.logger.info("restart requested")
         do {
             try relauncher.start(waitingFor: ProcessInfo.processInfo.processIdentifier, thenOpen: Bundle.main.bundleURL, expectedVersion: nil)
         } catch {
             Self.logger.error("restart failed: \(ErrorSummary.of(error), privacy: .public)")
-            return
+            return false
         }
         NSApp.terminate(nil)
         relauncher.cancel()
+        return true
     }
 
     private func endDictationAndForget() {
         startSound.stop()
-        isRefusedDictationHeld = false
-        startFailure = nil
+        heldRefusal.discard()
         triggerMonitor?.recordingDidEndElsewhere()
         recordingController.cancelRecording()
         recordingController.forgetLastTranscript()
@@ -672,14 +855,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateStatusMenuItem(model: ModelStatus? = nil, appStatus: AppUpdateStatus? = nil, install: AppInstallState? = nil) {
         let now = Date()
         if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
+        // Only the model status sink passes `model`; its progress ticks reuse the last checks.
+        let checks = statusChecks.checks(model: model) { readStatusChecks() }
         let row = MenuStatusRow.current(
-            microphoneDenied: PermissionsManager.isMicrophoneAccessDenied(),
-            accessibilityMissing: !PermissionsManager.isAccessibilityTrusted(),
+            microphoneDenied: checks.isMicrophoneAccessDenied,
+            accessibilityMissing: !checks.isAccessibilityTrusted,
             model: model ?? modelManager.status,
-            modelLoadFailed: modelManager.isInstalled && modelLoadingStatus == .failed,
-            modelLoading: modelManager.isInstalled && modelLoadingStatus == .loading,
+            modelLoadFailed: checks.isModelInstalled && modelLoadingStatus == .failed,
+            modelLoading: checks.isModelInstalled && modelLoadingStatus == .loading,
             appReplaced: appReplacement.isReplaced,
-            canRestart: AppRelaunch.canReopen(Bundle.main.bundleURL),
+            canRestart: canRestart,
             transient: transientStatus,
             appUpdate: AppUpdateOffer.make(
                 status: appStatus ?? updateChecker.appStatus,
@@ -692,18 +877,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenuAction = row?.action
         statusMenuItem.title = row?.title ?? ""
         statusMenuItem.isHidden = row == nil
+        // The badge and the row come from the same checks, so they change together.
+        updateIcon(model: model, checks: checks)
     }
 
     private func modelStatusDidChange(_ status: ModelStatus) {
-        if status.isBusy, !modelManager.isInstalled, modelLoadingStatus != .loading {
+        // The file check last, so a download's progress ticks skip it once the model is marked as loading.
+        if status.isBusy, modelLoadingStatus != .loading, !modelManager.isInstalled {
             modelLoadingStatus = .loading
-            updateIcon()
         }
         updateStatusMenuItem(model: status)
     }
 
-    private func modelRefusal() -> DictationCue? {
-        DictationGate.refusal(
+    private func modelRefusal() -> DictationRefusal? {
+        DictationGate.modelRefusal(
             isModelInstalled: modelManager.isInstalled,
             isModelLoading: modelLoadingStatus == .loading,
             didModelFailToLoad: modelLoadingStatus == .failed,
@@ -712,56 +899,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     // A push-to-talk press may still become a ⌘-shortcut, so its refusal waits for the release.
-    private func refuse(_ refusal: DictationCue) -> Bool {
+    private func refuse(_ refusal: DictationRefusal, isStartFailure: Bool = false) -> Bool {
         guard DictationGate.waitsForRelease(mode: appSettings.recordingMode) else {
             refuseDictation(refusal)
             return false
         }
-        isRefusedDictationHeld = true
+        if isStartFailure {
+            heldRefusal.holdStartFailure(refusal)
+        } else {
+            heldRefusal.holdGateRefusal()
+        }
         return true
     }
 
-    private func refuseDictation(_ refusal: DictationCue) {
-        Self.logger.info("dictation refused: \(refusal.symbolName, privacy: .public)")
-        presentCue(refusal)
-        if refusal == .restarting {
-            restartWhenQuiet()
-        }
+    // A window that opens now is read out by VoiceOver itself, so the cue is only shown.
+    private func refuseDictation(_ refusal: DictationRefusal) {
+        Self.logger.info("dictation refused: \(refusal.cue.symbolName, privacy: .public)")
+        // A paste blocked earlier isn't what this attempt is about.
+        blockedPaste = nil
+        let decision = refusal.problem.map(recoveryDecision) ?? .none
+        presentCue(refusal.cue, pasteLast: currentPasteLast, announces: !decision.opensWindow)
+        performRecovery(decision)
     }
 
     private func handleIssue(_ issue: SorlaIssue) {
         if issue == .modelNotLoaded || (issue == .modelDownloadFailed && !modelManager.isInstalled) {
             modelLoadingStatus = .failed
-            updateIcon()
         }
         if let transient = TransientMenuStatus(issue: issue, at: Date()) {
             transientStatus = transient
         }
+        if issue == .noInputDevice, isStartingRecording {
+            didMicrophoneFailToStart = true
+        }
         if let cue = DictationCue(issue: issue) {
             if isStartingRecording {
-                startFailure = cue
+                startFailure = DictationRefusal(cue: cue, problem: RecoveryProblem(startFailure: issue))
             } else {
-                // Paste Last posts ⌘V too, so without Accessibility or after a replacement only the user's own ⌘V works.
-                let isPasteBlocked = issue == .accessibilityAccessNeeded || issue == .appReplaced
-                presentCue(cue, pasteShortcut: isPasteBlocked ? nil : currentPasteShortcut)
+                presentCue(cue, pasteLast: currentPasteLast)
             }
         }
         updateStatusMenuItem()
     }
 
     // Without a kept transcription the text on the clipboard is only reachable with ⌘V.
-    private var currentPasteShortcut: String? {
+    // Read when a message is made, so it follows VoiceOver without keeping a copy of its state (#64).
+    private var currentPasteLast: PasteLastRoute? {
         guard appSettings.keepLastTranscription else { return nil }
-        return KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description
+        return PasteLastRoute.current(
+            shortcut: KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description,
+            isVoiceOverRunning: NSWorkspace.shared.isVoiceOverEnabled
+        )
+    }
+
+    // A menu row left from before VoiceOver was turned on or off names Paste Last the way it now should.
+    private func voiceOverDidChange() {
+        guard let transient = transientStatus else { return }
+        transientStatus = transient.rerouted(pasteLast: currentPasteLast)
+        updateStatusMenuItem()
     }
 
     private func presentCue(_ cue: DictationCue) {
-        presentCue(cue, pasteShortcut: currentPasteShortcut)
+        presentCue(cue, pasteLast: currentPasteLast)
     }
 
-    private func presentCue(_ cue: DictationCue, pasteShortcut: String?) {
-        let text = cue.announcement(pasteShortcut: pasteShortcut)
-        if let issue = cue.issue(pasteShortcut: pasteShortcut), let transient = TransientMenuStatus(issue: issue, at: Date()) {
+    private func presentCue(_ cue: DictationCue, pasteLast: PasteLastRoute?, announces: Bool = true) {
+        let text = cue.announcement(pasteLast: pasteLast)
+        if let issue = cue.issue(pasteLast: pasteLast), let transient = TransientMenuStatus(issue: issue, at: Date()) {
             transientStatus = transient
             updateStatusMenuItem()
         }
@@ -769,7 +973,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !recordingController.isRecording {
             recordingIndicator.showCue(symbolName: cue.symbolName, label: text)
         }
-        announce(text)
+        if announces { announce(text) }
     }
 
     private func announce(_ text: String) {
@@ -802,9 +1006,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func updateIcon() {
-        let icon = ModelLoadingStatus.menuBarIcon(for: modelLoadingStatus, phase: recordingController.phase, restartPending: appReplacement.isReplaced)
-        statusItem.button?.image = icon.glyph.image(accessibilityDescription: icon.accessibilityDescription, restartBadge: icon.restartBadge)
+    // A badge when something needs the user, from the same checks as the setup and recovery windows (#76).
+    private func updateIcon(model: ModelStatus? = nil, checks: StatusChecks? = nil) {
+        let icon = MenuBarIconState.current(
+            isModelReady: modelLoadingStatus == .ready,
+            phase: recordingController.phase,
+            problems: currentRecoveryProblems(model: model, checks: checks)
+        )
+        statusItem.button?.image = MenuBarGlyph.image(icon)
     }
 
     @objc private func quit() {
