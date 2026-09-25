@@ -187,6 +187,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let current = self.currentRecoveryProblems()
                 self.recovery.forgetResolved(current: current)
                 self.performRecovery(self.recovery.dictationBecameIdle(current: current))
+                // A later dictation that pasted, or a text that expired meanwhile, ends an old blocked paste (#72).
+                self.forgetBlockedPasteUnlessExplained()
             }
             self.appUpdater.dictationActivityChanged()
             self.updateStatusMenuItem()
@@ -505,8 +507,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func recoveryWindowClosed(_ surface: RecoverySurface, byAction: Bool) {
         recovery.closed(surface, current: currentRecoveryProblems(), byAction: byAction)
-        // The explanation belongs to the attempt that opened the window.
-        if !recovery.isOpen(.setup), !recovery.isOpen(.restart) { blockedPaste = nil }
+        forgetBlockedPasteUnlessExplained()
+    }
+
+    // The explanation belongs to the attempt that opened the window: once no window shows it or waits to, after
+    // "Not now", a close or a dictation that came after, it is forgotten (#72).
+    private func forgetBlockedPasteUnlessExplained() {
+        guard let blocked = blockedPaste, !recovery.willExplain(blocked.problem) else { return }
+        blockedPaste = nil
+        wasBlockedTextSaved = false
     }
 
     // Everything wrong right now, so a problem that was solved and came back is explained again.
@@ -552,6 +561,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             presentCue(.blockedPaste(isTextKept: wasBlockedTextSaved), pasteLast: nil)
         }
         performRecovery(recoveryDecision(for: blocked.problem))
+        // After "Not now" no window opens, so nothing is kept for one opened later for another reason.
+        forgetBlockedPasteUnlessExplained()
     }
 
     // Starts the microphone, noting how a failure went so a refusal can name it.

@@ -116,6 +116,36 @@ final class RecoveryPromptsTests: XCTestCase {
         XCTAssertFalse(prompts.isOpen(.setup))
     }
 
+    // #72: what a blocked paste left for the window is kept only while a window shows it or waits to.
+    func testAProblemIsExplainedWhileItsWindowIsOpenOrWaiting() {
+        XCTAssertFalse(prompts.willExplain(.accessibility))
+        XCTAssertEqual(attempt(.accessibility, busy: true), .waitForIdle)
+        XCTAssertTrue(prompts.willExplain(.accessibility))
+        XCTAssertFalse(prompts.willExplain(.restartRequired), "waiting for another problem")
+
+        XCTAssertEqual(prompts.dictationBecameIdle(current: [.accessibility]), .present(.setup))
+        XCTAssertTrue(prompts.willExplain(.accessibility))
+
+        prompts.closed(.setup, current: [.accessibility])
+        XCTAssertFalse(prompts.willExplain(.accessibility))
+    }
+
+    // After "Not now" a later blocked paste opens nothing, so nothing is left for a window opened later.
+    func testAfterNotNowALaterBlockIsNotExplained() {
+        XCTAssertEqual(attempt(.accessibility), .present(.setup))
+        prompts.closed(.setup, current: [.accessibility])
+
+        XCTAssertEqual(attempt(.accessibility, busy: true), .none)
+        XCTAssertFalse(prompts.willExplain(.accessibility))
+    }
+
+    // The setup window opened from the menu shows the note too.
+    func testAWindowOpenedFromTheMenuExplainsIt() {
+        prompts.opened(.setup)
+        XCTAssertTrue(prompts.willExplain(.accessibility))
+        XCTAssertFalse(prompts.willExplain(.restartRequired))
+    }
+
     func testADismissedProblemDoesNotWaitEither() {
         XCTAssertEqual(attempt(.restartRequired), .present(.restart))
         prompts.closed(.restart, current: [.restartRequired])

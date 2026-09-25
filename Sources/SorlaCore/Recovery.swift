@@ -147,6 +147,12 @@ public struct RecoveryPrompts: Equatable, Sendable {
         open[surface] != nil
     }
 
+    // Whether a window shows this problem now or will once the dictation in flight is done. What a blocked paste left
+    // for such a window is forgotten otherwise, so a window opened much later doesn't describe an old text (#72).
+    public func willExplain(_ problem: RecoveryProblem) -> Bool {
+        isOpen(problem.surface) || pending == problem
+    }
+
     // A problem that went away and comes back is explained again.
     public mutating func forgetResolved(current: Set<RecoveryProblem>) {
         dismissed.formIntersection(current)
