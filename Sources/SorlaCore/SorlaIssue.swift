@@ -16,7 +16,7 @@ public enum SorlaIssue: Hashable, Sendable {
     public var menuTitle: String {
         switch self {
         case .microphoneAccessNeeded: return String(localized: "Microphone access needed", bundle: Localization.bundle)
-        case .accessibilityAccessNeeded: return String(localized: "Accessibility access needed to paste", bundle: Localization.bundle)
+        case .accessibilityAccessNeeded: return String(localized: "\(AccessibilityPaneName.current) permission needed to paste", bundle: Localization.bundle)
         case .modelNotLoaded: return String(localized: "Model couldn't be loaded", bundle: Localization.bundle)
         case .modelDownloadFailed: return String(localized: "Model download failed", bundle: Localization.bundle)
         case .modelUpdateFailed: return String(localized: "Model update failed", bundle: Localization.bundle)

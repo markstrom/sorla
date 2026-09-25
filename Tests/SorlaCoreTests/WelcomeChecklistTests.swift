@@ -110,7 +110,12 @@ final class WelcomeChecklistTests: XCTestCase {
         let names = { (status: WelcomeRowStatus) in WelcomeChecklist.buttonName(status) }
         XCTAssertEqual(names(WelcomeChecklist.microphoneRow(.notDetermined)), "Allow microphone access")
         XCTAssertEqual(names(WelcomeChecklist.microphoneRow(.denied)), "Open Microphone in System Settings")
-        XCTAssertEqual(names(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Open Accessibility in System Settings")
+        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+            XCTAssertEqual(names(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Open Accessibility in System Settings")
+        }
+        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+            XCTAssertEqual(names(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Open Device Control and Data Access in System Settings")
+        }
         XCTAssertEqual(
             names(WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .notInstalled)),
             "Download the speech model"
@@ -142,10 +147,18 @@ final class WelcomeChecklistTests: XCTestCase {
     // #72: the window opened for a blocked paste only claims the clipboard while the text is there,
     // and never suggests Paste Last, which needs the same access.
     func testABlockedPasteIsExplainedOnlyWhileTheTextIsOnTheClipboard() {
-        XCTAssertEqual(
-            WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
-            "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
-        )
+        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+            XCTAssertEqual(
+                WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                "The text is ready, but Sorla needs the Accessibility permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
+            )
+        }
+        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+            XCTAssertEqual(
+                WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                "The text is ready, but Sorla needs the Device Control and Data Access permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
+            )
+        }
         XCTAssertEqual(
             WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: true),
             "Your text is on the clipboard — close this window and press ⌘V where you were typing."

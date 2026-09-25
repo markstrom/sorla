@@ -94,7 +94,7 @@ public enum WelcomeChecklist {
         case .openMicrophoneSettings:
             return String(localized: "Open Microphone in System Settings", bundle: Localization.bundle)
         case .openAccessibilitySettings:
-            return String(localized: "Open Accessibility in System Settings", bundle: Localization.bundle)
+            return String(localized: "Open \(AccessibilityPaneName.current) in System Settings", bundle: Localization.bundle)
         case .downloadModel where buttonTitle == tryAgain:
             return String(localized: "Try downloading the model again", bundle: Localization.bundle)
         case .downloadModel:
@@ -115,7 +115,7 @@ public enum WelcomeChecklist {
     public static func pasteBlockedMessage(isTextOnClipboard: Bool, isAccessibilityTrusted: Bool) -> String? {
         guard isTextOnClipboard else { return nil }
         guard !isAccessibilityTrusted else { return textOnClipboardInWindow }
-        return String(localized: "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.", bundle: Localization.bundle)
+        return String(localized: "The text is ready, but Sorla needs the \(AccessibilityPaneName.current) permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.", bundle: Localization.bundle)
     }
 
     public static var textOnClipboardInWindow: String {

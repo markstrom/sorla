@@ -29,7 +29,7 @@
 "Model update available (%@)" = "Model update available (%@)";
 "Sorla %@ is available — Download" = "Sorla %@ is available — Download";
 "Microphone access needed" = "Microphone access needed";
-"Accessibility access needed to paste" = "Accessibility access needed to paste";
+"%@ permission needed to paste" = "%@ permission needed to paste";
 "Model couldn't be loaded" = "Model couldn't be loaded";
 "Model download failed" = "Model download failed";
 "Model update failed" = "Model update failed";
@@ -140,6 +140,7 @@
 "Microphone" = "Microphone";
 "So Sorla can hear you." = "So Sorla can hear you.";
 "Accessibility" = "Accessibility";
+"Device Control and Data Access" = "Device Control and Data Access";
 "So Sorla can paste where you type." = "So Sorla can paste where you type.";
 "If the switch is on but this doesn't show a checkmark, quit and reopen Sorla." = "If the switch is on but this doesn't show a checkmark, quit and reopen Sorla.";
 "In progress" = "In progress";
@@ -202,7 +203,7 @@
 "Nothing to paste" = "Nothing to paste";
 "Allow microphone access" = "Allow microphone access";
 "Open Microphone in System Settings" = "Open Microphone in System Settings";
-"Open Accessibility in System Settings" = "Open Accessibility in System Settings";
+"Open %@ in System Settings" = "Open %@ in System Settings";
 "Try loading the model again" = "Try loading the model again";
 "Recording stopped at the five-minute limit" = "Recording stopped at the five-minute limit";
 
@@ -218,7 +219,7 @@
 "Restarting opens the new version." = "Restarting opens the new version.";
 "Restart Sorla" = "Restart Sorla";
 "Fix the items above to try dictation." = "Fix the items above to try dictation.";
-"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.";
+"The text is ready, but Sorla needs the %@ permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "The text is ready, but Sorla needs the %@ permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.";
 "Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Your text is on the clipboard — close this window and press ⌘V where you were typing.";
 "Set Up Sorla" = "Set Up Sorla";
 

@@ -72,14 +72,14 @@
     </ol>
     <p>När Sorla väl har öppnats en gång frågar macOS inte igen.</p>
 
-    <h3 id="hjalpmedel">Om Hjälpmedel inte får en bock fast reglaget är på</h3>
+    <h3 id="hjalpmedel">Om Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS) inte får en bock fast reglaget är på</h3>
     <p>macOS kopplar behörigheten till en viss kopia av appen. Har Sorla körts från en annan plats, eller finns en äldre version kvar i listan, kan reglaget vara på utan att det gäller den Sorla du kör nu.</p>
     <ol>
       <li>Avsluta Sorla: klicka på Sorla i menyraden och välj Avsluta Sorla.</li>
-      <li>Öppna Systeminställningar → Integritet och säkerhet → Hjälpmedel. Markera Sorla i listan och klicka på minusknappen <code>−</code>. Finns en gammal rad som heter Prata, ta bort den också.</li>
+      <li>Öppna Systeminställningar → Integritet och säkerhet → Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS). Markera Sorla i listan och klicka på minusknappen <code>−</code>. Finns en gammal rad som heter Prata, ta bort den också.</li>
       <li>Öppna Terminal, klistra in raden nedan och tryck på <code>Retur</code>:
         <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>tccutil reset Accessibility com.sorla.app</code></p></li>
-      <li>Öppna Sorla från Program igen och ge behörigheten Hjälpmedel på nytt.</li>
+      <li>Öppna Sorla från Program igen och ge behörigheten Enhetskontroll och dataåtkomst på nytt.</li>
       <li>Får det ändå ingen bock: starta om Macen och öppna Sorla igen.</li>
     </ol>
 
@@ -94,7 +94,7 @@
     <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>brew upgrade --cask sorla</code></p>
 
     <h2>Kom igång</h2>
-    <p>Första gången Sorla startar öppnas ett välkomstfönster. Det visar de tre saker som behövs: <strong>Mikrofon</strong>, <strong>Hjälpmedel</strong> och <strong>talmodellen</strong>. Mikrofonen tillåter du direkt i fönstret. Hjälpmedel slår du på i Systeminställningar → Integritet och säkerhet → Hjälpmedel; knappen Öppna Systeminställningar tar dig dit. Varje rad får en bock när den är klar. Får Hjälpmedel ingen bock, se <a href="#hjalpmedel">ovan</a>.</p>
+    <p>Första gången Sorla startar öppnas ett välkomstfönster. Det visar de tre saker som behövs: <strong>Mikrofon</strong>, <strong>Enhetskontroll och dataåtkomst</strong> (Hjälpmedel i äldre macOS) och <strong>talmodellen</strong>. Mikrofonen tillåter du direkt i fönstret. Den slår du på i Systeminställningar → Integritet och säkerhet → Enhetskontroll och dataåtkomst; knappen Öppna Systeminställningar tar dig dit. Varje rad får en bock när den är klar. Får Enhetskontroll och dataåtkomst ingen bock, se <a href="#hjalpmedel">ovan</a>.</p>
     <p>Talmodellen (ungefär 700 MB) börjar laddas ner från Hugging Face av sig själv, medan du ger behörigheterna. Förloppet syns i fönstret och i menyn, först som ”Laddar ner modellen… 42 %” och sedan som ”Förbereder modellen… ~1 min” medan modellen görs klar för Macens Neural Engine. Första gången tar det ungefär en minut. Därefter behövs inget nätverk.</p>
     <p>Längst ner finns fältet Prova här. Det syns hela tiden men går att skriva i först när alla tre raderna har en bock. Då kan du prova: håll in <code>Höger ⌘</code>, prata och släpp. Sedan bor Sorla i menyraden, som en prick och några staplar.</p>
     <p>Ovanför fältet står om automatiska uppdateringar är på eller av. Från början är både sökning och installation avstängda. Knappen <strong>Inställningar för uppdateringar</strong> tar dig till reglagen, se <a href="#uppdateringar">Uppdateringar</a>. Att öppna fönstret ändrar inga inställningar och söker inte efter uppdateringar.</p>
@@ -108,7 +108,7 @@
     <h2 id="hinder">Om något hindrar dikteringen</h2>
     <p>Trycker du på tangenten, eller väljer Starta diktering, när något saknas som bara du kan åtgärda, öppnar Sorla ett fönster som säger vad det är och vad du kan göra. I läget Håll in öppnas det först när du släpper tangenten, och aldrig för ett kortkommando som <code>Höger ⌘</code> + <code>C</code>, ett kort tryck eller en inspelning du avbryter. Pågår en annan diktering väntar fönstret tills den är klar.</p>
     <ul>
-      <li><strong>Ställ in Sorla</strong>: samma lista som i välkomstfönstret, med Mikrofon, Hjälpmedel och talmodellen, och en knapp för det som saknas. Raderna uppdateras när du kommer tillbaka från Systeminställningar. Kunde Sorla känna igen texten men inte klistra in den för att Hjälpmedel saknas, står det att texten ligger i urklippet, så länge den faktiskt ligger där: stäng fönstret och tryck <code>⌘V</code> där du skrev. När fönstret stängs kommer du tillbaka till appen du skrev i. Får modellen inte plats står det hur mycket ledigt utrymme som behövs, och <strong>Försök igen</strong> provar på nytt.</li>
+      <li><strong>Ställ in Sorla</strong>: samma lista som i välkomstfönstret, med Mikrofon, Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS) och talmodellen, och en knapp för det som saknas. Raderna uppdateras när du kommer tillbaka från Systeminställningar. Kunde Sorla känna igen texten men inte klistra in den för att behörigheten Enhetskontroll och dataåtkomst saknas, står det att texten ligger i urklippet, så länge den faktiskt ligger där: stäng fönstret och tryck <code>⌘V</code> där du skrev. När fönstret stängs kommer du tillbaka till appen du skrev i. Får modellen inte plats står det hur mycket ledigt utrymme som behövs, och <strong>Försök igen</strong> provar på nytt.</li>
       <li><strong>Sorla kunde inte starta mikrofonen</strong>: kontrollera att en mikrofon är ansluten och vald under Ingång i inställningarna för Ljud. <strong>Öppna inställningar för Ljud</strong> tar dig dit. En tyst eller avstängd mikrofon ger inget fönster, bara den överstrukna mikrofonen i indikatorn som förut.</li>
       <li><strong>Sorla behöver startas om</strong>: se <a href="#uppdateringar">Uppdateringar</a>.</li>
     </ul>
@@ -173,7 +173,7 @@
     <h2>Felsökning</h2>
     <details>
       <summary>Ingen text klistras in</summary>
-      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet. Sorla öppnar fönstret <a href="#hinder">Ställ in Sorla</a>; stäng det och tryck <code>⌘V</code> där du skrev. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Hjälpmedel inte får en bock</a>.</p>
+      <p>Behörigheten Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS) saknas troligen. Texten ligger då kvar i urklippet. Sorla öppnar fönstret <a href="#hinder">Ställ in Sorla</a>; stäng det och tryck <code>⌘V</code> där du skrev. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Enhetskontroll och dataåtkomst och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Enhetskontroll och dataåtkomst inte får en bock</a>.</p>
     </details>
     <details>
       <summary>Tom eller konstig text</summary>

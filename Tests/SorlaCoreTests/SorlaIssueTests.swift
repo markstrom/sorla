@@ -13,8 +13,13 @@ final class SorlaIssueTests: XCTestCase {
         )
     }
 
-    func testAccessibilityAccessNeededMenuTitle() {
-        XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Accessibility access needed to paste")
+    func testAccessibilityAccessNeededMenuTitleNamesThePaneOfTheRunningMacOS() {
+        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+            XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Accessibility permission needed to paste")
+        }
+        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+            XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Device Control and Data Access permission needed to paste")
+        }
     }
 
     func testAccessibilityAccessNeededSettingsURL() {

@@ -87,14 +87,14 @@ struct WelcomeView: View {
             }
 
             VStack(alignment: .leading, spacing: 14) {
-                row(symbol: "mic.fill", title: "Microphone", description: "So Sorla can hear you.", status: microphone)
-                row(symbol: "accessibility", title: "Accessibility", description: "So Sorla can paste where you type.", status: accessibility)
+                row(symbol: "mic.fill", title: Text("Microphone"), description: "So Sorla can hear you.", status: microphone)
+                row(symbol: "accessibility", title: Text(verbatim: AccessibilityPaneName.current), description: "So Sorla can paste where you type.", status: accessibility)
                 if !accessibility.isDone {
                     Text("If the switch is on but this doesn't show a checkmark, quit and reopen Sorla.")
                         .font(.callout)
                         .padding(.leading, 36)
                 }
-                row(symbol: "waveform", title: "Model", description: LocalizedStringKey(PianissimoModel.displayName), status: model)
+                row(symbol: "waveform", title: Text("Model"), description: LocalizedStringKey(PianissimoModel.displayName), status: model)
             }
 
             Divider()
@@ -163,7 +163,7 @@ struct WelcomeView: View {
     }
 
     @ViewBuilder
-    private func row(symbol: String, title: LocalizedStringKey, description: LocalizedStringKey, status: WelcomeRowStatus) -> some View {
+    private func row(symbol: String, title: Text, description: LocalizedStringKey, status: WelcomeRowStatus) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: symbol)
                 .font(.title3)
@@ -172,7 +172,7 @@ struct WelcomeView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body.bold())
+                title.font(.body.bold())
                 Text(description).font(.callout).foregroundStyle(.secondary)
                 switch status {
                 case .inProgress(let text), .needsAction(_, _, .some(let text)):

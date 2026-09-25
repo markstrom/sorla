@@ -129,7 +129,9 @@ final class LocalizationTests: XCTestCase {
             )
             XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.notDetermined)), "Tillåt mikrofonåtkomst")
             XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.denied)), "Öppna Mikrofon i Systeminställningar")
-            XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Hjälpmedel i Systeminställningar")
+            AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+                XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Hjälpmedel i Systeminställningar")
+            }
             XCTAssertEqual(
                 WelcomeChecklist.buttonName(WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .failed(.network, isUpdate: false))),
                 "Försök ladda ner modellen igen"
@@ -153,10 +155,12 @@ final class LocalizationTests: XCTestCase {
             )
             XCTAssertEqual(RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false).actionTitle, "Starta om Sorla")
             XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false).actionTitle, "Avsluta Sorla")
-            XCTAssertEqual(
-                WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
-                "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
-            )
+            AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+                XCTAssertEqual(
+                    WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                    "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
+                )
+            }
             XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Klar")
@@ -174,6 +178,28 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(WelcomeChecklist.updateSettingsButtonName, "Öppna Uppdateringar i Inställningar")
         }
         XCTAssertEqual(try strings("sv")["Set Up Sorla"], "Ställ in Sorla")
+    }
+
+    // #74: every place that names the pane follows the running macOS.
+    func testSwedishNamesTheAccessibilityPaneByMacOSVersion() throws {
+        try Localization.$bundle.withValue(swedish) {
+            for version in [14, 26] {
+                AccessibilityPaneName.$systemMajorVersion.withValue(version) {
+                    XCTAssertEqual(AccessibilityPaneName.current, "Hjälpmedel")
+                    XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Behörigheten Hjälpmedel behövs för att klistra in")
+                    XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Hjälpmedel i Systeminställningar")
+                }
+            }
+            AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+                XCTAssertEqual(AccessibilityPaneName.current, "Enhetskontroll och dataåtkomst")
+                XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Behörigheten Enhetskontroll och dataåtkomst behövs för att klistra in")
+                XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Enhetskontroll och dataåtkomst i Systeminställningar")
+                XCTAssertEqual(
+                    WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
+                    "Texten är klar, men Sorla behöver behörigheten Enhetskontroll och dataåtkomst för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
+                )
+            }
+        }
     }
 
     func testSwedishFailedLoadRefusalNamesTheMenuRow() throws {

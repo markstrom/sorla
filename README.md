@@ -48,7 +48,7 @@ Sorla also builds on:
 1. Download the DMG from [the website](https://sorla.zerolabs.se) or the [latest release](https://github.com/markstrom/sorla/releases/latest).
 2. Open it and drag **Sorla** to **Applications**.
 3. Open Sorla from the Applications folder.
-4. Grant **Microphone** and **Accessibility** access. The welcome window walks you through both, downloads the model and lets you try dictating in the window itself. It also says whether automatic updates are on (both are off by default), with a button to Settings › Updates.
+4. Grant **Microphone** and **Device Control and Data Access** (Accessibility in older macOS) access. The welcome window walks you through both, downloads the model and lets you try dictating in the window itself. It also says whether automatic updates are on (both are off by default), with a button to Settings › Updates.
 5. Hold Right ⌘ and speak.
 
 Or with [Homebrew](https://brew.sh):
@@ -69,7 +69,7 @@ If Sorla can't replace itself (a folder you can't write to, or a copy macOS runs
 
 ### If macOS blocks the app
 
-Sorla is signed with Developer ID and notarized by Apple, so this is rare. Step-by-step help, including what to do if Accessibility won't turn on, is on the [help page](https://sorla.zerolabs.se/support#oppna) (in Swedish).
+Sorla is signed with Developer ID and notarized by Apple, so this is rare. Step-by-step help, including what to do if Device Control and Data Access (Accessibility in older macOS) won't turn on, is on the [help page](https://sorla.zerolabs.se/support#oppna) (in Swedish).
 
 If macOS says Sorla can't be opened, either:
 

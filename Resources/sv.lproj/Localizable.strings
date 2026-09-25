@@ -29,7 +29,7 @@
 "Model update available (%@)" = "Modelluppdatering tillgänglig (%@)";
 "Sorla %@ is available — Download" = "Sorla %@ finns – Ladda ner";
 "Microphone access needed" = "Mikrofonåtkomst behövs";
-"Accessibility access needed to paste" = "Hjälpmedelsåtkomst behövs för att klistra in";
+"%@ permission needed to paste" = "Behörigheten %@ behövs för att klistra in";
 "Model couldn't be loaded" = "Modellen kunde inte läsas in";
 "Model download failed" = "Nedladdningen av modellen misslyckades";
 "Model update failed" = "Uppdateringen av modellen misslyckades";
@@ -140,6 +140,7 @@
 "Microphone" = "Mikrofon";
 "So Sorla can hear you." = "Så att Sorla kan höra dig.";
 "Accessibility" = "Hjälpmedel";
+"Device Control and Data Access" = "Enhetskontroll och dataåtkomst";
 "So Sorla can paste where you type." = "Så att Sorla kan klistra in där du skriver.";
 "If the switch is on but this doesn't show a checkmark, quit and reopen Sorla." = "Om reglaget är på men det här inte får en bock, avsluta och öppna Sorla igen.";
 "In progress" = "Pågår";
@@ -202,7 +203,7 @@
 "Nothing to paste" = "Inget att klistra in";
 "Allow microphone access" = "Tillåt mikrofonåtkomst";
 "Open Microphone in System Settings" = "Öppna Mikrofon i Systeminställningar";
-"Open Accessibility in System Settings" = "Öppna Hjälpmedel i Systeminställningar";
+"Open %@ in System Settings" = "Öppna %@ i Systeminställningar";
 "Try loading the model again" = "Försök läsa in modellen igen";
 "Recording stopped at the five-minute limit" = "Inspelningen stoppades vid gränsen på fem minuter";
 
@@ -218,7 +219,7 @@
 "Restarting opens the new version." = "När Sorla startar om öppnas den nya versionen.";
 "Restart Sorla" = "Starta om Sorla";
 "Fix the items above to try dictation." = "Åtgärda punkterna ovan för att prova diktering.";
-"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
+"The text is ready, but Sorla needs the %@ permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten är klar, men Sorla behöver behörigheten %@ för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
 "Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
 "Set Up Sorla" = "Ställ in Sorla";
 
