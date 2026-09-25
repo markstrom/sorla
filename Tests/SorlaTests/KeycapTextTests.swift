@@ -52,10 +52,9 @@ final class KeycapTextTests: XCTestCase {
                         assertChip(WelcomeChecklist.readinessLine(isReady: true, trigger: trigger, mode: mode, customShortcut: nil), key: key)
                     }
                 }
-                assertChip(BlockedPasteNote.onClipboard.message, key: "⌘V")
-                assertChip(BlockedPasteNote.pasteLastHint(.shortcut("⌃⌥V")), key: "⌃⌥V")
+                assertChip(BlockedPasteNote.kept.message(pasteLast: .shortcut("⌃⌥V")), key: "⌃⌥V")
                 // With VoiceOver the note names the menu item and VO-M instead (#64).
-                assertChip(BlockedPasteNote.pasteLastHint(.menu), key: PasteLastRoute.menu.keys)
+                assertChip(BlockedPasteNote.kept.message(pasteLast: .menu), key: PasteLastRoute.menu.keys)
             }
         }
     }

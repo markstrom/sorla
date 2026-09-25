@@ -177,7 +177,6 @@
 "Hard to hold a key down? Choose Toggle under Mode in Settings." = "Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar.";
 "Sorla has been updated — Restart" = "Sorla har uppdaterats – Starta om";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla har uppdaterats – Avsluta och öppna den från Program";
-"Restart Sorla to paste again" = "Starta om Sorla för att klistra in igen";
 "Dictation" = "Diktering";
 "Pasting" = "Inklistring";
 "General" = "Allmänt";
@@ -220,8 +219,6 @@
 "Restarting opens the new version." = "När Sorla startar om öppnas den nya versionen.";
 "Restart Sorla" = "Starta om Sorla";
 "Fix the items above to try dictation." = "Åtgärda punkterna ovan för att prova diktering.";
-"The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V." = "Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck ⌘V.";
-"Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
 "Set Up Sorla" = "Ställ in Sorla";
 
 /* Welcome window rows and update switches (#73, #75) */
@@ -237,15 +234,11 @@
 "Installs them when you haven't dictated for a while. Needs automatic checks." = "Installerar dem när du inte har dikterat på ett tag. Kräver automatisk sökning.";
 
 /* A blocked paste in Set Up Sorla (#72) */
-"The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "Texten är klar men kunde inte klistras in automatiskt. Sorla sparar texten i några minuter och har låtit urklippet vara som det var.";
-"Sorla can paste now. Your text is ready." = "Sorla kan klistra in nu. Texten är klar.";
-"The text is no longer kept. Dictate it again." = "Texten finns inte längre kvar. Diktera den igen.";
-"Paste Last Transcription in Sorla's menu also works now." = "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.";
-"Paste Last Transcription in Sorla's menu (VO-M twice) also works now." = "Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger) fungerar nu också.";
-"Paste Last Transcription (%@) also works now." = "Klistra in senaste transkriberingen (%@) fungerar nu också.";
-"Paste Where You Were Typing" = "Klistra in där du skrev";
-"Close this window and paste the text where you were typing" = "Stäng fönstret och klistra in texten där du skrev";
-"Copy Text" = "Kopiera texten";
-"Copy the text to the clipboard" = "Kopiera texten till urklipp";
-"Sorla can paste now: %@." = "Sorla kan klistra in nu: %@.";
 "Couldn't paste — Sorla has kept your text" = "Kunde inte klistra in – Sorla har sparat texten";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription (%@)." = "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen (%@).";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu (VO-M twice)." = "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger).";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu." = "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen i Sorlas meny.";
+"A test dictation in Try it here replaces the saved text." = "En provdiktering i Prova här ersätter den sparade texten.";
+"The text couldn't be saved. Grant the permission and dictate again." = "Texten kunde inte sparas. Ge behörigheten och diktera igen.";
+"Couldn't paste — the text wasn't saved" = "Kunde inte klistra in – texten sparades inte";
+"The text can't be kept across the restart, so dictate it again afterwards." = "Texten kan inte sparas över omstarten, så diktera den igen efteråt.";

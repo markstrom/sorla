@@ -69,49 +69,14 @@ public struct DictationRefusal: Equatable, Sendable {
     }
 }
 
-// A paste macOS would have dropped: the text was left on the clipboard instead, until something else is copied.
-public struct BlockedPaste: Equatable, Sendable {
-    public enum Reason: Equatable, Sendable {
-        case accessibility
-        case appReplaced
-    }
-
-    public let reason: Reason
-    // The clipboard's change count once the text was put there; nil while Sorla keeps the text to itself.
-    public let clipboardChangeCount: Int?
-    // Which kept transcript it is, so a newer dictation isn't taken for it; nil when nothing was kept.
-    public let transcriptRevision: Int?
-
-    public init(reason: Reason, clipboardChangeCount: Int?, transcriptRevision: Int? = nil) {
-        self.reason = reason
-        self.clipboardChangeCount = clipboardChangeCount
-        self.transcriptRevision = transcriptRevision
-    }
+// A paste macOS would have dropped (#72). Sorla leaves the clipboard as it was, so the text is only where Paste Last
+// keeps it, with its usual limits.
+public enum BlockedPaste: Equatable, Sendable {
+    case accessibility
+    case appReplaced
 
     public var problem: RecoveryProblem {
-        reason == .accessibility ? .accessibility : .restartRequired
-    }
-
-    // Only then may a window say the text is on the clipboard.
-    public func isOnClipboard(changeCount: Int) -> Bool {
-        changeCount == clipboardChangeCount
-    }
-
-    // Sorla still holds this very text for Paste Last.
-    public func isKept(currentRevision: Int?) -> Bool {
-        transcriptRevision != nil && transcriptRevision == currentRevision
-    }
-
-    // A dictation into the setup window's own Try it here while this text waits to be pasted back is a test: it goes
-    // only into the field, and this text keeps its place for Paste Where You Were Typing and for Paste Last, since it
-    // is what the user really dictated. It still goes when Paste Last's text would: expiry, a lock or the setting off.
-    public func makesTest(isSetupWindowKey: Bool, currentRevision: Int?) -> Bool {
-        isSetupWindowKey && reason == .accessibility && isKept(currentRevision: currentRevision)
-    }
-
-    // After the user chose Copy Text.
-    public func copied(clipboardChangeCount: Int) -> BlockedPaste {
-        BlockedPaste(reason: reason, clipboardChangeCount: clipboardChangeCount, transcriptRevision: transcriptRevision)
+        self == .accessibility ? .accessibility : .restartRequired
     }
 }
 
@@ -253,27 +218,22 @@ public struct RecoveryDialog: Equatable, Sendable {
         )
     }
 
-    // The clipboard is only mentioned while the text really is there.
-    public static func restart(canRestart: Bool, isTextOnClipboard: Bool) -> RecoveryDialog {
+    // Paste Last's text doesn't outlive the restart, so a blocked paste's text has to be dictated again.
+    public static func restart(canRestart: Bool, isPasteBlocked: Bool) -> RecoveryDialog {
         var message = String(localized: "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy.", bundle: Localization.bundle)
-        if isTextOnClipboard {
-            message += " " + WelcomeChecklist.textOnClipboardInWindow
+        message += " " + (canRestart
+            ? String(localized: "Restarting opens the new version.", bundle: Localization.bundle)
+            : String(localized: "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.", bundle: Localization.bundle))
+        if isPasteBlocked {
+            message += " " + String(localized: "The text can't be kept across the restart, so dictate it again afterwards.", bundle: Localization.bundle)
         }
-        guard canRestart else {
-            message += " " + String(localized: "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.", bundle: Localization.bundle)
-            return RecoveryDialog(
-                title: String(localized: "Sorla needs to restart", bundle: Localization.bundle),
-                message: message,
-                action: .quit,
-                actionTitle: String(localized: "Quit Sorla", bundle: Localization.bundle)
-            )
-        }
-        message += " " + String(localized: "Restarting opens the new version.", bundle: Localization.bundle)
         return RecoveryDialog(
             title: String(localized: "Sorla needs to restart", bundle: Localization.bundle),
             message: message,
-            action: .restart,
-            actionTitle: String(localized: "Restart Sorla", bundle: Localization.bundle)
+            action: canRestart ? .restart : .quit,
+            actionTitle: canRestart
+                ? String(localized: "Restart Sorla", bundle: Localization.bundle)
+                : String(localized: "Quit Sorla", bundle: Localization.bundle)
         )
     }
 }

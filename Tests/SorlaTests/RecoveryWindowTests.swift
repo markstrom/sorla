@@ -62,7 +62,7 @@ final class RecoveryWindowTests: XCTestCase {
     @MainActor
     func testShowingTheSameDialogAgainDisarmsReturn() async {
         let model = RecoveryDialogModel(dialog: .microphoneStart)
-        let restart = RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false)
+        let restart = RecoveryDialog.restart(canRestart: true, isPasteBlocked: false)
         model.present(restart)
         await model.armDefaultButton(for: model.presentation, after: .zero) { _ in }
         XCTAssertTrue(model.isDefaultButtonArmed)
@@ -71,30 +71,6 @@ final class RecoveryWindowTests: XCTestCase {
         model.present(restart)
         XCTAssertFalse(model.isDefaultButtonArmed, "Return must not answer a dialog that just came forward")
         XCTAssertNotEqual(model.presentation, first)
-    }
-
-    // The restart dialog drops its clipboard sentence once the user copies something else; that isn't a new
-    // presentation, so an armed Return stays armed and an unarmed one isn't armed early.
-    @MainActor
-    func testNewWordingForTheDialogOnScreenLeavesReturnAsItWas() async {
-        let model = RecoveryDialogModel(dialog: .microphoneStart)
-        let withText = RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true)
-        let withoutText = RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false)
-        model.present(withText)
-        let presentation = model.presentation
-        await model.armDefaultButton(for: presentation, after: .zero) { _ in }
-        model.update(withoutText)
-        XCTAssertEqual(model.dialog, withoutText)
-        XCTAssertEqual(model.presentation, presentation)
-        XCTAssertTrue(model.isDefaultButtonArmed)
-    }
-
-    // #72: the paste button waits like the dialogs, and the window never offers it before access is there.
-    func testThePasteButtonIsArmedLikeTheDialogs() throws {
-        let welcome = try source("WelcomeView.swift")
-        XCTAssertTrue(welcome.contains("try? await Task.sleep(for: RecoveryDialog.defaultButtonDelay)"))
-        XCTAssertTrue(welcome.contains(".keyboardShortcut(isPasteArmed && !isTryItFocused ? .defaultAction : nil)"))
-        XCTAssertTrue(welcome.contains(".accessibilityFocused($isPasteFocused)"))
     }
 
     // A wait left over from an earlier presentation doesn't arm the new one early.
@@ -136,11 +112,11 @@ final class WelcomeTryItTests: XCTestCase {
         let state = WelcomeState(modelLoadingStatus: .ready)
         state.willShow(forRecovery: true, isAlreadyOpen: false)
         state.tryItText = "Dikterad text"
-        state.blockedPaste = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 1)
+        state.isPasteBlocked = true
         state.didClose()
         XCTAssertEqual(state.tryItText, "")
         XCTAssertFalse(state.isRecovery)
-        XCTAssertNil(state.blockedPaste)
+        XCTAssertFalse(state.isPasteBlocked)
     }
 
     // The field's text lives in the state the controller clears, not in view state that outlives a close.
@@ -152,5 +128,20 @@ final class WelcomeTryItTests: XCTestCase {
         XCTAssertTrue(view.contains("tryItText: $state.tryItText"))
         XCTAssertTrue(controller.contains("state.willShow(forRecovery: forRecovery, isAlreadyOpen: window?.isVisible == true)"))
         XCTAssertTrue(controller.contains("state.didClose()"))
+    }
+}
+
+// #72: the note about a blocked paste follows Paste Last's text, and says so once it expires or is forgotten.
+@MainActor
+final class WelcomeBlockedPasteTests: XCTestCase {
+    func testTheNoteFollowsWhetherPasteLastStillHasTheText() {
+        var hasText = true
+        let state = WelcomeState(modelLoadingStatus: .ready, isTextKept: { hasText })
+        XCTAssertFalse(state.isTextKept, "nothing was blocked")
+        state.isPasteBlocked = true
+        XCTAssertTrue(state.isTextKept)
+        hasText = false
+        state.refresh()
+        XCTAssertFalse(state.isTextKept)
     }
 }

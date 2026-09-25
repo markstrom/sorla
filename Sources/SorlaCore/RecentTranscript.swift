@@ -8,15 +8,12 @@ public struct RecentTranscript: Equatable, Sendable {
     public private(set) var expiresAt: Date?
     // Bumped by forget(), so a transcription that was in flight when the Mac locked is dropped too.
     public private(set) var generation = 0
-    // Bumped by every store(), so a window about one text can tell when a newer one has taken its place.
-    public private(set) var revision = 0
 
     public init() {}
 
     public mutating func store(_ text: String, at now: Date) {
         self.text = text
         expiresAt = now.addingTimeInterval(Self.lifetime)
-        revision += 1
     }
 
     // Checked on every use as well, since a Mac that slept may have missed the one-shot expiry.

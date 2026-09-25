@@ -104,10 +104,10 @@ final class WelcomeLayoutTests: XCTestCase {
         }
     }
 
-    // #72, #75: granting access, copying the text or losing it changes the note's wording and buttons, not its size.
+    // #72, #75: granting access or the text expiring changes the note's wording, not its size.
     func testTheBlockedPasteNoteKeepsItsSizeInEveryState() throws {
         try inEachLanguage { language in
-            let expected = size(content(isTrusted: false, blockedPaste: .savedNeedsAccess))
+            let expected = size(content(isTrusted: false, blockedPaste: .kept))
             for note in BlockedPasteNote.allCases {
                 for isTrusted in [false, true] {
                     XCTAssertEqual(size(content(isTrusted: isTrusted, blockedPaste: note)), expected, "\(language): \(note), trusted \(isTrusted)")
@@ -129,10 +129,6 @@ final class WelcomeLayoutTests: XCTestCase {
     func testEveryButtonFitsWithItsFullTitleInBothLanguages() throws {
         try inEachLanguage { language in
             let titles = WelcomeRow.allCases.flatMap(\.possibleStatuses).compactMap(\.buttonTitle)
-            for title in [BlockedPasteNote.pasteTitle, BlockedPasteNote.copyTitle] {
-                let width = NSHostingView(rootView: Button(title) {}).fittingSize.width
-                XCTAssertLessThanOrEqual(width, WelcomePage.width / 2, "\(language): \(title)")
-            }
             XCTAssertFalse(titles.isEmpty)
             for title in titles {
                 let width = NSHostingView(rootView: Button(title) {}).fittingSize.width

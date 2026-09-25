@@ -12,20 +12,18 @@ final class WelcomeState: ObservableObject {
     // What was dictated into Try it here. Emptied whenever the window opens or closes, so an old test isn't taken
     // for a new result and no dictated text stays on screen (#78).
     @Published var tryItText = ""
-    // Set when a blocked paste opened the window (#72); what it says depends on where the text still is.
-    @Published var blockedPaste: BlockedPaste? {
-        didSet { refreshClipboard() }
+    // Set when a blocked paste opened the window (#72); what it says depends on whether Paste Last still has a text.
+    @Published var isPasteBlocked = false {
+        didSet { refreshTextKept() }
     }
-    @Published private(set) var isTextOnClipboard = false
     @Published private(set) var isTextKept = false
-    // The kept transcript's revision; it changes when a newer dictation replaces the text, and is nil once it is gone.
-    private let transcriptRevision: () -> Int?
+    private let hasKeptText: () -> Bool
     // The window's checks are the app's too: the menu bar icon's badge follows them (#76).
     var onPermissionsChange: (() -> Void)?
 
-    init(modelLoadingStatus: ModelLoadingStatus, transcriptRevision: @escaping () -> Int? = { nil }) {
+    init(modelLoadingStatus: ModelLoadingStatus, isTextKept: @escaping () -> Bool = { false }) {
         self.modelLoadingStatus = modelLoadingStatus
-        self.transcriptRevision = transcriptRevision
+        self.hasKeptText = isTextKept
     }
 
     // Opened for a blocked dictation or paste it is the setup checklist rather than a welcome (#72).
@@ -37,7 +35,7 @@ final class WelcomeState: ObservableObject {
 
     func didClose() {
         isRecovery = false
-        blockedPaste = nil
+        isPasteBlocked = false
         tryItText = ""
     }
 
@@ -47,16 +45,13 @@ final class WelcomeState: ObservableObject {
         let changed = microphone != self.microphone || isAccessibilityTrusted != self.isAccessibilityTrusted
         if microphone != self.microphone { self.microphone = microphone }
         if isAccessibilityTrusted != self.isAccessibilityTrusted { self.isAccessibilityTrusted = isAccessibilityTrusted }
-        refreshClipboard()
+        refreshTextKept()
         if changed { onPermissionsChange?() }
     }
 
-    // Copying something else takes the text off the clipboard, and then the window must stop saying it is there;
-    // Paste Last's expiry, a lock or a newer dictation likewise end what Sorla keeps.
-    private func refreshClipboard() {
-        let isTextOnClipboard = blockedPaste?.isOnClipboard(changeCount: NSPasteboard.general.changeCount) ?? false
-        if isTextOnClipboard != self.isTextOnClipboard { self.isTextOnClipboard = isTextOnClipboard }
-        let isTextKept = blockedPaste?.isKept(currentRevision: transcriptRevision()) ?? false
+    // Paste Last's expiry, a lock or the setting turned off end what Sorla keeps, and then the window says so.
+    private func refreshTextKept() {
+        let isTextKept = isPasteBlocked && hasKeptText()
         if isTextKept != self.isTextKept { self.isTextKept = isTextKept }
     }
 }
@@ -76,7 +71,6 @@ struct WelcomeContent: Equatable {
 
     var isReady: Bool { WelcomeChecklist.isReady(microphone: microphone, accessibility: accessibility, model: model) }
     var readinessLine: String { isReady ? readyLine : WelcomeChecklist.notReadyLine }
-    var offersPaste: Bool { blockedPaste?.offersPaste == true }
     var closeTitle: String { WelcomeChecklist.closeButtonTitle(isReady: isReady) }
 }
 
@@ -85,8 +79,6 @@ struct WelcomeView: View {
     @ObservedObject var appSettings: AppSettings
     @ObservedObject var modelManager: ModelManager
     let perform: (WelcomeAction) -> Void
-    let pasteBlockedText: () -> Void
-    let copyBlockedText: () -> Void
     // Goes through the app's queue, which holds speech back while the microphone is recording.
     let announce: (String) -> Void
     let onDone: () -> Void
@@ -109,9 +101,7 @@ struct WelcomeView: View {
                     loadFailed: state.modelLoadingStatus == .failed,
                     model: modelManager.status
                 ),
-                blockedPaste: state.blockedPaste.map { _ in
-                    BlockedPasteNote.current(isTextOnClipboard: state.isTextOnClipboard, isTextKept: state.isTextKept, isAccessibilityTrusted: state.isAccessibilityTrusted)
-                },
+                blockedPaste: state.isPasteBlocked ? BlockedPasteNote(isTextKept: state.isTextKept) : nil,
                 pasteLast: PasteLastRoute.current(
                     shortcut: KeyboardShortcuts.getShortcut(for: .pasteLastTranscription)?.description,
                     isVoiceOverRunning: isVoiceOverEnabled
@@ -130,8 +120,6 @@ struct WelcomeView: View {
             autoCheckUpdates: $appSettings.autoCheckUpdates,
             autoInstallUpdates: $appSettings.autoInstallUpdates,
             perform: perform,
-            pasteBlockedText: pasteBlockedText,
-            copyBlockedText: copyBlockedText,
             tryItText: $state.tryItText,
             announce: announce,
             onDone: onDone
@@ -147,16 +135,11 @@ struct WelcomePage: View {
     @Binding var autoCheckUpdates: Bool
     @Binding var autoInstallUpdates: Bool
     let perform: (WelcomeAction) -> Void
-    var pasteBlockedText: () -> Void = {}
-    var copyBlockedText: () -> Void = {}
     var tryItText: Binding<String> = .constant("")
     let announce: (String) -> Void
     let onDone: () -> Void
     @FocusState private var isTryItFocused: Bool
-    @AccessibilityFocusState private var isPasteFocused: Bool
-    @State private var isPasteArmed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.controlActiveState) private var controlActiveState
 
     static let width: CGFloat = 540
     static let padding: CGFloat = 28
@@ -208,91 +191,37 @@ struct WelcomePage: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: content)
         .onChange(of: content.isReady) { _, isReady in
             // The user may be in System Settings granting access, so the change is spoken rather than only shown.
-            // With a text waiting to be pasted, the paste button speaks for it instead.
-            guard isReady, !content.offersPaste else { return }
+            guard isReady else { return }
             isTryItFocused = true
             announce(content.readinessLine)
         }
-        .onChange(of: content.offersPaste) { _, offersPaste in
-            guard offersPaste else { return }
-            isPasteFocused = true
-            // Once, and only after VoiceOver has moved to the button, so the two don't talk over each other.
-            Task { @MainActor in
-                await Task.yield()
-                announce(BlockedPasteNote.readyAnnouncement)
-            }
-        }
-        // As in the dialogs, Return waits a moment after the button appears or the window comes forward:
-        // a key typed then was meant for System Settings or the app the user was in.
-        .task(id: PasteArming(isOffered: content.offersPaste, isKey: controlActiveState == .key)) {
-            isPasteArmed = false
-            guard content.offersPaste, controlActiveState == .key else { return }
-            try? await Task.sleep(for: RecoveryDialog.defaultButtonDelay)
-            guard !Task.isCancelled else { return }
-            isPasteArmed = true
-        }
-    }
-
-    private struct PasteArming: Hashable {
-        let isOffered: Bool
-        let isKey: Bool
     }
 
     private func pasteBlocked(_ note: BlockedPasteNote) -> some View {
-        // Room for every wording and button, so granting access or copying the text doesn't move the rows.
+        // Room for either wording, so the text expiring doesn't move the rows.
         ZStack(alignment: .topLeading) {
             ForEach(BlockedPasteNote.allCases, id: \.self) { other in
-                pasteNote(other, isShown: false).hidden().accessibilityHidden(true)
+                pasteNote(other).hidden().accessibilityHidden(true)
             }
-            pasteNote(note, isShown: true)
+            pasteNote(note)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
-    private func pasteNote(_ note: BlockedPasteNote, isShown: Bool) -> some View {
+    private func pasteNote(_ note: BlockedPasteNote) -> some View {
         Label {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(KeycapText.attributed(note.message, keys: ["⌘V"], font: .system(.footnote, design: .monospaced)))
-                    .fixedSize(horizontal: false, vertical: true)
-                if note.offersPaste {
-                    pasteButton(isShown: isShown)
-                    Text(KeycapText.attributed(
-                        BlockedPasteNote.pasteLastHint(content.pasteLast),
-                        keys: [content.pasteLast?.keys],
-                        font: .system(.caption2, design: .monospaced)
-                    ))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if note.offersCopy {
-                    Button(BlockedPasteNote.copyTitle, action: copyBlockedText)
-                        .accessibilityLabel(Text(verbatim: BlockedPasteNote.copyName))
-                        .accessibilityInputLabels([Text(verbatim: BlockedPasteNote.copyTitle), Text(verbatim: BlockedPasteNote.copyName)])
-                }
-            }
+            Text(KeycapText.attributed(
+                note.message(pasteLast: content.pasteLast),
+                keys: [content.pasteLast?.keys],
+                font: .system(.footnote, design: .monospaced)
+            ))
+                .fixedSize(horizontal: false, vertical: true)
         } icon: {
-            Image(systemName: "doc.on.clipboard").accessibilityHidden(true)
+            Image(systemName: "doc.text").accessibilityHidden(true)
         }
         .font(.callout)
-    }
-
-    // The window's primary action once it can paste; Return only after the delay, and never from Try it here.
-    @ViewBuilder
-    private func pasteButton(isShown: Bool) -> some View {
-        let button = Button(BlockedPasteNote.pasteTitle, action: pasteBlockedText)
-            .buttonStyle(.borderedProminent)
-            .accessibilityLabel(Text(verbatim: BlockedPasteNote.pasteName))
-            .accessibilityInputLabels([Text(verbatim: BlockedPasteNote.pasteTitle), Text(verbatim: BlockedPasteNote.pasteName)])
-        if isShown {
-            button
-                .keyboardShortcut(isPasteArmed && !isTryItFocused ? .defaultAction : nil)
-                .accessibilityFocused($isPasteFocused)
-        } else {
-            button
-        }
     }
 
     // Secondary to the checklist: the two switches from Settings › Updates, off until the user turns them on (#73).
@@ -346,7 +275,7 @@ struct WelcomePage: View {
             let closeTitle = content.closeTitle
             // Return while typing in Try it here stays in the field; "Not now" has no Return, so a stray key doesn't close it.
             Button(closeTitle, action: onDone)
-                .keyboardShortcut(content.isReady && !isTryItFocused && !content.offersPaste ? .defaultAction : nil)
+                .keyboardShortcut(content.isReady && !isTryItFocused ? .defaultAction : nil)
                 .accessibilityInputLabels([Text(verbatim: closeTitle)])
         }
         .padding(.top, 16)

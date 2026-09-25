@@ -210,11 +210,6 @@ public enum WelcomeChecklist {
         isReady ? String(localized: "Done", bundle: Localization.bundle) : RecoveryDialog.notNow
     }
 
-    // The window has the focus, so ⌘V only works back where the user was typing; closing it takes them there.
-    public static var textOnClipboardInWindow: String {
-        String(localized: "Your text is on the clipboard — close this window and press ⌘V where you were typing.", bundle: Localization.bundle)
-    }
-
     public static var updatesHeading: String { String(localized: "Updates", bundle: Localization.bundle) }
 
     // Why someone would turn each switch on; both stay off until they do (#73).

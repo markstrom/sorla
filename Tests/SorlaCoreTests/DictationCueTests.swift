@@ -21,12 +21,9 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: nil), "Your text is on the clipboard — press ⌘V")
     }
 
-    // VoiceOver users can't see the menu row, so the cue itself says a restart is needed.
-    func testAReplacedAppsClipboardCueAlsoAsksForARestart() {
-        let cue = DictationCue.textOnClipboardUntilRestart
-        XCTAssertEqual(cue.announcement(pasteLast: nil), "Your text is on the clipboard — press ⌘V. Restart Sorla to paste again")
-        XCTAssertEqual(cue.symbolName, DictationCue.textOnClipboard.symbolName)
-        XCTAssertEqual(cue.issue(pasteLast: nil), .textOnClipboard(pasteLast: nil))
+    // #72: the paste is dropped and the clipboard left alone, so the cue says what is needed; the restart dialog follows.
+    func testAReplacedAppsPasteAsksForARestart() {
+        XCTAssertEqual(DictationCue(issue: .appReplaced), .restartNeeded)
     }
 
     // Shown in place of the red dot, so a press on a replaced Sorla says why nothing is recorded (#43);
@@ -65,13 +62,16 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(DictationCue(issue: .noInputDevice)?.symbolName, "exclamationmark.triangle")
     }
 
-    func testMissingAccessibilityShowsTheClipboardCue() {
-        XCTAssertNil(DictationCue(issue: .accessibilityAccessNeeded), "the blocked paste's cue depends on where the text is")
-        XCTAssertEqual(DictationCue.blockedPaste(isTextOnClipboard: true), .textOnClipboard)
-        XCTAssertEqual(DictationCue.blockedPaste(isTextOnClipboard: false), .textKept)
+    // #72: a blocked paste never puts the text on the clipboard, so the cue only says whether Sorla kept it.
+    func testMissingAccessibilitySaysWhetherTheTextWasKept() {
+        XCTAssertNil(DictationCue(issue: .accessibilityAccessNeeded), "the blocked paste's cue depends on whether the text was kept")
+        XCTAssertEqual(DictationCue.blockedPaste(isTextKept: true), .textKept)
+        XCTAssertEqual(DictationCue.blockedPaste(isTextKept: false), .failed("Couldn't paste — the text wasn't saved"))
         XCTAssertEqual(DictationCue.textKept.announcement(pasteLast: .shortcut("⌃⌥V")), "Couldn't paste — Sorla has kept your text")
-        XCTAssertFalse(DictationCue.textKept.announcement(pasteLast: nil).contains("clipboard"))
-        XCTAssertNil(DictationCue.textKept.issue(pasteLast: nil))
+        for cue in [DictationCue.blockedPaste(isTextKept: true), .blockedPaste(isTextKept: false)] {
+            XCTAssertFalse(cue.announcement(pasteLast: nil).contains("clipboard"))
+            XCTAssertNil(cue.issue(pasteLast: nil))
+        }
     }
 
     // These have their own cue, or aren't the result of a dictation, so the menu row is enough.

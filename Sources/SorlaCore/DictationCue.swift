@@ -7,15 +7,13 @@ public enum DictationCue: Equatable, Sendable {
     case nothingHeard
     case noText
     case textOnClipboard
-    // A blocked paste whose text Sorla kept to itself, with the user's clipboard put back (#72).
+    // A blocked paste whose text Sorla kept for Paste Last; the clipboard is as the user left it (#72).
     case textKept
-    // Sorla was replaced on disk, so its own pastes won't work again until it restarts.
-    case textOnClipboardUntilRestart
     case releaseKeys
     // Paste Last asked for with nothing kept: it expired, was forgotten at a lock, or nothing was dictated yet.
     case nothingToPaste
     case cancelled
-    // Pressed on a replaced Sorla that can reopen itself: nothing is recorded until the user restarts it (#72).
+    // Sorla was replaced on disk: pressed when it can reopen itself nothing is recorded, and a paste is dropped (#72).
     case restartNeeded
     case waitingForModel(String)
     case failed(String)
@@ -30,16 +28,16 @@ public enum DictationCue: Equatable, Sendable {
         case .transcriptionFailed:
             self = .failed(String(localized: "Couldn't transcribe the recording", bundle: Localization.bundle))
         case .appReplaced:
-            self = .textOnClipboardUntilRestart
-        // Where the text ended up decides it; see blockedPaste(isTextOnClipboard:).
+            self = .restartNeeded
+        // Whether the text was kept decides it; see blockedPaste(isTextKept:).
         case .accessibilityAccessNeeded, .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
             return nil
         }
     }
 
-    // Never says the text is on the clipboard unless it is (#72).
-    public static func blockedPaste(isTextOnClipboard: Bool) -> DictationCue {
-        isTextOnClipboard ? .textOnClipboard : .textKept
+    // A blocked paste never touches the clipboard, so the text is either kept for Paste Last or gone (#72).
+    public static func blockedPaste(isTextKept: Bool) -> DictationCue {
+        isTextKept ? .textKept : .failed(String(localized: "Couldn't paste — the text wasn't saved", bundle: Localization.bundle))
     }
 
     public var symbolName: String {
@@ -47,7 +45,7 @@ public enum DictationCue: Equatable, Sendable {
         case .microphoneMuted: return "mic.slash"
         case .nothingHeard: return "waveform.slash"
         case .noText: return "minus"
-        case .textOnClipboard, .textOnClipboardUntilRestart: return "doc.on.clipboard"
+        case .textOnClipboard: return "doc.on.clipboard"
         case .textKept: return "doc.text"
         case .releaseKeys: return "keyboard"
         case .nothingToPaste: return "clipboard"
@@ -75,9 +73,6 @@ public enum DictationCue: Equatable, Sendable {
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
         case .textKept:
             return String(localized: "Couldn't paste — Sorla has kept your text", bundle: Localization.bundle)
-        case .textOnClipboardUntilRestart:
-            let onClipboard = DictationCue.textOnClipboard.announcement(pasteLast: pasteLast)
-            return onClipboard + ". " + String(localized: "Restart Sorla to paste again", bundle: Localization.bundle)
         case .releaseKeys:
             switch pasteLast {
             case .menu:
@@ -103,7 +98,7 @@ public enum DictationCue: Equatable, Sendable {
     public func issue(pasteLast: PasteLastRoute?) -> SorlaIssue? {
         switch self {
         case .microphoneMuted: return .microphoneMuted
-        case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteLast: pasteLast)
+        case .textOnClipboard: return .textOnClipboard(pasteLast: pasteLast)
         case .textKept, .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel, .failed: return nil
         }
     }

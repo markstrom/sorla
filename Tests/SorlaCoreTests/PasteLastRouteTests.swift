@@ -55,13 +55,9 @@ final class PasteLastRouteTests: XCTestCase {
     }
 
     func testTheSetupWindowsNote() {
-        XCTAssertEqual(BlockedPasteNote.pasteLastHint(keys), "Paste Last Transcription (⌃⌥V) also works now.")
-        XCTAssertEqual(BlockedPasteNote.pasteLastHint(voiceOver), "Paste Last Transcription in Sorla's menu (VO-M twice) also works now.")
-        XCTAssertEqual(BlockedPasteNote.pasteLastHint(nil), "Paste Last Transcription in Sorla's menu also works now.")
-    }
-
-    // Where Paste Last can't help (a blocked paste, a replaced app) the caller names no route, so ⌘V stays.
-    func testABlockedPasteStillSaysCommandVWithVoiceOver() {
-        XCTAssertEqual(DictationCue.textOnClipboardUntilRestart.announcement(pasteLast: nil), "Your text is on the clipboard — press ⌘V. Restart Sorla to paste again")
+        let saved = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription"
+        XCTAssertTrue(BlockedPasteNote.kept.message(pasteLast: keys).hasPrefix(saved + " (⌃⌥V)."))
+        XCTAssertTrue(BlockedPasteNote.kept.message(pasteLast: voiceOver).hasPrefix(saved + " in Sorla's menu (VO-M twice)."))
+        XCTAssertTrue(BlockedPasteNote.kept.message(pasteLast: nil).hasPrefix(saved + " in Sorla's menu."))
     }
 }

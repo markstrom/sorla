@@ -161,31 +161,9 @@ final class RecoveryProblemTests: XCTestCase {
         )
     }
 
-    func testABlockedPasteIsOnTheClipboardUntilSomethingElseIsCopied() {
-        let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: 7)
-        XCTAssertTrue(blocked.isOnClipboard(changeCount: 7))
-        XCTAssertFalse(blocked.isOnClipboard(changeCount: 8))
-        XCTAssertEqual(blocked.problem, .accessibility)
-        XCTAssertEqual(BlockedPaste(reason: .appReplaced, clipboardChangeCount: 1).problem, .restartRequired)
-    }
-
-    // #72: with the user's clipboard put back, the text is on it only after Copy Text.
-    func testAKeptTextIsOnTheClipboardOnlyOnceCopied() {
-        let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 3)
-        XCTAssertFalse(blocked.isOnClipboard(changeCount: 0))
-        XCTAssertFalse(blocked.isOnClipboard(changeCount: 9))
-        let copied = blocked.copied(clipboardChangeCount: 9)
-        XCTAssertTrue(copied.isOnClipboard(changeCount: 9))
-        XCTAssertEqual(copied.transcriptRevision, 3)
-    }
-
-    // A newer dictation, the expiry, a lock or Keep last transcription off all end what the window may offer.
-    func testAKeptTextIsOnlyTheSameTranscript() {
-        let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 3)
-        XCTAssertTrue(blocked.isKept(currentRevision: 3))
-        XCTAssertFalse(blocked.isKept(currentRevision: 4))
-        XCTAssertFalse(blocked.isKept(currentRevision: nil))
-        XCTAssertFalse(BlockedPaste(reason: .accessibility, clipboardChangeCount: 1).isKept(currentRevision: nil))
+    func testABlockedPasteNamesItsProblem() {
+        XCTAssertEqual(BlockedPaste.accessibility.problem, .accessibility)
+        XCTAssertEqual(BlockedPaste.appReplaced.problem, .restartRequired)
     }
 }
 
@@ -271,26 +249,34 @@ final class RecoveryDialogTests: XCTestCase {
     }
 
     func testTheRestartDialogExplainsWhyPastingStopped() {
-        let dialog = RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false)
+        let dialog = RecoveryDialog.restart(canRestart: true, isPasteBlocked: false)
         XCTAssertEqual(dialog.title, "Sorla needs to restart")
         XCTAssertEqual(dialog.message, "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy. Restarting opens the new version.")
         XCTAssertEqual(dialog.action, .restart)
         XCTAssertEqual(dialog.actionTitle, "Restart Sorla")
     }
 
-    func testTheRestartDialogMentionsTheClipboardOnlyWhenTheTextIsThere() {
+    // #72: Paste Last's text doesn't outlive the restart, and the clipboard was never used, so it is dictated again.
+    func testAfterABlockedPasteTheRestartDialogSaysToDictateAgain() {
+        let message = RecoveryDialog.restart(canRestart: true, isPasteBlocked: true).message
         XCTAssertEqual(
-            RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true).message,
-            "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy. Your text is on the clipboard — close this window and press ⌘V where you were typing. Restarting opens the new version."
+            message,
+            "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy. Restarting opens the new version. The text can't be kept across the restart, so dictate it again afterwards."
         )
+        XCTAssertFalse(message.contains("clipboard"))
+        XCTAssertFalse(message.contains("⌘V"))
     }
 
     // A copy that can't reopen itself is told the truth: quit, and open it from Applications.
     func testACopyThatCantReopenItselfOffersQuit() {
-        let dialog = RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false)
+        let dialog = RecoveryDialog.restart(canRestart: false, isPasteBlocked: false)
         XCTAssertEqual(dialog.action, .quit)
         XCTAssertEqual(dialog.actionTitle, "Quit Sorla")
         XCTAssertEqual(dialog.message, "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy. Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.")
+        XCTAssertEqual(
+            RecoveryDialog.restart(canRestart: false, isPasteBlocked: true).message,
+            dialog.message + " The text can't be kept across the restart, so dictate it again afterwards."
+        )
     }
 }
 
@@ -369,31 +355,5 @@ final class QuietRestartTests: XCTestCase {
         XCTAssertEqual(restarts, 1)
         XCTAssertEqual(failures, 1)
         XCTAssertFalse(restart.isPending)
-    }
-}
-
-// #72: a test in Set Up Sorla's Try it here mustn't take the place of the text waiting to be pasted back.
-final class BlockedPasteTestDictationTests: XCTestCase {
-    private let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 3)
-
-    func testADictationIntoTheSetupWindowWhileTheTextIsKeptIsATest() {
-        XCTAssertTrue(blocked.makesTest(isSetupWindowKey: true, currentRevision: 3))
-    }
-
-    func testAnywhereElseItIsTheUsersNewText() {
-        XCTAssertFalse(blocked.makesTest(isSetupWindowKey: false, currentRevision: 3))
-    }
-
-    // Once the text is gone or replaced there is nothing to protect.
-    func testNothingKeptMeansNoTest() {
-        XCTAssertFalse(blocked.makesTest(isSetupWindowKey: true, currentRevision: nil))
-        XCTAssertFalse(blocked.makesTest(isSetupWindowKey: true, currentRevision: 4))
-        XCTAssertFalse(BlockedPaste(reason: .accessibility, clipboardChangeCount: 7, transcriptRevision: nil).makesTest(isSetupWindowKey: true, currentRevision: nil))
-    }
-
-    // A replaced Sorla can't paste even into its own window; that text lives on the clipboard.
-    func testAReplacedAppsTextIsNotProtected() {
-        let replaced = BlockedPaste(reason: .appReplaced, clipboardChangeCount: 7, transcriptRevision: 3)
-        XCTAssertFalse(replaced.makesTest(isSetupWindowKey: true, currentRevision: 3))
     }
 }

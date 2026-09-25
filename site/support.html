@@ -104,7 +104,7 @@
     <p>Om fokus var fel när du släppte tangenten: <code>⌃⌥V</code> klistrar in senaste texten där du står nu. Kortkommandot går att ändra i Inställningar. Texten finns kvar i fem minuter och glöms direkt om skärmen låses eller Macen går i vila. Vill du inte att Sorla håller kvar texten stänger du av <strong>Spara senaste transkriberingen</strong> i Inställningar. Då går det inte att klistra in senaste transkriberingen, men dikteringen klistrar in som vanligt. Inställningen gäller bara det Sorla själv sparar; urklippet styrs för sig, se <a href="#urklipp">Urklipp</a>.</p>
 
     <h3 id="urklipp">Urklipp</h3>
-    <p>Sorla lånar urklippet för att klistra in texten och lägger sedan tillbaka det du hade kopierat. Det går att stänga av med <strong>Lägg tillbaka det du hade kopierat</strong> i Inställningar, och då ligger texten kvar i urklippet. Texten ligger också kvar där när Sorla inte kunde klistra in den för att du hade bytt app. Saknas behörigheten för att klistra in följer Sorla samma inställning, se <a href="#blockerad">Texten du dikterade när inklistringen stoppades</a>.</p>
+    <p>Sorla lånar urklippet för att klistra in texten och lägger sedan tillbaka det du hade kopierat. Det går att stänga av med <strong>Lägg tillbaka det du hade kopierat</strong> i Inställningar, och då ligger texten kvar i urklippet. Texten ligger också kvar där när Sorla inte kunde klistra in den för att du hade bytt app. Stoppas inklistringen för att behörigheten saknas lägger Sorla alltid tillbaka det du hade kopierat, se <a href="#blockerad">Texten du dikterade när inklistringen stoppades</a>.</p>
 
     <h3 id="voiceover">Sorla med VoiceOver</h3>
     <p>Sorla går att använda helt utan att se skärmen. Här är det du hör och de tangenter du behöver.</p>
@@ -187,19 +187,17 @@
     <h3 id="ingen-text">Ingen text klistras in</h3>
     <ol>
       <li><strong>Var du kvar i samma app?</strong> Sorla klistrar bara in om appen du dikterade i fortfarande är aktiv när texten är klar, och markören behöver stå där det går att skriva. Bytte du app ligger texten i urklippet: tryck <code>⌘V</code>, eller <code>⌃⌥V</code> för att klistra in senaste transkriberingen där du står nu.</li>
-      <li><strong>Öppnade Sorla fönstret Ställ in Sorla?</strong> Då saknas behörigheten Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS). Klicka på <strong>Öppna Systeminställningar</strong> på raden Automatisk inklistring och slå på reglaget för Sorla. Texten du dikterade är inte borta, se nedan.</li>
+      <li><strong>Öppnade Sorla fönstret Ställ in Sorla?</strong> Då saknas behörigheten Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS). Klicka på <strong>Öppna Systeminställningar</strong> på raden Automatisk inklistring och slå på reglaget för Sorla. Vad som hände med texten du dikterade står nedan.</li>
       <li><strong>Är reglaget redan på men raden saknar bock?</strong> Avsluta Sorla och öppna den igen från Program. Hjälper inte det, se <a href="#hjalpmedel">Om reglaget är på men raden saknar bock</a>.</li>
       <li><strong>Har symbolen i menyraden en liten pil?</strong> Då har Sorla bytts ut medan den var igång och behöver startas om, se <a href="#starta-om">När Sorla behöver startas om</a>.</li>
     </ol>
 
     <h4 id="blockerad">Texten du dikterade när inklistringen stoppades</h4>
-    <p>Kunde Sorla känna igen texten men inte klistra in den för att behörigheten saknas, tar Sorla vara på texten, och fönstret Ställ in Sorla säger var den finns. Resten beror på inställningen <strong>Lägg tillbaka det du hade kopierat</strong>:</p>
+    <p>Kunde Sorla känna igen texten men inte klistra in den för att behörigheten saknas, lämnar Sorla urklippet som det var: det du hade kopierat ligger kvar, vad inställningen <strong>Lägg tillbaka det du hade kopierat</strong> än säger. Texten sparas bara som <a href="#senaste">senaste transkriberingen</a>, på samma villkor som annars: i fem minuter, den glöms direkt om skärmen låses eller Macen går i vila, och den sparas inte alls om <strong>Spara senaste transkriberingen</strong> är avstängd.</p>
     <ul>
-      <li><strong>På</strong> (från början): det du hade kopierat ligger kvar i urklippet, och Sorla sparar texten i några minuter. Knappen <strong>Kopiera texten</strong> lägger den i urklippet, men bara om du klickar på den. Klicka sedan där du vill skriva och tryck <code>⌘V</code>.</li>
-      <li><strong>Av</strong>: texten ligger i urklippet. Fönstret säger ”Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck <code>⌘V</code>.”, men bara så länge texten faktiskt ligger där.</li>
+      <li><strong>Är texten sparad</strong> säger fönstret Ställ in Sorla ”Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen (<code>⌃⌥V</code>).” Med VoiceOver igång står det i stället att du väljer Klistra in senaste transkriberingen i Sorlas meny (<code>VO-M</code> två gånger). En provdiktering i <strong>Prova här</strong> blir den senaste transkriberingen och ersätter den sparade texten.</li>
+      <li><strong>Är texten inte sparad</strong>, eller inte längre kvar, säger fönstret ”Texten kunde inte sparas. Ge behörigheten och diktera igen.”</li>
     </ul>
-    <p>Ger du behörigheten medan fönstret är öppet visas i stället knappen <strong>Klistra in där du skrev</strong>. Den stänger fönstret, går tillbaka till appen du skrev i och klistrar in texten där, och lägger sedan tillbaka urklippet som vanligt. Provar du först i <strong>Prova här</strong> hamnar provet bara i fältet, och knappen klistrar fortfarande in det du dikterade från början. Från och med då fungerar också <a href="#senaste">Klistra in senaste transkriberingen</a> (<code>⌃⌥V</code>).</p>
-    <p>Finns texten inte längre kvar, efter fem minuter, när skärmen har låsts eller efter en nyare diktering, står det i fönstret, och då behöver du diktera igen. Är <strong>Spara senaste transkriberingen</strong> avstängd har Sorla ingen annanstans att spara texten, så då ligger den i urklippet.</p>
 
     <h4 id="hjalpmedel">Om reglaget är på men raden saknar bock</h4>
     <p>macOS kopplar behörigheten Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS) till en viss kopia av appen. Har Sorla körts från en annan plats, eller finns en äldre version kvar i listan, kan reglaget vara på utan att det gäller den Sorla du kör nu.</p>
@@ -263,7 +261,7 @@
     <p>Har du installerat Sorla med Homebrew uppdaterar du med <code>brew upgrade --cask sorla</code>, så att Homebrew vet vilken version du har.</p>
 
     <h3 id="starta-om">När Sorla behöver startas om</h3>
-    <p>Byter du ut <code>Sorla.app</code> medan Sorla är igång kan den gamla Sorla inte klistra in längre. Menyradsikonen får då en liten pil, och nästa gång du trycker på tangenten visar indikatorn en pil i stället för att spela in. Ett fönster förklarar varför och frågar om Sorla ska startas om: <strong>Starta om Sorla</strong> eller <strong>Inte nu</strong>. Sorla startar bara om när du väljer det, och väntar tills en pågående diktering är inklistrad. Kan Sorla inte öppna sig själv igen, till exempel när den körs direkt från Hämtade filer, ber fönstret dig avsluta Sorla och öppna den från Program.</p>
+    <p>Byter du ut <code>Sorla.app</code> medan Sorla är igång kan den gamla Sorla inte klistra in längre. Menyradsikonen får då en liten pil, och nästa gång du trycker på tangenten visar indikatorn en pil i stället för att spela in. Ett fönster förklarar varför och frågar om Sorla ska startas om: <strong>Starta om Sorla</strong> eller <strong>Inte nu</strong>. Sorla startar bara om när du väljer det, och väntar tills en pågående diktering är inklistrad. Kan Sorla inte öppna sig själv igen, till exempel när den körs direkt från Hämtade filer, ber fönstret dig avsluta Sorla och öppna den från Program. Stoppades en inklistring för att Sorla hade bytts ut rör Sorla inte urklippet, och texten kan inte sparas över omstarten, så diktera den igen efteråt.</p>
 
     <h2 id="avinstallera">Avinstallera</h2>
     <p>Avsluta Sorla, flytta appen till papperskorgen och ta bort mappen <code class="path" data-copy="~/Library/Application Support/Sorla">~/Library/Application Support/Sorla</code>, där talmodellen ligger.</p>

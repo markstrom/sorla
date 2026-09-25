@@ -26,18 +26,6 @@ final class RecentTranscriptTests: XCTestCase {
         XCTAssertNil(recent.text(at: start), "an expired text stays gone even if the clock goes back")
     }
 
-    // #72: the window about a blocked paste tells its own text from a newer one by this.
-    func testEachStoreIsANewRevision() {
-        var recent = RecentTranscript()
-        XCTAssertEqual(recent.revision, 0)
-        recent.store("första", at: start)
-        XCTAssertEqual(recent.revision, 1)
-        recent.store("andra", at: start)
-        XCTAssertEqual(recent.revision, 2)
-        recent.forget()
-        XCTAssertEqual(recent.revision, 2)
-    }
-
     func testANewerTranscriptReplacesTheTextAndRestartsTheExpiry() {
         var recent = RecentTranscript()
         recent.store("första", at: start)

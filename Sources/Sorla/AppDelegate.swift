@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var didMicrophoneFailToStart = false
     private var recovery = RecoveryPrompts()
     private var recoveryDialogController: RecoveryDialogController?
-    // The last paste macOS would have dropped, for the recovery window to say where the text is.
+    // The last paste macOS would have dropped, for the recovery window to say what happened to the text.
     private var blockedPaste: BlockedPaste?
     private var didRelaunchFail = false
     private var quietRestart: QuietRestart!
@@ -215,14 +215,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         recordingController.onPasteBlocked = { [weak self] blocked in
             self?.pasteWasBlocked(blocked)
-        }
-        // Testing in Set Up Sorla after granting access mustn't replace the text waiting to be pasted back (#72).
-        recordingController.isTestDictation = { [weak self] in
-            guard let self, let blocked = self.blockedPaste else { return false }
-            return blocked.makesTest(
-                isSetupWindowKey: self.welcomeWindowController?.isKey == true,
-                currentRevision: self.recordingController.lastTranscriptRevision()
-            )
         }
 
         let triggerMonitor = TriggerMonitor(
@@ -455,9 +447,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 appSettings: appSettings,
                 modelManager: modelManager,
                 modelLoadingStatus: modelLoadingStatus,
-                transcriptRevision: { [weak self] in self?.recordingController.lastTranscriptRevision() },
-                pasteBlockedText: { [weak self] in self?.pasteBlockedText() },
-                copyBlockedText: { [weak self] in self?.copyBlockedText() },
+                isTextKept: { [weak self] in self?.recordingController.lastTranscript() != nil },
                 announce: { [weak self] text in self?.announce(text) }
             )
             controller.onClose = { [weak self] in
@@ -469,34 +459,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             welcomeWindowController = controller
         }
-        welcomeWindowController?.state.blockedPaste = blockedPaste?.reason == .accessibility ? blockedPaste : nil
+        welcomeWindowController?.state.isPasteBlocked = blockedPaste == .accessibility
         rememberFrontmostApp()
         welcomeWindowController?.show(forRecovery: forRecovery)
-    }
-
-    // Once access is there, the text Sorla kept goes back where the user was typing, by the Paste Last path:
-    // the window closes, that app comes forward, keys are let go, and the clipboard is put back afterwards (#72).
-    private func pasteBlockedText() {
-        welcomeWindowController?.close()
-        guard let previousApp else {
-            Self.logger.info("blocked text not pasted (no app to paste into)")
-            return
-        }
-        recordingController.pasteLastTranscript {
-            guard await Self.activate(previousApp, timeout: Self.activationTimeout) else { return .abandoned }
-            return await ModifierRelease.wait(isHeld: {
-                !NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
-            })
-        }
-    }
-
-    // Only this click puts the kept text on the clipboard; after it the window may say so.
-    private func copyBlockedText() {
-        guard let blocked = blockedPaste,
-              let changeCount = recordingController.copyLastTranscript(revision: blocked.transcriptRevision)
-        else { return }
-        blockedPaste = blocked.copied(clipboardChangeCount: changeCount)
-        welcomeWindowController?.state.blockedPaste = blockedPaste
     }
 
     private func recoveryDialog(for surface: RecoverySurface) -> RecoveryDialog? {
@@ -504,8 +469,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .microphoneStart:
             return .microphoneStart
         case .restart:
-            let isTextOnClipboard = blockedPaste.map { $0.reason == .appReplaced && $0.isOnClipboard(changeCount: NSPasteboard.general.changeCount) } ?? false
-            return .restart(canRestart: canRestart, isTextOnClipboard: isTextOnClipboard)
+            return .restart(canRestart: canRestart, isPasteBlocked: blockedPaste == .appReplaced)
         case .setup:
             return nil
         }
@@ -519,7 +483,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let controller = RecoveryDialogController()
             controller.onAction = { [weak self] action in self?.performRecoveryAction(action) }
             controller.onClose = { [weak self] surface, byAction in self?.recoveryWindowClosed(surface, byAction: byAction) }
-            controller.currentDialog = { [weak self] surface in self?.recoveryDialog(for: surface) }
             recoveryDialogController = controller
         }
         rememberFrontmostApp()
@@ -580,9 +543,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Found only once the text was recognized, so the window comes after it (#72).
     private func pasteWasBlocked(_ blocked: BlockedPaste) {
         blockedPaste = blocked
-        if blocked.reason == .accessibility {
-            // Paste Last needs the same access, so only ⌘V is named, and only while the text is on the clipboard.
-            presentCue(.blockedPaste(isTextOnClipboard: blocked.isOnClipboard(changeCount: NSPasteboard.general.changeCount)), pasteLast: nil)
+        if blocked == .accessibility {
+            // The window that follows says how to paste it once access is there.
+            presentCue(.blockedPaste(isTextKept: recordingController.lastTranscript() != nil), pasteLast: nil)
         }
         performRecovery(recoveryDecision(for: blocked.problem))
     }
@@ -911,7 +874,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // A window that opens now is read out by VoiceOver itself, so the cue is only shown.
     private func refuseDictation(_ refusal: DictationRefusal) {
         Self.logger.info("dictation refused: \(refusal.cue.symbolName, privacy: .public)")
-        // A text left on the clipboard earlier isn't what this attempt is about.
+        // A paste blocked earlier isn't what this attempt is about.
         blockedPaste = nil
         let decision = refusal.problem.map(recoveryDecision) ?? .none
         presentCue(refusal.cue, pasteLast: currentPasteLast, announces: !decision.opensWindow)
@@ -932,9 +895,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if isStartingRecording {
                 startFailure = DictationRefusal(cue: cue, problem: RecoveryProblem(startFailure: issue))
             } else {
-                // Paste Last posts ⌘V too, so without Accessibility or after a replacement only the user's own ⌘V works.
-                let isPasteBlocked = issue == .accessibilityAccessNeeded || issue == .appReplaced
-                presentCue(cue, pasteLast: isPasteBlocked ? nil : currentPasteLast)
+                presentCue(cue, pasteLast: currentPasteLast)
             }
         }
         updateStatusMenuItem()

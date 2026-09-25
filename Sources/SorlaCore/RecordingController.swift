@@ -50,11 +50,8 @@ public final class RecordingController {
     public var onIssue: ((SorlaIssue) -> Void)?
     // Asked just before each ⌘V: a replaced app's paste would be dropped without a word.
     public var isAppReplaced: () -> Bool = { false }
-    // After the issue: the text was left on the clipboard, and this says how to tell it is still there (#72).
+    // After the issue, once the clipboard is as the user left it; the text is only kept as Paste Last's (#72).
     public var onPasteBlocked: ((BlockedPaste) -> Void)?
-    // Asked at release. A test in the setup window's Try it here, while a blocked text waits to be pasted back, is
-    // pasted into the field but not kept, so it doesn't take that text's place (#72; BlockedPaste.makesTest).
-    public var isTestDictation: @MainActor () -> Bool = { false }
 
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
@@ -247,7 +244,6 @@ public final class RecordingController {
 
         let released = Date()
         let frontmostPIDAtRelease = pasteEnvironment.frontmostProcessID
-        let isTest = isTestDictation()
 
         dictationJobs[dictationID] = Task { @MainActor in
             let result = await self.transcribe(
@@ -261,8 +257,7 @@ public final class RecordingController {
                 generation: generation,
                 result: result,
                 frontmostPIDAtRelease: frontmostPIDAtRelease,
-                released: released,
-                isTest: isTest
+                released: released
             ))
         }
         return true
@@ -281,7 +276,6 @@ public final class RecordingController {
         let result: DictationResult
         let frontmostPIDAtRelease: pid_t?
         let released: Date
-        let isTest: Bool
     }
 
     // The audio lives only in here, so it is let go as soon as the transcription is done.
@@ -442,7 +436,7 @@ public final class RecordingController {
         case .failed:
             onIssue?(.transcriptionFailed)
         case .text(let text, let audioSeconds):
-            if !finished.isTest { keepLastTranscript(text) }
+            keepLastTranscript(text)
             guard PasteService.shouldAutoPaste(
                 frontmostPIDAtRelease: finished.frontmostPIDAtRelease,
                 frontmostPIDAtDelivery: pasteEnvironment.frontmostProcessID
@@ -452,7 +446,7 @@ public final class RecordingController {
                 onCue?(.textOnClipboard)
                 return
             }
-            guard !leaveOnClipboardIfReplaced(text) else { return }
+            guard !blockIfReplaced() else { return }
 
             let outcome = issuePaste(text)
             updatePhase { $0.finish(dictationID) }
@@ -463,17 +457,6 @@ public final class RecordingController {
 
     public func lastTranscript(at now: Date = Date()) -> String? {
         recentTranscript.text(at: now)
-    }
-
-    public func lastTranscriptRevision(at now: Date = Date()) -> Int? {
-        recentTranscript.text(at: now) == nil ? nil : recentTranscript.revision
-    }
-
-    // Copy Text in the window about a blocked paste: the clipboard only changes because the user asked (#72).
-    // Returns the clipboard's change count, or nil when that text is no longer kept.
-    public func copyLastTranscript(revision: Int?) -> Int? {
-        guard let revision, revision == lastTranscriptRevision(), let text = lastTranscript() else { return nil }
-        return pasteEnvironment.write(text, transient: false)
     }
 
     // One one-shot expiry per transcript, replaced by the next one, so nothing runs while idle.
@@ -542,7 +525,7 @@ public final class RecordingController {
                     self.onCue?(.releaseKeys)
                     return
                 }
-                guard !self.leaveOnClipboardIfReplaced(text) else { return }
+                guard !self.blockIfReplaced() else { return }
                 let outcome = self.issuePaste(text)
                 self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
                 self.restoreClipboard(after: outcome)
@@ -550,13 +533,12 @@ public final class RecordingController {
         }
     }
 
-    private func leaveOnClipboardIfReplaced(_ text: String) -> Bool {
+    // macOS would drop the ⌘V, so the clipboard isn't touched at all; the text stays kept until the restart (#72).
+    private func blockIfReplaced() -> Bool {
         guard isAppReplaced() else { return false }
-        let changeCount = pasteEnvironment.write(text, transient: false)
         logger.info("paste skipped (Sorla was replaced on disk)")
         onIssue?(.appReplaced)
-        // Only the clipboard outlives the restart this needs, so the text stays there whatever the setting.
-        onPasteBlocked?(BlockedPaste(reason: .appReplaced, clipboardChangeCount: changeCount, transcriptRevision: lastTranscriptRevision()))
+        onPasteBlocked?(.appReplaced)
         return true
     }
 
@@ -567,7 +549,7 @@ public final class RecordingController {
 
     private struct PasteOutcome {
         let pasted: Bool
-        let generation: Int?
+        let generation: Int
         let changeCountAfterWrite: Int
         let keepClipboardContent: Bool
     }
@@ -576,13 +558,10 @@ public final class RecordingController {
     private func issuePaste(_ text: String) -> PasteOutcome {
         let keepClipboardContent = self.keepClipboardContent
         let pasteEnvironment = self.pasteEnvironment
-        let generation: Int? = keepClipboardContent
-            ? clipboardOwnership.begin(changeCount: pasteEnvironment.changeCount) { pasteEnvironment.snapshot() }.generation
-            : nil
+        // Taken whatever the setting, since a blocked paste puts the clipboard back regardless (#72).
+        let generation = clipboardOwnership.begin(changeCount: pasteEnvironment.changeCount) { pasteEnvironment.snapshot() }.generation
         let changeCountAfterWrite = pasteEnvironment.write(text, transient: keepClipboardContent)
-        if let generation {
-            clipboardOwnership.didWrite(changeCount: changeCountAfterWrite, generation: generation)
-        }
+        clipboardOwnership.didWrite(changeCount: changeCountAfterWrite, generation: generation)
         let pasted = pasteEnvironment.paste()
         if pasted {
             lastPasteAt = now()
@@ -606,8 +585,10 @@ public final class RecordingController {
 
     // Once the paste has had time to land, puts back the user's clipboard unless it was superseded or changed.
     private func restoreClipboard(after outcome: PasteOutcome) {
-        guard outcome.pasted else { return keepBlockedText(after: outcome) }
-        guard let generation = outcome.generation else { return }
+        guard outcome.pasted else { return putBackClipboard(after: outcome) }
+        let generation = outcome.generation
+        // "Put back what you had copied" off: the pasted text stays on the clipboard.
+        guard outcome.keepClipboardContent else { return clipboardOwnership.cancel(generation: generation) }
         pendingClipboardRestores += 1
         clipboardRestore = Task { @MainActor in
             defer { self.pendingClipboardRestores -= 1 }
@@ -631,25 +612,15 @@ public final class RecordingController {
         }
     }
 
-    // Nothing reached the app (#72). With "Put back what you had copied" on, the user's clipboard goes back at once
-    // and only Sorla holds the text, for Paste Last and the window's buttons; with it off, or with nothing kept
-    // (Keep last transcription off), the text stays on the clipboard for the user's own ⌘V.
-    private func keepBlockedText(after outcome: PasteOutcome) {
-        let revision = lastTranscriptRevision()
-        var clipboardChangeCount: Int? = outcome.changeCountAfterWrite
-        if let generation = outcome.generation {
-            if revision != nil, case .evaluate(let original) = clipboardOwnership.finish(generation: generation) {
-                if pasteEnvironment.changeCount == outcome.changeCountAfterWrite {
-                    pasteEnvironment.restore(original)
-                    clipboardChangeCount = nil
-                    logger.info("clipboard restored (paste blocked, text kept)")
-                }
-            } else {
-                clipboardOwnership.cancel(generation: generation)
-                logger.info("clipboard kept (not pasted)")
-            }
+    // Nothing reached the app, so there was no paste to leave the text from: the user's clipboard goes back at once,
+    // whatever the setting, and the text is only kept as Paste Last's, by its usual rules (#72).
+    private func putBackClipboard(after outcome: PasteOutcome) {
+        if case .evaluate(let original) = clipboardOwnership.finish(generation: outcome.generation),
+           pasteEnvironment.changeCount == outcome.changeCountAfterWrite {
+            pasteEnvironment.restore(original)
+            logger.info("clipboard restored (paste blocked)")
         }
-        onPasteBlocked?(BlockedPaste(reason: .accessibility, clipboardChangeCount: clipboardChangeCount, transcriptRevision: revision))
+        onPasteBlocked?(.accessibility)
     }
 
     static let pasteSettleTime: Duration = .milliseconds(500)

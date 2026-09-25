@@ -14,12 +14,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         appSettings: AppSettings,
         modelManager: ModelManager,
         modelLoadingStatus: ModelLoadingStatus,
-        transcriptRevision: @escaping () -> Int?,
-        pasteBlockedText: @escaping () -> Void,
-        copyBlockedText: @escaping () -> Void,
+        isTextKept: @escaping () -> Bool,
         announce: @escaping (String) -> Void
     ) {
-        self.state = WelcomeState(modelLoadingStatus: modelLoadingStatus, transcriptRevision: transcriptRevision)
+        self.state = WelcomeState(modelLoadingStatus: modelLoadingStatus, isTextKept: isTextKept)
         self.appSettings = appSettings
         self.modelManager = modelManager
 
@@ -38,8 +36,6 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
             appSettings: appSettings,
             modelManager: modelManager,
             perform: { [weak self] action in self?.perform(action) },
-            pasteBlockedText: pasteBlockedText,
-            copyBlockedText: copyBlockedText,
             announce: announce,
             onDone: { [weak self] in self?.close() }
         ))

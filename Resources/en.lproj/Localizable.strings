@@ -177,7 +177,6 @@
 "Hard to hold a key down? Choose Toggle under Mode in Settings." = "Hard to hold a key down? Choose Toggle under Mode in Settings.";
 "Sorla has been updated — Restart" = "Sorla has been updated — Restart";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla has been updated — Quit and open it from Applications";
-"Restart Sorla to paste again" = "Restart Sorla to paste again";
 "Dictation" = "Dictation";
 "Pasting" = "Pasting";
 "General" = "General";
@@ -220,8 +219,6 @@
 "Restarting opens the new version." = "Restarting opens the new version.";
 "Restart Sorla" = "Restart Sorla";
 "Fix the items above to try dictation." = "Fix the items above to try dictation.";
-"The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V." = "The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V.";
-"Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Your text is on the clipboard — close this window and press ⌘V where you were typing.";
 "Set Up Sorla" = "Set Up Sorla";
 
 /* Welcome window rows and update switches (#73, #75) */
@@ -237,15 +234,11 @@
 "Installs them when you haven't dictated for a while. Needs automatic checks." = "Installs them when you haven't dictated for a while. Needs automatic checks.";
 
 /* A blocked paste in Set Up Sorla (#72) */
-"The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was.";
-"Sorla can paste now. Your text is ready." = "Sorla can paste now. Your text is ready.";
-"The text is no longer kept. Dictate it again." = "The text is no longer kept. Dictate it again.";
-"Paste Last Transcription in Sorla's menu also works now." = "Paste Last Transcription in Sorla's menu also works now.";
-"Paste Last Transcription in Sorla's menu (VO-M twice) also works now." = "Paste Last Transcription in Sorla's menu (VO-M twice) also works now.";
-"Paste Last Transcription (%@) also works now." = "Paste Last Transcription (%@) also works now.";
-"Paste Where You Were Typing" = "Paste Where You Were Typing";
-"Close this window and paste the text where you were typing" = "Close this window and paste the text where you were typing";
-"Copy Text" = "Copy Text";
-"Copy the text to the clipboard" = "Copy the text to the clipboard";
-"Sorla can paste now: %@." = "Sorla can paste now: %@.";
 "Couldn't paste — Sorla has kept your text" = "Couldn't paste — Sorla has kept your text";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription (%@)." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription (%@).";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu (VO-M twice)." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu (VO-M twice).";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu.";
+"A test dictation in Try it here replaces the saved text." = "A test dictation in Try it here replaces the saved text.";
+"The text couldn't be saved. Grant the permission and dictate again." = "The text couldn't be saved. Grant the permission and dictate again.";
+"Couldn't paste — the text wasn't saved" = "Couldn't paste — the text wasn't saved";
+"The text can't be kept across the restart, so dictate it again afterwards." = "The text can't be kept across the restart, so dictate it again afterwards.";

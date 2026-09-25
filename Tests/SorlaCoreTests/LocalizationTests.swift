@@ -175,29 +175,20 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(RecoveryDialog.microphoneStart.actionTitle, "Öppna inställningar för Ljud")
             XCTAssertEqual(RecoveryDialog.notNow, "Inte nu")
             XCTAssertEqual(
-                RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true).message,
-                "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev. När Sorla startar om öppnas den nya versionen."
+                RecoveryDialog.restart(canRestart: true, isPasteBlocked: true).message,
+                "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian. När Sorla startar om öppnas den nya versionen. Texten kan inte sparas över omstarten, så diktera den igen efteråt."
             )
-            XCTAssertEqual(RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false).actionTitle, "Starta om Sorla")
-            XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false).actionTitle, "Avsluta Sorla")
+            XCTAssertEqual(RecoveryDialog.restart(canRestart: true, isPasteBlocked: false).actionTitle, "Starta om Sorla")
+            XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isPasteBlocked: false).actionTitle, "Avsluta Sorla")
             XCTAssertEqual(
-                BlockedPasteNote.onClipboardNeedsAccess.message,
-                "Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck ⌘V."
+                BlockedPasteNote.kept.message(pasteLast: .shortcut("⌃⌥V")),
+                "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen (⌃⌥V). En provdiktering i Prova här ersätter den sparade texten."
             )
             XCTAssertEqual(
-                BlockedPasteNote.savedNeedsAccess.message,
-                "Texten är klar men kunde inte klistras in automatiskt. Sorla sparar texten i några minuter och har låtit urklippet vara som det var."
+                BlockedPasteNote.kept.message(pasteLast: nil),
+                "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen i Sorlas meny. En provdiktering i Prova här ersätter den sparade texten."
             )
-            XCTAssertEqual(BlockedPasteNote.readyToPaste.message, "Sorla kan klistra in nu. Texten är klar.")
-            XCTAssertEqual(BlockedPasteNote.onClipboard.message, "Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck ⌘V.")
-            XCTAssertEqual(BlockedPasteNote.gone.message, "Texten finns inte längre kvar. Diktera den igen.")
-            XCTAssertEqual(BlockedPasteNote.pasteTitle, "Klistra in där du skrev")
-            XCTAssertEqual(BlockedPasteNote.pasteName, "Stäng fönstret och klistra in texten där du skrev")
-            XCTAssertEqual(BlockedPasteNote.copyTitle, "Kopiera texten")
-            XCTAssertEqual(BlockedPasteNote.copyName, "Kopiera texten till urklipp")
-            XCTAssertEqual(BlockedPasteNote.pasteLastHint(.shortcut("⌃⌥V")), "Klistra in senaste transkriberingen (⌃⌥V) fungerar nu också.")
-            XCTAssertEqual(BlockedPasteNote.pasteLastHint(nil), "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.")
-            XCTAssertEqual(BlockedPasteNote.readyAnnouncement, "Sorla kan klistra in nu: Klistra in där du skrev.")
+            XCTAssertEqual(BlockedPasteNote.notKept.message(pasteLast: .shortcut("⌃⌥V")), "Texten kunde inte sparas. Ge behörigheten och diktera igen.")
             XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Klar")
@@ -275,8 +266,10 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteLast: voiceOver), "Inget att klistra in")
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: keys).menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: voiceOver).menuTitle, "Texten ligger i urklippet – välj Klistra in senaste transkriberingen")
-            XCTAssertEqual(BlockedPasteNote.pasteLastHint(keys), "Klistra in senaste transkriberingen (⌃⌥V) fungerar nu också.")
-            XCTAssertEqual(BlockedPasteNote.pasteLastHint(voiceOver), "Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger) fungerar nu också.")
+            XCTAssertEqual(
+                BlockedPasteNote.kept.message(pasteLast: voiceOver),
+                "Texten är sparad. Ge behörigheten, klicka där du vill skriva och välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger). En provdiktering i Prova här ersätter den sparade texten."
+            )
         }
         // The item the messages name is the menu's own.
         XCTAssertEqual(try strings("sv")["Paste Last Transcription"], "Klistra in senaste transkriberingen")
@@ -298,10 +291,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteLast: nil), "Inget att klistra in")
             XCTAssertEqual(RecordingLimit.stopAnnouncement, "Inspelningen stoppades vid gränsen på fem minuter")
             XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteLast: nil), "Sorla har uppdaterats och behöver startas om")
-            XCTAssertEqual(
-                DictationCue.textOnClipboardUntilRestart.announcement(pasteLast: nil),
-                "Texten ligger i urklippet – tryck ⌘V. Starta om Sorla för att klistra in igen"
-            )
+            XCTAssertEqual(DictationCue.blockedPaste(isTextKept: false).announcement(pasteLast: nil), "Kunde inte klistra in – texten sparades inte")
             XCTAssertEqual(
                 MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true)?.title,
                 "Sorla har uppdaterats – Starta om"

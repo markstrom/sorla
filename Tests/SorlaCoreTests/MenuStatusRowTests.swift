@@ -235,9 +235,9 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(row(accessibilityMissing: true, appReplaced: true)?.action, .showWelcome)
     }
 
-    // A paste that would have been dropped leaves the text on the clipboard for the user's own ⌘V.
-    func testAReplacedAppsPasteShowsTheClipboardCue() {
-        XCTAssertEqual(DictationCue(issue: .appReplaced), .textOnClipboardUntilRestart)
+    // A paste that would have been dropped leaves the clipboard alone and asks for the restart (#72).
+    func testAReplacedAppsPasteShowsTheRestartCue() {
+        XCTAssertEqual(DictationCue(issue: .appReplaced), .restartNeeded)
         XCTAssertNil(SorlaIssue.appReplaced.settingsURL)
     }
 
