@@ -135,6 +135,18 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
     }
 
+    func testALaterLaunchWithoutAModelFailsQuietly() async throws {
+        await network.fail(PublishedModelFixture.manifestURL)
+        let manager = makeManager()
+
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
+
+        XCTAssertEqual(failures, [.modelDownloadFailed])
+        XCTAssertEqual(reported, [])
+    }
+
     func testAutomaticCheckAtLaunchFindsTheInstalledVersionUpToDate() async throws {
         try installModel(version: "1.0.0")
         await PublishedModelFixture(version: "1.0.0").publish(on: network)

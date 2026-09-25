@@ -366,7 +366,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Read before the app check stamps today's date, so the model's launch check is on the same daily schedule.
         let isCheckDue = updateChecker.isAutomaticCheckDue
         updateChecker.checkAppIfDue()
-        modelManager.start(isCheckDue: isCheckDue)
+        modelManager.start(isCheckDue: isCheckDue, isFirstRun: !appSettings.hasCompletedOnboarding)
         if modelManager.isInstalled {
             recordingController.prepare()
         }

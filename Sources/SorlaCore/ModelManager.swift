@@ -63,7 +63,8 @@ public final class ModelManager: ObservableObject {
 
     public var installedVersion: String? { PianissimoModel.installedVersion(at: swap.installed) }
 
-    public func start(isCheckDue: Bool = true) {
+    // Only the first run's download is one the user is waiting on; a later launch's retry stays quiet.
+    public func start(isCheckDue: Bool = true, isFirstRun: Bool = true) {
         guard !hasStarted else { return }
         hasStarted = true
         recoverInterruptedSwap()
@@ -82,7 +83,7 @@ public final class ModelManager: ObservableObject {
         case .checkLater:
             scheduleAutomaticChecks(checkFirst: false)
         case .install:
-            downloadModel()
+            download(requested: isFirstRun)
             if automaticChecks { scheduleAutomaticChecks(checkFirst: false) }
         }
     }
