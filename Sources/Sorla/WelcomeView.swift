@@ -160,15 +160,16 @@ struct WelcomePage: View {
 
     static let width: CGFloat = 540
     static let padding: CGFloat = 28
-    static let markerWidth: CGFloat = 22
-    static let columnSpacing: CGFloat = 12
-    // A row's first line is as tall as its button, so title, button and marker share a centre line.
-    static let rowLineHeight: CGFloat = 24
+    // The status marker, the same size and place on every row (#75); the regular spinner is this size too.
+    static let markerSize: CGFloat = 32
+    static let columnSpacing: CGFloat = 14
+    static let rowSpacing: CGFloat = 20
     // What a row's text keeps beside the widest button, in any language, before that button would have to shrink.
     static let minimumTextWidth: CGFloat = 220
     static var widestButtonAllowed: CGFloat {
-        width - 2 * padding - markerWidth - 2 * columnSpacing - minimumTextWidth
+        width - 2 * padding - markerSize - 2 * columnSpacing - minimumTextWidth
     }
+    static let statusFont = Font.callout
 
     var body: some View {
         VStack(spacing: 0) {
@@ -185,7 +186,7 @@ struct WelcomePage: View {
                     .padding(.top, 20)
             }
 
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: Self.rowSpacing) {
                 row(.microphone, status: content.microphone)
                 row(.accessibility, status: content.accessibility)
                 row(.model, status: content.model)
@@ -365,9 +366,21 @@ struct WelcomePage: View {
             marker(status)
 
             VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: row.title)
-                    .font(.body.bold())
-                    .frame(minHeight: Self.rowLineHeight)
+                // Title and status beside the marker, so the state reads in words as well as colour and shape.
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: row.title)
+                        .font(.body.bold())
+                    // Room for the longest status the row can show, so a change of state moves nothing (#75).
+                    ZStack(alignment: .topLeading) {
+                        ForEach(Self.unique(possible.map(row.statusText)), id: \.self) { text in
+                            statusLine(text).hidden()
+                        }
+                        statusLine(row.statusText(status))
+                    }
+                    // VoiceOver reads it as the row's value instead.
+                    .accessibilityHidden(true)
+                }
+                .frame(minHeight: Self.markerSize, alignment: .leading)
                 // Room for the longest note the row can show, so a change of state doesn't move the rows below (#75).
                 ZStack(alignment: .topLeading) {
                     ForEach(Self.unique(possible.map { $0.note ?? "" }), id: \.self) { note in
@@ -375,12 +388,14 @@ struct WelcomePage: View {
                     }
                     details(row, note: status.note)
                 }
+                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
-            .accessibilityValue(Text(verbatim: status.accessibilityValue))
+            .accessibilityValue(Text(verbatim: row.statusText(status)))
 
             // As wide as the widest button the row can show, so a checkmark turning into a button moves nothing.
+            // The marker is only a picture; this button, beside it, is what acts.
             ZStack(alignment: .trailing) {
                 ForEach(Self.unique(possible.compactMap(\.buttonTitle)), id: \.self) { title in
                     if let placeholder = possible.first(where: { $0.buttonTitle == title }) {
@@ -392,9 +407,15 @@ struct WelcomePage: View {
                 }
             }
             .fixedSize()
-            .frame(height: Self.rowLineHeight)
+            .frame(height: Self.markerSize)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private func statusLine(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(Self.statusFont)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func details(_ row: WelcomeRow, note: String?) -> some View {
@@ -423,26 +444,31 @@ struct WelcomePage: View {
         .accessibilityInputLabels([Text(verbatim: title), Text(verbatim: name)])
     }
 
-    // Differs in shape as well as colour, for Differentiate Without Colour; VoiceOver hears the row's value instead.
+    // Differs in shape as well as colour, for Differentiate Without Colour, and the status text beside it says the
+    // same in words; VoiceOver hears that as the row's value. Something in progress gets a spinner, never a cross.
     @ViewBuilder
     private func marker(_ status: WelcomeRowStatus) -> some View {
         Group {
             switch status {
             case .done:
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.green)
+                statusSymbol("checkmark.circle.fill", color: .green)
             case .needsAction:
-                Image(systemName: "exclamationmark.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(.orange)
+                statusSymbol("xmark.circle.fill", color: .red)
             case .inProgress:
                 ProgressView()
-                    .controlSize(.small)
+                    .controlSize(.regular)
             }
         }
-        .frame(width: Self.markerWidth, height: Self.rowLineHeight)
+        .frame(width: Self.markerSize, height: Self.markerSize)
         .accessibilityHidden(true)
+    }
+
+    private func statusSymbol(_ name: String, color: Color) -> some View {
+        Image(systemName: name)
+            .resizable()
+            .scaledToFit()
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, color)
     }
 
     private static func unique(_ strings: [String]) -> [String] {

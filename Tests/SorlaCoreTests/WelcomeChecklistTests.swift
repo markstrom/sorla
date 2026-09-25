@@ -56,7 +56,7 @@ final class WelcomeChecklistTests: XCTestCase {
     }
 
     func testMissingModelOffersADownload() {
-        XCTAssertEqual(modelRow(model: .notInstalled), .needsAction(.downloadModel, buttonTitle: "Download", note: "Not installed"))
+        XCTAssertEqual(modelRow(model: .notInstalled), .needsAction(.downloadModel, buttonTitle: "Download", note: nil))
     }
 
     func testFailedDownloadOffersARetry() {
@@ -69,7 +69,7 @@ final class WelcomeChecklistTests: XCTestCase {
     func testFailedLoadRetriesLoading() {
         XCTAssertEqual(
             modelRow(isInstalled: true, loadFailed: true, model: .installed(version: "1.0.0")),
-            .needsAction(.reloadModel, buttonTitle: "Try Again", note: "Model couldn't be loaded")
+            .needsAction(.reloadModel, buttonTitle: "Try Again", note: nil)
         )
     }
 
@@ -85,10 +85,23 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertFalse(WelcomeChecklist.isReady(microphone: granted, accessibility: WelcomeChecklist.accessibilityRow(isTrusted: false), model: loaded))
     }
 
-    func testReadinessLineUsesTheTriggerHint() {
+    // #75: says where to click and how to dictate with the chosen key and mode.
+    func testReadinessLineFollowsTheKeyAndMode() {
         XCTAssertEqual(
             WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
-            "Sorla is ready. Hold Right ⌘ to dictate."
+            "Sorla is ready. Click in the field below, hold down Right ⌘, speak and release."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.readinessLine(isReady: true, trigger: .fn, mode: .toggle, customShortcut: nil),
+            "Sorla is ready. Click in the field below, press Fn once to start and once more to stop."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.readinessLine(isReady: true, trigger: .customShortcut, mode: .toggle, customShortcut: "⌃⌥D"),
+            "Sorla is ready. Click in the field below, press ⌃⌥D once to start and once more to stop."
+        )
+        XCTAssertEqual(
+            WelcomeChecklist.readinessLine(isReady: true, trigger: .customShortcut, mode: .pushToTalk, customShortcut: nil),
+            "Sorla is ready. Set a shortcut in Settings to dictate."
         )
         XCTAssertEqual(
             WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
@@ -144,19 +157,34 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: true), "Done")
     }
 
-    // #75: the marker is a picture, so VoiceOver hears each row's state as its value.
-    func testEachRowSaysItsStateToVoiceOver() {
-        XCTAssertEqual(WelcomeRowStatus.done.accessibilityValue, "Done")
-        XCTAssertEqual(WelcomeChecklist.microphoneRow(.notDetermined).accessibilityValue, "Needs action")
-        XCTAssertEqual(modelRow(model: .preparing(version: "1", isUpdate: false)).accessibilityValue, "In progress")
+    // #75: the marker is a picture, so each row says its state beside it in words, and VoiceOver reads that as its value.
+    func testEachRowSaysItsStateInWords() {
+        XCTAssertEqual(WelcomeRow.microphone.statusText(WelcomeChecklist.microphoneRow(.granted)), "Allowed")
+        XCTAssertEqual(WelcomeRow.microphone.statusText(WelcomeChecklist.microphoneRow(.notDetermined)), "Permission missing")
+        XCTAssertEqual(WelcomeRow.microphone.statusText(WelcomeChecklist.microphoneRow(.denied)), "Permission missing")
+        XCTAssertEqual(WelcomeRow.accessibility.statusText(WelcomeChecklist.accessibilityRow(isTrusted: true)), "Allowed")
+        XCTAssertEqual(WelcomeRow.accessibility.statusText(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Permission missing")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(isInstalled: true, isLoaded: true, model: .installed(version: "1"))), "Ready")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(model: .notInstalled)), "Missing")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(model: .failed(.network, isUpdate: false))), "Missing")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(model: .failed(.insufficientDiskSpace(required: 1_376_514_942), isUpdate: false))), "Missing")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(isInstalled: true, loadFailed: true, model: .installed(version: "1"))), "Couldn't load")
+        // In progress is a spinner with what is happening, never a cross.
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(model: .downloading(version: "1", fraction: 0.42, isUpdate: false))), "Downloading model… 42%")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(model: .preparing(version: "1", isUpdate: false))), "Preparing model… ~1 min")
+        XCTAssertEqual(WelcomeRow.model.statusText(modelRow(isInstalled: true, model: .installed(version: "1"))), "Preparing model… ~1 min")
     }
 
     func testNotesAndButtonTitlesComeFromTheStatus() {
         XCTAssertNil(WelcomeRowStatus.done.note)
         XCTAssertNil(WelcomeRowStatus.done.buttonTitle)
-        XCTAssertEqual(WelcomeRowStatus.inProgress("Preparing model… ~1 min").note, "Preparing model… ~1 min")
+        // What is in progress is the status beside the spinner, not a note as well.
+        XCTAssertNil(WelcomeRowStatus.inProgress("Preparing model… ~1 min").note)
         XCTAssertNil(WelcomeRowStatus.inProgress("x").buttonTitle)
-        XCTAssertEqual(modelRow(model: .notInstalled).note, "Not installed")
+        // "Missing" and "Couldn't load" beside the marker say it; a failed download still says what failed.
+        XCTAssertNil(modelRow(model: .notInstalled).note)
+        XCTAssertNil(modelRow(isInstalled: true, loadFailed: true, model: .installed(version: "1")).note)
+        XCTAssertEqual(modelRow(model: .failed(.network, isUpdate: false)).note, "Model download failed")
         XCTAssertEqual(modelRow(model: .notInstalled).buttonTitle, "Download")
         XCTAssertNil(WelcomeChecklist.microphoneRow(.denied).note)
     }
@@ -179,11 +207,19 @@ final class WelcomeChecklistTests: XCTestCase {
 
     func testRowTitlesAndPurposes() {
         XCTAssertEqual(WelcomeRow.microphone.title, "Microphone")
-        XCTAssertEqual(WelcomeRow.model.title, "Model")
-        XCTAssertEqual(WelcomeRow.accessibility.purpose, "So Sorla can paste where you type.")
+        XCTAssertEqual(WelcomeRow.model.title, "Speech Model")
         XCTAssertEqual(WelcomeRow.model.purpose, "Pianissimo (Swedish)")
+        // #75: the row says what the permission is for; the macOS pane's name (#74) is in the explanation.
+        for version in [26, 27] {
+            AccessibilityPaneName.$systemMajorVersion.withValue(version) {
+                XCTAssertEqual(WelcomeRow.accessibility.title, "Automatic Pasting")
+            }
+        }
+        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+            XCTAssertEqual(WelcomeRow.accessibility.purpose, "So Sorla can paste where you type. In System Settings the permission is called Accessibility.")
+        }
         AccessibilityPaneName.$systemMajorVersion.withValue(27) {
-            XCTAssertEqual(WelcomeRow.accessibility.title, "Device Control and Data Access")
+            XCTAssertEqual(WelcomeRow.accessibility.purpose, "So Sorla can paste where you type. In System Settings the permission is called Device Control and Data Access.")
         }
     }
 

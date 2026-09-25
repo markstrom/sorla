@@ -44,8 +44,8 @@
 "The model is being prepared (~1 min). Dictation will work once it's ready." = "The model is being prepared (~1 min). Dictation will work once it's ready.";
 "The model isn't installed yet. Open the Sorla menu to download it." = "The model isn't installed yet. Open the Sorla menu to download it.";
 "Sorla is ready. Set a shortcut in Settings to dictate." = "Sorla is ready. Set a shortcut in Settings to dictate.";
-"Sorla is ready. Hold %@ to dictate." = "Sorla is ready. Hold %@ to dictate.";
-"Sorla is ready. Press %@ to dictate." = "Sorla is ready. Press %@ to dictate.";
+"Sorla is ready. Click in the field below, hold down %@, speak and release." = "Sorla is ready. Click in the field below, hold down %@, speak and release.";
+"Sorla is ready. Click in the field below, press %@ once to start and once more to stop." = "Sorla is ready. Click in the field below, press %@ once to start and once more to stop.";
 
 /* Settings */
 "Sorla Settings" = "Sorla Settings";
@@ -142,8 +142,7 @@
 "So Sorla can hear you." = "So Sorla can hear you.";
 "Accessibility" = "Accessibility";
 "Device Control and Data Access" = "Device Control and Data Access";
-"So Sorla can paste where you type." = "So Sorla can paste where you type.";
-"In progress" = "In progress";
+"So Sorla can paste where you type. In System Settings the permission is called %@." = "So Sorla can paste where you type. In System Settings the permission is called %@.";
 "Try it here" = "Try it here";
 "Done" = "Done";
 "GitHub isn't answering more update checks right now. Try again in a while." = "GitHub isn't answering more update checks right now. Try again in a while.";
@@ -221,18 +220,24 @@
 "Restarting opens the new version." = "Restarting opens the new version.";
 "Restart Sorla" = "Restart Sorla";
 "Fix the items above to try dictation." = "Fix the items above to try dictation.";
-"The text is ready, but Sorla needs the %@ permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "The text is ready, but Sorla needs the %@ permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.";
+"The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V." = "The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V.";
 "Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Your text is on the clipboard — close this window and press ⌘V where you were typing.";
 "Set Up Sorla" = "Set Up Sorla";
 
 /* Welcome window rows and update switches (#73, #75) */
 "Switch already on? Quit and reopen Sorla." = "Switch already on? Quit and reopen Sorla.";
-"Needs action" = "Needs action";
+"Automatic Pasting" = "Automatic Pasting";
+"Speech Model" = "Speech Model";
+"Allowed" = "Allowed";
+"Permission missing" = "Permission missing";
+"Ready" = "Ready";
+"Missing" = "Missing";
+"Couldn't load" = "Couldn't load";
 "Get fixes and new versions of the speech model without having to remember to check." = "Get fixes and new versions of the speech model without having to remember to check.";
 "Installs them when you haven't dictated for a while. Needs automatic checks." = "Installs them when you haven't dictated for a while. Needs automatic checks.";
 
 /* A blocked paste in Set Up Sorla (#72) */
-"The text is ready, but Sorla needs the %@ permission to paste it. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "The text is ready, but Sorla needs the %@ permission to paste it. Sorla keeps the text for a few minutes and has left your clipboard as it was.";
+"The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was.";
 "Sorla can paste now. Your text is ready." = "Sorla can paste now. Your text is ready.";
 "The text is no longer kept. Dictate it again." = "The text is no longer kept. Dictate it again.";
 "Paste Last Transcription in Sorla's menu also works now." = "Paste Last Transcription in Sorla's menu also works now.";

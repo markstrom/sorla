@@ -116,22 +116,41 @@ final class LocalizationTests: XCTestCase {
                 WelcomeChecklist.accessibilityRow(isTrusted: false),
                 .needsAction(.openAccessibilitySettings, buttonTitle: "Öppna Systeminställningar", note: "Är reglaget redan på? Avsluta och öppna Sorla igen.")
             )
-            XCTAssertEqual(WelcomeRowStatus.done.accessibilityValue, "Klar")
-            XCTAssertEqual(WelcomeChecklist.microphoneRow(.denied).accessibilityValue, "Behöver åtgärdas")
-            XCTAssertEqual(WelcomeRowStatus.inProgress("x").accessibilityValue, "Pågår")
+            // #75: the status beside each marker, which VoiceOver also reads as the row's value.
+            XCTAssertEqual(WelcomeRow.microphone.statusText(WelcomeChecklist.microphoneRow(.granted)), "Tillåten")
+            XCTAssertEqual(WelcomeRow.microphone.statusText(WelcomeChecklist.microphoneRow(.denied)), "Behörighet saknas")
+            XCTAssertEqual(WelcomeRow.accessibility.statusText(WelcomeChecklist.accessibilityRow(isTrusted: true)), "Tillåten")
+            XCTAssertEqual(WelcomeRow.accessibility.statusText(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Behörighet saknas")
+            XCTAssertEqual(WelcomeRow.model.statusText(.done), "Redo")
+            XCTAssertEqual(WelcomeRow.model.statusText(WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .notInstalled)), "Saknas")
+            XCTAssertEqual(WelcomeRow.model.statusText(WelcomeChecklist.modelRow(isInstalled: true, isLoaded: false, loadFailed: true, model: .installed(version: "1"))), "Kunde inte laddas")
+            XCTAssertEqual(WelcomeRow.model.statusText(WelcomeChecklist.modelRow(isInstalled: true, isLoaded: false, loadFailed: false, model: .installed(version: "1"))), "Förbereder modellen… ~1 min")
             XCTAssertEqual(WelcomeRow.microphone.title, "Mikrofon")
+            XCTAssertEqual(WelcomeRow.accessibility.title, "Automatisk inklistring")
+            XCTAssertEqual(WelcomeRow.model.title, "Talmodell")
             XCTAssertEqual(WelcomeRow.model.purpose, "Pianissimo (svenska)")
+            AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+                XCTAssertEqual(WelcomeRow.accessibility.purpose, "Så att Sorla kan klistra in där du skriver. I Systeminställningar heter behörigheten Enhetskontroll och dataåtkomst.")
+            }
             XCTAssertEqual(
                 WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .downloading(version: "1", fraction: 0.34, isUpdate: false)),
                 .inProgress("Laddar ner modellen… 34 %")
             )
             XCTAssertEqual(
                 WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .notInstalled),
-                .needsAction(.downloadModel, buttonTitle: "Ladda ner", note: "Inte installerad")
+                .needsAction(.downloadModel, buttonTitle: "Ladda ner", note: nil)
             )
             XCTAssertEqual(
                 WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
-                "Sorla är redo. Håll Höger ⌘ för att diktera."
+                "Sorla är redo. Klicka i fältet nedan, håll inne Höger ⌘, prata och släpp."
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .toggle, customShortcut: nil),
+                "Sorla är redo. Klicka i fältet nedan, tryck Höger ⌘ en gång för att börja och en gång till för att sluta."
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.readinessLine(isReady: true, trigger: .customShortcut, mode: .pushToTalk, customShortcut: nil),
+                "Sorla är redo. Välj ett kortkommando i Inställningar för att diktera."
             )
             XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.notDetermined)), "Tillåt mikrofonåtkomst")
             XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.denied)), "Öppna Mikrofon i Systeminställningar")
@@ -161,18 +180,16 @@ final class LocalizationTests: XCTestCase {
             )
             XCTAssertEqual(RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false).actionTitle, "Starta om Sorla")
             XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false).actionTitle, "Avsluta Sorla")
-            AccessibilityPaneName.$systemMajorVersion.withValue(26) {
-                XCTAssertEqual(
-                    BlockedPasteNote.onClipboardNeedsAccess.message,
-                    "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
-                )
-                XCTAssertEqual(
-                    BlockedPasteNote.savedNeedsAccess.message,
-                    "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Sorla sparar texten i några minuter och har låtit urklippet vara som det var."
-                )
-            }
+            XCTAssertEqual(
+                BlockedPasteNote.onClipboardNeedsAccess.message,
+                "Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck ⌘V."
+            )
+            XCTAssertEqual(
+                BlockedPasteNote.savedNeedsAccess.message,
+                "Texten är klar men kunde inte klistras in automatiskt. Sorla sparar texten i några minuter och har låtit urklippet vara som det var."
+            )
             XCTAssertEqual(BlockedPasteNote.readyToPaste.message, "Sorla kan klistra in nu. Texten är klar.")
-            XCTAssertEqual(BlockedPasteNote.onClipboard.message, "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.")
+            XCTAssertEqual(BlockedPasteNote.onClipboard.message, "Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck ⌘V.")
             XCTAssertEqual(BlockedPasteNote.gone.message, "Texten finns inte längre kvar. Diktera den igen.")
             XCTAssertEqual(BlockedPasteNote.pasteTitle, "Klistra in där du skrev")
             XCTAssertEqual(BlockedPasteNote.pasteName, "Stäng fönstret och klistra in texten där du skrev")
@@ -210,8 +227,8 @@ final class LocalizationTests: XCTestCase {
                 XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Behörigheten Enhetskontroll och dataåtkomst behövs för att klistra in")
                 XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Enhetskontroll och dataåtkomst i Systeminställningar")
                 XCTAssertEqual(
-                    BlockedPasteNote.onClipboardNeedsAccess.message,
-                    "Texten är klar, men Sorla behöver behörigheten Enhetskontroll och dataåtkomst för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
+                    WelcomeRow.accessibility.purpose,
+                    "Så att Sorla kan klistra in där du skriver. I Systeminställningar heter behörigheten Enhetskontroll och dataåtkomst."
                 )
             }
         }

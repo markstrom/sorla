@@ -142,6 +142,44 @@ final class WelcomeLayoutTests: XCTestCase {
         }
     }
 
+    // #75: a row's title and its status sit beside the marker on a line each, never cut off, in both languages.
+    func testEveryRowTitleAndStatusFitsBesideTheMarkerOnOneLine() throws {
+        try inEachLanguage { language in
+            for row in WelcomeRow.allCases {
+                let buttons = row.possibleStatuses.compactMap(\.buttonTitle).map { NSHostingView(rootView: Button($0) {}).fittingSize.width }
+                let column = WelcomePage.width - 2 * WelcomePage.padding - WelcomePage.markerSize - 2 * WelcomePage.columnSpacing - (buttons.max() ?? 0)
+                XCTAssertGreaterThanOrEqual(column, WelcomePage.minimumTextWidth, "\(language): \(row)")
+                let title = NSHostingView(rootView: Text(verbatim: row.title).font(.body.bold())).fittingSize.width
+                XCTAssertLessThanOrEqual(title, column, "\(language): \(row.title)")
+                let downloading = WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .downloading(version: "1", fraction: 1, isUpdate: false))
+                for status in row.possibleStatuses + (row == .model ? [downloading] : []) {
+                    let text = row.statusText(status)
+                    XCTAssertFalse(text.isEmpty, "\(language): \(row) \(status)")
+                    let width = NSHostingView(rootView: Text(verbatim: text).font(WelcomePage.statusFont)).fittingSize.width
+                    XCTAssertLessThanOrEqual(width, column, "\(language): \(text)")
+                }
+            }
+        }
+    }
+
+    // #75: the ready line differs by key and mode; in either mode the window keeps its size whatever the rows show.
+    func testTheWindowKeepsItsSizeInToggleModeToo() throws {
+        try inEachLanguage { language in
+            var toggle = content()
+            toggle.readyLine = WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .toggle, customShortcut: nil)
+            toggle.toggleModeTip = WelcomeChecklist.toggleModeTip(mode: .toggle)
+            let expected = size(toggle)
+            for microphone in [MicrophoneAccess.granted, .denied] {
+                for model in WelcomeRow.model.possibleStatuses {
+                    var other = toggle
+                    other.microphone = WelcomeChecklist.microphoneRow(microphone)
+                    other.model = model
+                    XCTAssertEqual(size(other), expected, "\(language): \(microphone), \(model)")
+                }
+            }
+        }
+    }
+
     // #73: showing the window, in any state, never writes either update setting; only a click on a switch does.
     func testShowingTheWindowNeverChangesTheUpdateSettings() throws {
         var writes: [String] = []

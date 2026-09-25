@@ -25,17 +25,21 @@ public enum BlockedPasteNote: Equatable, Sendable, CaseIterable {
 
     public var message: String {
         switch self {
-        case .onClipboardNeedsAccess:
-            return String(localized: "The text is ready, but Sorla needs the \(AccessibilityPaneName.current) permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.", bundle: Localization.bundle)
+        // Clicking where to type brings that app forward, so ⌘V lands there; the rows below say what is missing.
+        case .onClipboardNeedsAccess, .onClipboard:
+            return Self.onClipboardMessage
         case .savedNeedsAccess:
-            return String(localized: "The text is ready, but Sorla needs the \(AccessibilityPaneName.current) permission to paste it. Sorla keeps the text for a few minutes and has left your clipboard as it was.", bundle: Localization.bundle)
+            return String(localized: "The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was.", bundle: Localization.bundle)
         case .readyToPaste:
             return String(localized: "Sorla can paste now. Your text is ready.", bundle: Localization.bundle)
-        case .onClipboard:
-            return WelcomeChecklist.textOnClipboardInWindow
         case .gone:
             return String(localized: "The text is no longer kept. Dictate it again.", bundle: Localization.bundle)
         }
+    }
+
+    // Only while the text really is on the clipboard (#75).
+    public static var onClipboardMessage: String {
+        String(localized: "The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V.", bundle: Localization.bundle)
     }
 
     public var offersCopy: Bool { self == .savedNeedsAccess }

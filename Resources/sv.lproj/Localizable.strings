@@ -44,8 +44,8 @@
 "The model is being prepared (~1 min). Dictation will work once it's ready." = "Modellen förbereds (~1 min). Diktering fungerar när den är klar.";
 "The model isn't installed yet. Open the Sorla menu to download it." = "Modellen är inte installerad än. Öppna Sorla-menyn för att ladda ner den.";
 "Sorla is ready. Set a shortcut in Settings to dictate." = "Sorla är redo. Välj ett kortkommando i Inställningar för att diktera.";
-"Sorla is ready. Hold %@ to dictate." = "Sorla är redo. Håll %@ för att diktera.";
-"Sorla is ready. Press %@ to dictate." = "Sorla är redo. Tryck på %@ för att diktera.";
+"Sorla is ready. Click in the field below, hold down %@, speak and release." = "Sorla är redo. Klicka i fältet nedan, håll inne %@, prata och släpp.";
+"Sorla is ready. Click in the field below, press %@ once to start and once more to stop." = "Sorla är redo. Klicka i fältet nedan, tryck %@ en gång för att börja och en gång till för att sluta.";
 
 /* Settings */
 "Sorla Settings" = "Inställningar för Sorla";
@@ -142,8 +142,7 @@
 "So Sorla can hear you." = "Så att Sorla kan höra dig.";
 "Accessibility" = "Hjälpmedel";
 "Device Control and Data Access" = "Enhetskontroll och dataåtkomst";
-"So Sorla can paste where you type." = "Så att Sorla kan klistra in där du skriver.";
-"In progress" = "Pågår";
+"So Sorla can paste where you type. In System Settings the permission is called %@." = "Så att Sorla kan klistra in där du skriver. I Systeminställningar heter behörigheten %@.";
 "Try it here" = "Prova här";
 "Done" = "Klar";
 "GitHub isn't answering more update checks right now. Try again in a while." = "GitHub tar inte emot fler sökningar just nu. Försök igen om en stund.";
@@ -221,18 +220,24 @@
 "Restarting opens the new version." = "När Sorla startar om öppnas den nya versionen.";
 "Restart Sorla" = "Starta om Sorla";
 "Fix the items above to try dictation." = "Åtgärda punkterna ovan för att prova diktering.";
-"The text is ready, but Sorla needs the %@ permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten är klar, men Sorla behöver behörigheten %@ för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
+"The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V." = "Texten är klar men kunde inte klistras in automatiskt. Klicka där du vill skriva och tryck ⌘V.";
 "Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
 "Set Up Sorla" = "Ställ in Sorla";
 
 /* Welcome window rows and update switches (#73, #75) */
 "Switch already on? Quit and reopen Sorla." = "Är reglaget redan på? Avsluta och öppna Sorla igen.";
-"Needs action" = "Behöver åtgärdas";
+"Automatic Pasting" = "Automatisk inklistring";
+"Speech Model" = "Talmodell";
+"Allowed" = "Tillåten";
+"Permission missing" = "Behörighet saknas";
+"Ready" = "Redo";
+"Missing" = "Saknas";
+"Couldn't load" = "Kunde inte laddas";
 "Get fixes and new versions of the speech model without having to remember to check." = "Få felrättningar och nya versioner av talmodellen utan att behöva komma ihåg att söka.";
 "Installs them when you haven't dictated for a while. Needs automatic checks." = "Installerar dem när du inte har dikterat på ett tag. Kräver automatisk sökning.";
 
 /* A blocked paste in Set Up Sorla (#72) */
-"The text is ready, but Sorla needs the %@ permission to paste it. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "Texten är klar, men Sorla behöver behörigheten %@ för att klistra in den. Sorla sparar texten i några minuter och har låtit urklippet vara som det var.";
+"The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was." = "Texten är klar men kunde inte klistras in automatiskt. Sorla sparar texten i några minuter och har låtit urklippet vara som det var.";
 "Sorla can paste now. Your text is ready." = "Sorla kan klistra in nu. Texten är klar.";
 "The text is no longer kept. Dictate it again." = "Texten finns inte längre kvar. Diktera den igen.";
 "Paste Last Transcription in Sorla's menu also works now." = "Klistra in senaste transkriberingen i Sorlas meny fungerar nu också.";

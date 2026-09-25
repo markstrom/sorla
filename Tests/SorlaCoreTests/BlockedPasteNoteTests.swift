@@ -54,23 +54,14 @@ final class BlockedPasteNoteTests: XCTestCase {
     }
 
     func testWording() {
-        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
-            XCTAssertEqual(
-                BlockedPasteNote.onClipboardNeedsAccess.message,
-                "The text is ready, but Sorla needs the Accessibility permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
-            )
-            XCTAssertEqual(
-                BlockedPasteNote.savedNeedsAccess.message,
-                "The text is ready, but Sorla needs the Accessibility permission to paste it. Sorla keeps the text for a few minutes and has left your clipboard as it was."
-            )
-        }
-        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
-            XCTAssertEqual(
-                BlockedPasteNote.onClipboardNeedsAccess.message,
-                "The text is ready, but Sorla needs the Device Control and Data Access permission to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
-            )
-        }
-        XCTAssertEqual(BlockedPasteNote.onClipboard.message, "Your text is on the clipboard — close this window and press ⌘V where you were typing.")
+        // #75: the same words whenever the text is on the clipboard; the rows below say what access is missing.
+        let onClipboard = "The text is ready but couldn't be pasted automatically. Click where you want to type and press ⌘V."
+        XCTAssertEqual(BlockedPasteNote.onClipboardNeedsAccess.message, onClipboard)
+        XCTAssertEqual(BlockedPasteNote.onClipboard.message, onClipboard)
+        XCTAssertEqual(
+            BlockedPasteNote.savedNeedsAccess.message,
+            "The text is ready but couldn't be pasted automatically. Sorla keeps the text for a few minutes and has left your clipboard as it was."
+        )
         XCTAssertEqual(BlockedPasteNote.readyToPaste.message, "Sorla can paste now. Your text is ready.")
         XCTAssertEqual(BlockedPasteNote.gone.message, "The text is no longer kept. Dictate it again.")
         XCTAssertEqual(BlockedPasteNote.pasteTitle, "Paste Where You Were Typing")

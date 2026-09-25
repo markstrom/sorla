@@ -21,11 +21,11 @@ public enum WelcomeRowStatus: Equatable, Sendable {
 
     public var isDone: Bool { self == .done }
 
-    // The line under the row's purpose: progress, what went wrong, or what to try.
+    // The line under the row's purpose: what went wrong, or what to try.
     public var note: String? {
         switch self {
-        case .done: return nil
-        case .inProgress(let text): return text
+        // What is in progress is the row's status text instead, beside the spinner.
+        case .done, .inProgress: return nil
         case .needsAction(_, _, let note): return note
         }
     }
@@ -35,14 +35,6 @@ public enum WelcomeRowStatus: Equatable, Sendable {
         return buttonTitle
     }
 
-    // Read by VoiceOver with the row, since the marker is only a picture (#75).
-    public var accessibilityValue: String {
-        switch self {
-        case .done: return String(localized: "Done", bundle: Localization.bundle)
-        case .inProgress: return String(localized: "In progress", bundle: Localization.bundle)
-        case .needsAction: return String(localized: "Needs action", bundle: Localization.bundle)
-        }
-    }
 }
 
 public enum WelcomeRow: CaseIterable, Sendable {
@@ -53,15 +45,35 @@ public enum WelcomeRow: CaseIterable, Sendable {
     public var title: String {
         switch self {
         case .microphone: return String(localized: "Microphone", bundle: Localization.bundle)
-        case .accessibility: return AccessibilityPaneName.current
-        case .model: return String(localized: "Model", bundle: Localization.bundle)
+        // Says what the permission is for; the name macOS gives it (#74) is in the explanation and the button's name.
+        case .accessibility: return String(localized: "Automatic Pasting", bundle: Localization.bundle)
+        case .model: return String(localized: "Speech Model", bundle: Localization.bundle)
+        }
+    }
+
+    // Beside the marker, so the row's state reads without its colour, and VoiceOver reads it as the row's value (#75).
+    public func statusText(_ status: WelcomeRowStatus) -> String {
+        switch (self, status) {
+        case (_, .inProgress(let text)):
+            return text
+        case (.model, .done):
+            return String(localized: "Ready", bundle: Localization.bundle)
+        case (.model, .needsAction(.reloadModel, _, _)):
+            return String(localized: "Couldn't load", bundle: Localization.bundle)
+        case (.model, .needsAction):
+            return String(localized: "Missing", bundle: Localization.bundle)
+        case (_, .done):
+            return String(localized: "Allowed", bundle: Localization.bundle)
+        case (_, .needsAction):
+            return String(localized: "Permission missing", bundle: Localization.bundle)
         }
     }
 
     public var purpose: String {
         switch self {
         case .microphone: return String(localized: "So Sorla can hear you.", bundle: Localization.bundle)
-        case .accessibility: return String(localized: "So Sorla can paste where you type.", bundle: Localization.bundle)
+        case .accessibility:
+            return String(localized: "So Sorla can paste where you type. In System Settings the permission is called \(AccessibilityPaneName.current).", bundle: Localization.bundle)
         case .model: return Localization.bundle.localizedString(forKey: PianissimoModel.displayName, value: nil, table: nil)
         }
     }
@@ -122,8 +134,9 @@ public enum WelcomeChecklist {
     public static func modelRow(isInstalled: Bool, isLoaded: Bool, loadFailed: Bool, model: ModelStatus) -> WelcomeRowStatus {
         if isInstalled {
             if isLoaded { return .done }
+            // "Couldn't load" beside the marker says it all.
             if loadFailed {
-                return .needsAction(.reloadModel, buttonTitle: tryAgain, note: SorlaIssue.modelNotLoaded.menuTitle)
+                return .needsAction(.reloadModel, buttonTitle: tryAgain, note: nil)
             }
             return .inProgress(preparing)
         }
@@ -138,8 +151,9 @@ public enum WelcomeChecklist {
         case .failed(_, let isUpdate):
             let issue: SorlaIssue = isUpdate ? .modelUpdateFailed : .modelDownloadFailed
             return .needsAction(.downloadModel, buttonTitle: tryAgain, note: issue.menuTitle)
+        // "Missing" beside the marker says it all.
         default:
-            return .needsAction(.downloadModel, buttonTitle: String(localized: "Download", bundle: Localization.bundle), note: ModelStatus.notInstalled.settingsText)
+            return .needsAction(.downloadModel, buttonTitle: String(localized: "Download", bundle: Localization.bundle), note: nil)
         }
     }
 
@@ -147,9 +161,19 @@ public enum WelcomeChecklist {
         microphone.isDone && accessibility.isDone && model.isDone
     }
 
+    // Above Try it here, so it says where to click and how to dictate with the chosen key and mode.
     public static func readinessLine(isReady: Bool, trigger: TriggerKey, mode: RecordingMode, customShortcut: String?) -> String {
         guard isReady else { return notReadyLine }
-        return TriggerHint.readyMessage(trigger: trigger, mode: mode, customShortcut: customShortcut)
+        if trigger == .customShortcut, customShortcut?.isEmpty ?? true {
+            return String(localized: "Sorla is ready. Set a shortcut in Settings to dictate.", bundle: Localization.bundle)
+        }
+        let key = TriggerHint.keyLabel(for: trigger, customShortcut: customShortcut)
+        switch mode {
+        case .pushToTalk:
+            return String(localized: "Sorla is ready. Click in the field below, hold down \(key), speak and release.", bundle: Localization.bundle)
+        case .toggle:
+            return String(localized: "Sorla is ready. Click in the field below, press \(key) once to start and once more to stop.", bundle: Localization.bundle)
+        }
     }
 
     public static var notReadyLine: String {

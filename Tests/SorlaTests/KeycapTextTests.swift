@@ -49,7 +49,7 @@ final class KeycapTextTests: XCTestCase {
                 for trigger in [TriggerKey.rightCommand, .fn] {
                     for mode in RecordingMode.allCases {
                         let key = TriggerHint.keyLabel(for: trigger, customShortcut: nil)
-                        assertChip(TriggerHint.readyMessage(trigger: trigger, mode: mode, customShortcut: nil), key: key)
+                        assertChip(WelcomeChecklist.readinessLine(isReady: true, trigger: trigger, mode: mode, customShortcut: nil), key: key)
                     }
                 }
                 assertChip(BlockedPasteNote.onClipboard.message, key: "⌘V")

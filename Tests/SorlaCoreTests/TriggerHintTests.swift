@@ -86,24 +86,4 @@ final class TriggerHintTests: XCTestCase {
         )
     }
 
-    func testReadyMessageForPushToTalk() {
-        XCTAssertEqual(
-            TriggerHint.readyMessage(trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
-            "Sorla is ready. Hold Right ⌘ to dictate."
-        )
-    }
-
-    func testReadyMessageForToggle() {
-        XCTAssertEqual(
-            TriggerHint.readyMessage(trigger: .fn, mode: .toggle, customShortcut: nil),
-            "Sorla is ready. Press Fn to dictate."
-        )
-    }
-
-    func testReadyMessageWhenTheCustomShortcutIsNotSet() {
-        XCTAssertEqual(
-            TriggerHint.readyMessage(trigger: .customShortcut, mode: .pushToTalk, customShortcut: nil),
-            "Sorla is ready. Set a shortcut in Settings to dictate."
-        )
-    }
 }
