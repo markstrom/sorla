@@ -4,10 +4,27 @@ import SwiftUI
 
 @MainActor
 final class RecoveryDialogModel: ObservableObject {
-    @Published var dialog: RecoveryDialog
+    @Published private(set) var dialog: RecoveryDialog
+    // Bumped on every show, also for the same dialog brought forward again or reopened after a close.
+    @Published private(set) var presentation = 0
+    @Published private(set) var isDefaultButtonArmed = false
 
     init(dialog: RecoveryDialog) {
         self.dialog = dialog
+    }
+
+    // Return is off the moment the dialog comes forward: a key typed then was meant for the app the user was in.
+    func present(_ dialog: RecoveryDialog) {
+        self.dialog = dialog
+        presentation += 1
+        isDefaultButtonArmed = false
+    }
+
+    // Only the latest presentation arms Return, once it has been on screen for the delay.
+    func armDefaultButton(for presentation: Int, after delay: Duration, sleep: (Duration) async -> Void = { try? await Task.sleep(for: $0) }) async {
+        await sleep(delay)
+        guard !Task.isCancelled, presentation == self.presentation else { return }
+        isDefaultButtonArmed = true
     }
 }
 
@@ -52,7 +69,7 @@ final class RecoveryDialogController: NSWindowController, NSWindowDelegate {
             onClose?(shown, true)
         }
         self.surface = surface
-        model.dialog = dialog
+        model.present(dialog)
         window?.title = dialog.title
         if window?.isVisible != true { window?.center() }
         (window as? SorlaWindow)?.present()
@@ -77,7 +94,6 @@ struct RecoveryDialogView: View {
     @ObservedObject var model: RecoveryDialogModel
     let perform: () -> Void
     let notNow: () -> Void
-    @State private var isDefaultButtonArmed = false
 
     var body: some View {
         let dialog = model.dialog
@@ -101,19 +117,16 @@ struct RecoveryDialogView: View {
                 Button(RecoveryDialog.notNow, action: notNow)
                     .accessibilityInputLabels([Text(verbatim: RecoveryDialog.notNow)])
                 Button(dialog.actionTitle, action: perform)
-                    .keyboardShortcut(isDefaultButtonArmed ? .defaultAction : nil)
+                    .keyboardShortcut(model.isDefaultButtonArmed ? .defaultAction : nil)
                     .accessibilityInputLabels([Text(verbatim: dialog.actionTitle)])
             }
         }
         .padding(20)
         .frame(width: 420)
         .fixedSize(horizontal: false, vertical: true)
-        // A Return typed just as the dialog appears was meant for the app the user was in.
-        .task(id: dialog) {
-            isDefaultButtonArmed = false
-            try? await Task.sleep(for: RecoveryDialog.defaultButtonDelay)
-            guard !Task.isCancelled else { return }
-            isDefaultButtonArmed = true
+        // Restarted on every presentation, not only when the wording changes.
+        .task(id: model.presentation) {
+            await model.armDefaultButton(for: model.presentation, after: RecoveryDialog.defaultButtonDelay)
         }
     }
 }
