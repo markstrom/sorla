@@ -53,9 +53,8 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
 
     var isKey: Bool { window?.isKeyWindow ?? false }
 
-    // Opened for a blocked dictation or paste it is the setup checklist rather than a welcome (#72).
     func show(forRecovery: Bool) {
-        if forRecovery { state.isRecovery = true }
+        state.willShow(forRecovery: forRecovery, isAlreadyOpen: window?.isVisible == true)
         window?.title = state.isRecovery ? WelcomeView.recoveryWindowTitle : WelcomeView.windowTitle
         startPollingPermissions()
         (window as? SorlaWindow)?.present()
@@ -65,8 +64,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         permissionPoll?.invalidate()
         permissionPoll = nil
         appSettings.hasCompletedOnboarding = true
-        state.isRecovery = false
-        state.blockedPaste = nil
+        state.didClose()
         onClose?()
     }
 

@@ -9,6 +9,9 @@ final class WelcomeState: ObservableObject {
     @Published var isAccessibilityTrusted = PermissionsManager.isAccessibilityTrusted()
     @Published var modelLoadingStatus: ModelLoadingStatus
     @Published var isRecovery = false
+    // What was dictated into Try it here. Emptied whenever the window opens or closes, so an old test isn't taken
+    // for a new result and no dictated text stays on screen (#78).
+    @Published var tryItText = ""
     // Set when a blocked paste opened the window (#72); what it says depends on where the text still is.
     @Published var blockedPaste: BlockedPaste? {
         didSet { refreshClipboard() }
@@ -23,6 +26,19 @@ final class WelcomeState: ObservableObject {
     init(modelLoadingStatus: ModelLoadingStatus, transcriptRevision: @escaping () -> Int? = { nil }) {
         self.modelLoadingStatus = modelLoadingStatus
         self.transcriptRevision = transcriptRevision
+    }
+
+    // Opened for a blocked dictation or paste it is the setup checklist rather than a welcome (#72).
+    // Brought forward while already open, the field keeps what the user is testing.
+    func willShow(forRecovery: Bool, isAlreadyOpen: Bool) {
+        if forRecovery { isRecovery = true }
+        if !isAlreadyOpen { tryItText = "" }
+    }
+
+    func didClose() {
+        isRecovery = false
+        blockedPaste = nil
+        tryItText = ""
     }
 
     func refresh() {
@@ -116,6 +132,7 @@ struct WelcomeView: View {
             perform: perform,
             pasteBlockedText: pasteBlockedText,
             copyBlockedText: copyBlockedText,
+            tryItText: $state.tryItText,
             announce: announce,
             onDone: onDone
         )
@@ -132,9 +149,9 @@ struct WelcomePage: View {
     let perform: (WelcomeAction) -> Void
     var pasteBlockedText: () -> Void = {}
     var copyBlockedText: () -> Void = {}
+    var tryItText: Binding<String> = .constant("")
     let announce: (String) -> Void
     let onDone: () -> Void
-    @State private var tryItText = ""
     @FocusState private var isTryItFocused: Bool
     @AccessibilityFocusState private var isPasteFocused: Bool
     @State private var isPasteArmed = false
@@ -312,7 +329,7 @@ struct WelcomePage: View {
         }
 
         // Always there, so the user sees where to test; it only takes text once dictation can work.
-        TextField("Try it here", text: $tryItText, axis: .vertical)
+        TextField("Try it here", text: tryItText, axis: .vertical)
             .lineLimit(3...6)
             .textFieldStyle(.roundedBorder)
             .focused($isTryItFocused)

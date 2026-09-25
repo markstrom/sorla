@@ -110,3 +110,47 @@ final class RecoveryWindowTests: XCTestCase {
         XCTAssertTrue(model.isDefaultButtonArmed)
     }
 }
+
+// #78: Try it here starts empty every time the window opens, and forgets what was dictated when it closes.
+@MainActor
+final class WelcomeTryItTests: XCTestCase {
+    func testTheFieldIsEmptyEachTimeTheWindowOpens() {
+        let state = WelcomeState(modelLoadingStatus: .ready)
+        for forRecovery in [false, true] {
+            state.tryItText = "Förra provet"
+            state.willShow(forRecovery: forRecovery, isAlreadyOpen: false)
+            XCTAssertEqual(state.tryItText, "", "recovery: \(forRecovery)")
+        }
+    }
+
+    // A blocked attempt brings an open window forward; that mustn't wipe what the user is testing right now.
+    func testBringingAnOpenWindowForwardKeepsTheField() {
+        let state = WelcomeState(modelLoadingStatus: .ready)
+        state.tryItText = "Pågående prov"
+        state.willShow(forRecovery: true, isAlreadyOpen: true)
+        XCTAssertEqual(state.tryItText, "Pågående prov")
+        XCTAssertTrue(state.isRecovery)
+    }
+
+    func testClosingTheWindowForgetsTheField() {
+        let state = WelcomeState(modelLoadingStatus: .ready)
+        state.willShow(forRecovery: true, isAlreadyOpen: false)
+        state.tryItText = "Dikterad text"
+        state.blockedPaste = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 1)
+        state.didClose()
+        XCTAssertEqual(state.tryItText, "")
+        XCTAssertFalse(state.isRecovery)
+        XCTAssertNil(state.blockedPaste)
+    }
+
+    // The field's text lives in the state the controller clears, not in view state that outlives a close.
+    func testTheFieldIsBoundToTheWindowsState() throws {
+        let sources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let view = try String(contentsOf: sources.appendingPathComponent("Sources/Sorla/WelcomeView.swift"), encoding: .utf8)
+        let controller = try String(contentsOf: sources.appendingPathComponent("Sources/Sorla/WelcomeWindowController.swift"), encoding: .utf8)
+        XCTAssertFalse(view.contains("@State private var tryItText"))
+        XCTAssertTrue(view.contains("tryItText: $state.tryItText"))
+        XCTAssertTrue(controller.contains("state.willShow(forRecovery: forRecovery, isAlreadyOpen: window?.isVisible == true)"))
+        XCTAssertTrue(controller.contains("state.didClose()"))
+    }
+}
