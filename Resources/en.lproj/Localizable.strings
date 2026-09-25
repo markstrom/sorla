@@ -33,9 +33,9 @@
 "Model couldn't be loaded" = "Model couldn't be loaded";
 "Model download failed" = "Model download failed";
 "Model update failed" = "Model update failed";
-"No microphone found — check Sound › Input" = "No microphone found — check Sound › Input";
+"No microphone found — check the sound input in %@ settings" = "No microphone found — check the sound input in %@ settings";
 "Couldn't transcribe the last recording" = "Couldn't transcribe the last recording";
-"Microphone seems to be muted — check Sound › Input" = "Microphone seems to be muted — check Sound › Input";
+"Microphone seems to be muted — check the sound input in %@ settings" = "Microphone seems to be muted — check the sound input in %@ settings";
 "Text is on the clipboard — press %@" = "Text is on the clipboard — press %@";
 "Text is on the clipboard — choose Paste Last Transcription" = "Text is on the clipboard — choose Paste Last Transcription";
 
@@ -62,8 +62,8 @@
 "Record a shortcut above to start dictating." = "Record a shortcut above to start dictating.";
 "Hold %@ while speaking; release to paste." = "Hold %@ while speaking; release to paste.";
 "Press %@ to start, press again to stop." = "Press %@ to start, press again to stop.";
-"Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings." = "Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.";
-"Open Keyboard Settings…" = "Open Keyboard Settings…";
+"Pressing 🌐/Fn alone may also change the input source, show emoji or start dictation, depending on the system's %@ setting. Set it to %@ in %@ settings." = "Pressing 🌐/Fn alone may also change the input source, show emoji or start dictation, depending on the system's %@ setting. Set it to %@ in %@ settings.";
+"Open %@ Settings…" = "Open %@ Settings…";
 "Model" = "Model";
 "Pianissimo (Swedish)" = "Pianissimo (Swedish)";
 "Not installed" = "Not installed";
@@ -94,8 +94,7 @@
 "Paste last transcription" = "Paste last transcription";
 "The sounds tell you when recording starts and stops." = "The sounds tell you when recording starts and stops.";
 "Launch at login" = "Launch at login";
-"Sorla needs approval in Login Items to launch at login." = "Sorla needs approval in Login Items to launch at login.";
-"Open Login Items Settings…" = "Open Login Items Settings…";
+"Sorla needs approval in %@ to launch at login." = "Sorla needs approval in %@ to launch at login.";
 
 /* Model errors */
 "The model list couldn't be read." = "The model list couldn't be read.";
@@ -140,8 +139,6 @@
 "Welcome to Sorla" = "Welcome to Sorla";
 "Microphone" = "Microphone";
 "So Sorla can hear you." = "So Sorla can hear you.";
-"Accessibility" = "Accessibility";
-"Device Control and Data Access" = "Device Control and Data Access";
 "So Sorla can paste where you type. In System Settings the permission is called %@." = "So Sorla can paste where you type. In System Settings the permission is called %@.";
 "Try it here" = "Try it here";
 "Done" = "Done";
@@ -202,7 +199,6 @@
 "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself." = "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself.";
 "Nothing to paste" = "Nothing to paste";
 "Allow microphone access" = "Allow microphone access";
-"Open Microphone in System Settings" = "Open Microphone in System Settings";
 "Open %@ in System Settings" = "Open %@ in System Settings";
 "Try loading the model again" = "Try loading the model again";
 "Recording stopped at the five-minute limit" = "Recording stopped at the five-minute limit";
@@ -211,8 +207,8 @@
 "Sorla has been updated and needs to restart" = "Sorla has been updated and needs to restart";
 "Not now" = "Not now";
 "Sorla couldn't start the microphone" = "Sorla couldn't start the microphone";
-"Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again." = "Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again.";
-"Open Sound Settings" = "Open Sound Settings";
+"Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in %@ settings, then try again." = "Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in %@ settings, then try again.";
+"Open %@ Settings" = "Open %@ Settings";
 "Sorla needs to restart" = "Sorla needs to restart";
 "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy." = "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy.";
 "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications." = "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.";

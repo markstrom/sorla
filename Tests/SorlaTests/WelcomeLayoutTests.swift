@@ -38,13 +38,15 @@ final class WelcomeLayoutTests: XCTestCase {
         return try XCTUnwrap(Bundle(url: directory))
     }
 
-    // Each language, with the longer macOS 27 name for the Accessibility pane.
+    // Each language, with the longer macOS 27 name for the Accessibility pane, on a Mac in the other language so it is named twice (#79).
     private func inEachLanguage(_ body: (String) throws -> Void) throws {
         for language in ["en", "sv"] {
             let bundle = try languageBundle(language)
             try Localization.$bundle.withValue(bundle) {
-                try AccessibilityPaneName.$systemMajorVersion.withValue(27) {
-                    try body(language)
+                try SystemSettingsName.$systemMajorVersion.withValue(27) {
+                    try SystemSettingsName.$systemLanguage.withValue(language == "en" ? .swedish : .english) {
+                        try body(language)
+                    }
                 }
             }
         }

@@ -73,7 +73,7 @@ public enum WelcomeRow: CaseIterable, Sendable {
         switch self {
         case .microphone: return String(localized: "So Sorla can hear you.", bundle: Localization.bundle)
         case .accessibility:
-            return String(localized: "So Sorla can paste where you type. In System Settings the permission is called \(AccessibilityPaneName.current).", bundle: Localization.bundle)
+            return String(localized: "So Sorla can paste where you type. In System Settings the permission is called \(SystemSettingsName.name(.accessibility)).", bundle: Localization.bundle)
         case .model: return Localization.bundle.localizedString(forKey: PianissimoModel.displayName, value: nil, table: nil)
         }
     }
@@ -193,9 +193,9 @@ public enum WelcomeChecklist {
         case .requestMicrophone:
             return String(localized: "Allow microphone access", bundle: Localization.bundle)
         case .openMicrophoneSettings:
-            return String(localized: "Open Microphone in System Settings", bundle: Localization.bundle)
+            return String(localized: "Open \(SystemSettingsName.name(.microphone)) in System Settings", bundle: Localization.bundle)
         case .openAccessibilitySettings:
-            return String(localized: "Open \(AccessibilityPaneName.current) in System Settings", bundle: Localization.bundle)
+            return String(localized: "Open \(SystemSettingsName.name(.accessibility)) in System Settings", bundle: Localization.bundle)
         case .downloadModel where buttonTitle == tryAgain:
             return String(localized: "Try downloading the model again", bundle: Localization.bundle)
         case .downloadModel:

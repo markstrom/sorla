@@ -33,9 +33,9 @@
 "Model couldn't be loaded" = "Modellen kunde inte läsas in";
 "Model download failed" = "Nedladdningen av modellen misslyckades";
 "Model update failed" = "Uppdateringen av modellen misslyckades";
-"No microphone found — check Sound › Input" = "Ingen mikrofon hittades – kontrollera Ljud › Ingång";
+"No microphone found — check the sound input in %@ settings" = "Ingen mikrofon hittades – kontrollera ljudingången i inställningarna för %@";
 "Couldn't transcribe the last recording" = "Den senaste inspelningen kunde inte transkriberas";
-"Microphone seems to be muted — check Sound › Input" = "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång";
+"Microphone seems to be muted — check the sound input in %@ settings" = "Mikrofonen verkar vara avstängd – kontrollera ljudingången i inställningarna för %@";
 "Text is on the clipboard — press %@" = "Texten ligger i urklippet – tryck %@";
 "Text is on the clipboard — choose Paste Last Transcription" = "Texten ligger i urklippet – välj Klistra in senaste transkriberingen";
 
@@ -62,8 +62,8 @@
 "Record a shortcut above to start dictating." = "Spela in ett kortkommando ovan för att börja diktera.";
 "Hold %@ while speaking; release to paste." = "Håll %@ medan du pratar och släpp för att klistra in.";
 "Press %@ to start, press again to stop." = "Tryck på %@ för att börja och tryck igen för att sluta.";
-"Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings." = "Ett tryck på bara 🌐/Fn kan också köra systemets val för ”Tryck på 🌐-tangenten för att” (byta inmatningskälla, visa emojier eller starta diktering). Ställ in det på ”Gör ingenting” i inställningarna för Tangentbord.";
-"Open Keyboard Settings…" = "Öppna inställningar för Tangentbord…";
+"Pressing 🌐/Fn alone may also change the input source, show emoji or start dictation, depending on the system's %@ setting. Set it to %@ in %@ settings." = "Ett tryck på bara 🌐/Fn kan också byta inmatningskälla, visa emojier eller starta diktering, beroende på systemets inställning %@. Ställ in den på %@ i inställningarna för %@.";
+"Open %@ Settings…" = "Öppna inställningar för %@…";
 "Model" = "Modell";
 "Pianissimo (Swedish)" = "Pianissimo (svenska)";
 "Not installed" = "Inte installerad";
@@ -94,8 +94,7 @@
 "Paste last transcription" = "Klistra in senaste transkriberingen";
 "The sounds tell you when recording starts and stops." = "Ljuden talar om när inspelningen börjar och slutar.";
 "Launch at login" = "Starta vid inloggning";
-"Sorla needs approval in Login Items to launch at login." = "Sorla behöver godkännas under Inloggningsobjekt för att starta vid inloggning.";
-"Open Login Items Settings…" = "Öppna inställningar för Inloggningsobjekt…";
+"Sorla needs approval in %@ to launch at login." = "Sorla behöver godkännas under %@ för att starta vid inloggning.";
 
 /* Model errors */
 "The model list couldn't be read." = "Modellistan kunde inte läsas.";
@@ -140,8 +139,6 @@
 "Welcome to Sorla" = "Välkommen till Sorla";
 "Microphone" = "Mikrofon";
 "So Sorla can hear you." = "Så att Sorla kan höra dig.";
-"Accessibility" = "Hjälpmedel";
-"Device Control and Data Access" = "Enhetskontroll och dataåtkomst";
 "So Sorla can paste where you type. In System Settings the permission is called %@." = "Så att Sorla kan klistra in där du skriver. I Systeminställningar heter behörigheten %@.";
 "Try it here" = "Prova här";
 "Done" = "Klar";
@@ -202,7 +199,6 @@
 "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself." = "Laddar ner nya versioner av Sorla och talmodellen i bakgrunden. Sorla installerar sin uppdatering när du inte har dikterat på tio minuter, eller nästa gång den startar, och startar om av sig själv.";
 "Nothing to paste" = "Inget att klistra in";
 "Allow microphone access" = "Tillåt mikrofonåtkomst";
-"Open Microphone in System Settings" = "Öppna Mikrofon i Systeminställningar";
 "Open %@ in System Settings" = "Öppna %@ i Systeminställningar";
 "Try loading the model again" = "Försök läsa in modellen igen";
 "Recording stopped at the five-minute limit" = "Inspelningen stoppades vid gränsen på fem minuter";
@@ -211,8 +207,8 @@
 "Sorla has been updated and needs to restart" = "Sorla har uppdaterats och behöver startas om";
 "Not now" = "Inte nu";
 "Sorla couldn't start the microphone" = "Sorla kunde inte starta mikrofonen";
-"Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again." = "Sorla behöver en mikrofon som är ansluten och vald som ljudingång. Kontrollera Ingång i inställningarna för Ljud och försök sedan igen.";
-"Open Sound Settings" = "Öppna inställningar för Ljud";
+"Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in %@ settings, then try again." = "Sorla behöver en mikrofon som är ansluten och vald som ljudingång. Kontrollera ljudingången i inställningarna för %@ och försök sedan igen.";
+"Open %@ Settings" = "Öppna inställningar för %@";
 "Sorla needs to restart" = "Sorla behöver startas om";
 "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy." = "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian.";
 "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications." = "Sorla kan inte öppna sig själv igen där den körs nu, så avsluta den och öppna den igen från Program.";

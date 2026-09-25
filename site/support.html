@@ -80,6 +80,7 @@
       <li><strong>Mikrofon</strong>, så att Sorla kan höra dig. Sorla lyssnar bara medan du dikterar: medan du håller in tangenten, eller mellan två tryck i läget Av/på.</li>
       <li><strong>Enhetskontroll och dataåtkomst</strong>, som heter <strong>Hjälpmedel</strong> i macOS 14–26, så att Sorla kan klistra in texten där du skriver. Sorla lägger texten i urklippet och trycker <code>⌘V</code> åt dig. Utan behörigheten kan Sorla känna igen det du säger men inte klistra in det, se <a href="#ingen-text">Ingen text klistras in</a>.</li>
     </ul>
+    <p>Sorla skriver namnen i Systeminställningar på det språk Systeminställningar visas på. Har du valt ett annat språk för Sorla än för din Mac står Sorlas namn inom parentes, till exempel ”Device Control and Data Access (Enhetskontroll och dataåtkomst)”.</p>
 
     <h3 id="valkomstfonstret">Välkomstfönstret</h3>
     <p>Fönstret har tre rader: <strong>Mikrofon</strong>, <strong>Automatisk inklistring</strong> och <strong>Talmodell</strong>. Varje rad börjar med en grön bock när den är klar och ett rött kryss när något saknas, och bredvid står det i ord: ”Tillåten” eller ”Behörighet saknas” för behörigheterna, ”Redo”, ”Saknas” eller ”Kunde inte laddas” för talmodellen. Medan modellen laddas ner eller görs klar visas ett snurrande hjul och vad som pågår, aldrig ett kryss. Automatisk inklistring är behörigheten som heter Enhetskontroll och dataåtkomst (Hjälpmedel i äldre macOS) i Systeminställningar. Bocken och krysset är inga knappar; knappen för det som saknas står längst till höger på raden. VoiceOver läser samma ord som raden visar. Fältet Prova här syns hela tiden men går att skriva i först när alla tre raderna har en bock. Då står det till exempel ”Sorla är redo. Klicka i fältet nedan, håll inne <code>Höger ⌘</code>, prata och släpp.” ovanför, i läget Av/på ”tryck <code>Höger ⌘</code> en gång för att börja och en gång till för att sluta”. Innan dess står det ”Åtgärda punkterna ovan för att prova diktering.” Svårt att hålla ner en tangent? Välj Av/på under Läge i Inställningar.</p>
@@ -96,6 +97,7 @@
     <p>Alternativt läge: tryck en gång för att börja, en gång till för att sluta. Tangenten (<code>Höger ⌘</code>, <code>Höger ⌥</code>, <code>Höger ⌃</code>, <code>Fn</code> eller en egen kombination) och läget väljer du i Inställningar.</p>
     <p>En inspelning stoppas av sig själv efter fem minuter, och det du hunnit säga klistras in som vanligt. De sista tio sekunderna blir staplarna i indikatorn svagare. <code>Esc</code> avbryter en pågående inspelning, och då klistras inget in.</p>
     <p>Du kan också välja <strong>Starta diktering</strong> i Sorla-menyn och sedan <strong>Stoppa diktering</strong>, till exempel med Röststyrning eller Reglagestyrning. Texten hamnar i appen du arbetade i.</p>
+    <p>Slår du på <strong>Starta vid inloggning</strong> i Sorlas Inställningar kan macOS vilja att du godkänner det, och då säger Inställningar att Sorla behöver godkännas. Klicka på knappen under och slå på Sorla i Systeminställningar → Allmänt → Startobjekt och tillägg (Inloggningsobjekt i äldre macOS).</p>
 
     <h3 id="medan-du-pratar">Varför syns inte texten medan jag pratar?</h3>
     <p>Talmodellen Klang Pianissimo är byggd för att lyssna på det du säger i sin helhet och är inte tränad för att skriva ut orden medan du pratar. Det går att köra modellen på bitar av ljudet, men då blir texten sämre, orden ändras hela tiden på skärmen och det kräver mycket mer av datorn. Sorla väntar därför tills du släpper tangenten. Från att du släpper tills texten står där tar det ungefär en halv sekund.</p>
@@ -132,7 +134,7 @@
       <li>Välj <strong>Starta diktering</strong>. Menyalternativet visar också tangenten, till exempel ”Starta diktering (håll Höger ⌘)”. Menyn stängs och du är kvar i appen du arbetade i. Prata.</li>
       <li>Öppna menyn igen och välj <strong>Stoppa diktering</strong>. Du kan också trycka och släppa dikteringstangenten. Texten hamnar i appen du arbetade i.</li>
     </ol>
-    <p>Överst i menyn står ibland en rad som förklarar hur senaste dikteringen gick, till exempel ”Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång”. Den försvinner när du börjar nästa diktering, och annars efter fem minuter.</p>
+    <p>Överst i menyn står ibland en rad som förklarar hur senaste dikteringen gick, till exempel ”Mikrofonen verkar vara avstängd – kontrollera ljudingången i inställningarna för Ljud”. Den försvinner när du börjar nästa diktering, och annars efter fem minuter.</p>
 
     <h4>Hamnade texten fel?</h4>
     <p>Välj <strong>Klistra in senaste transkriberingen</strong> i Sorla-menyn, eller tryck <code>⌃⌥V</code> (<code>Kontroll-Alternativ-V</code>). Då klistras senaste texten in där du står nu, utan att du behöver diktera igen. Kortkommandot består av samma tangenter som VoiceOvers VO-tangenter och V. Fungerar det inte medan VoiceOver är på, använd menyn eller välj ett annat kortkommando under Inklistring i Inställningar. Medan VoiceOver är igång nämner Sorlas egna besked därför menyvalet och <code>VO-M</code> två gånger i stället för <code>⌃⌥V</code>.</p>
@@ -151,7 +153,7 @@
     <h3 id="macos-diktering">Van vid macOS egen diktering?</h3>
     <p>macOS har en egen diktering, och den finns kvar när du använder Sorla. Så här startar du Sorla med tangenter du redan är van vid.</p>
     <h4>🌐-tangenten (Fn)</h4>
-    <p>Välj <strong>Fn</strong> under Tangent i Sorlas Inställningar. Ett tryck på 🌐 kan annars också göra det macOS är inställt på: starta macOS diktering, visa emojier eller byta inmatningskälla. Stäng av det i Systeminställningar → Tangentbord: ställ in ”Tryck på 🌐-tangenten för att” på ”Gör ingenting”.</p>
+    <p>Välj <strong>Fn</strong> under Tangent i Sorlas Inställningar. Ett tryck på 🌐 kan annars också göra det macOS är inställt på: starta macOS diktering, visa emojier eller byta inmatningskälla. Stäng av det i Systeminställningar → Tangentbord: ställ in ”Tryck på 🌐-tangenten för att” på ”göra ingenting” (”Gör ingenting” i äldre macOS).</p>
     <p>Vill du ha tillbaka det som förut väljer du Tangent i Sorla igen, till exempel <code>Höger ⌘</code>, och ställer in samma meny i Systeminställningar på det den stod på innan.</p>
     <h4>Tryck två gånger på Kontroll eller Kommando</h4>
     <p>macOS diktering kan startas med två snabba tryck på Kontroll eller Kommando. Det finns inte i Sorla. Närmast kommer du med <code>Höger ⌃</code> eller <code>Höger ⌘</code> som tangent: håll in den medan du pratar, eller välj läget Av/på och tryck en gång för att börja och en gång till för att sluta.</p>
@@ -212,9 +214,9 @@
 
     <h3 id="mikrofon">Mikrofonen fungerar inte</h3>
     <ol>
-      <li><strong>Kommer det in ljud?</strong> Visar indikatorn en överstruken mikrofon, eller står det ”Mikrofonen verkar vara avstängd” eller ”Ingen mikrofon hittades” överst i Sorlas meny, hör Sorla inget. Öppna Systeminställningar → Ljud → Ingång, välj rätt mikrofon och kontrollera att nivån rör sig när du pratar. Kontrollera också att mikrofonen eller headsetet inte är avstängt.</li>
+      <li><strong>Kommer det in ljud?</strong> Visar indikatorn en överstruken mikrofon, eller står det ”Mikrofonen verkar vara avstängd” eller ”Ingen mikrofon hittades” överst i Sorlas meny, hör Sorla inget. Öppna Systeminställningar → Ljud → Ljud in (Ingång i äldre macOS), välj rätt mikrofon och kontrollera att nivån rör sig när du pratar. Kontrollera också att mikrofonen eller headsetet inte är avstängt.</li>
       <li><strong>Öppnade Sorla fönstret Ställ in Sorla?</strong> Då saknas behörigheten Mikrofon. Klicka på knappen på raden Mikrofon, <strong>Tillåt</strong> eller <strong>Öppna Systeminställningar</strong> om du har nekat tidigare, och slå på reglaget för Sorla under Integritet och säkerhet → Mikrofon.</li>
-      <li><strong>Står det ”Sorla kunde inte starta mikrofonen”?</strong> Sorla behöver en mikrofon som är ansluten och vald som ljudingång. Klicka på <strong>Öppna inställningar för Ljud</strong>, välj en mikrofon under Ingång och försök igen.</li>
+      <li><strong>Står det ”Sorla kunde inte starta mikrofonen”?</strong> Sorla behöver en mikrofon som är ansluten och vald som ljudingång. Klicka på <strong>Öppna inställningar för Ljud</strong>, välj en mikrofon under Ljud in (Ingång i äldre macOS) och försök igen.</li>
       <li><strong>Hjälper inget av det</strong>, avsluta Sorla och kör raden nedan i Terminal. Öppna sedan Sorla från Program och klicka på Tillåt.
         <p class="command" tabindex="0" role="region" aria-label="Kommando"><code>tccutil reset Microphone com.sorla.app</code></p></li>
     </ol>
@@ -224,14 +226,14 @@
       <li><strong>Håller du in tangenten en kort stund?</strong> Korta tryck, under 0,3 sekunder, räknas inte. I läget Håll in hörs startljudet när inspelningen har börjat.</li>
       <li><strong>Är det rätt tangent?</strong> Sorla-menyn visar den, till exempel ”Starta diktering (håll Höger ⌘)”. Du byter under Tangent i Inställningar. Inställningsfönstret pausar tangenten medan det är öppet, så stäng det innan du dikterar.</li>
       <li><strong>Är Sorla redo?</strong> Symbolen i menyraden är en prick och tre staplar när Sorla är redo. En tom ring betyder att talmodellen fortfarande laddas ner eller görs klar. Ett litet utropstecken i hörnet betyder att något hindrar dikteringen: öppna menyn och välj raden överst, så öppnas Ställ in Sorla med det som behöver göras.</li>
-      <li><strong>Använder du <code>Fn</code>?</strong> Ställ in ”Tryck på 🌐-tangenten för att” på ”Gör ingenting” i Systeminställningar → Tangentbord. Annars kan macOS använda tangenten till annat, se <a href="#macos-diktering">Van vid macOS egen diktering?</a></li>
+      <li><strong>Använder du <code>Fn</code>?</strong> Ställ in ”Tryck på 🌐-tangenten för att” på ”göra ingenting” (”Gör ingenting” i äldre macOS) i Systeminställningar → Tangentbord. Annars kan macOS använda tangenten till annat, se <a href="#macos-diktering">Van vid macOS egen diktering?</a></li>
       <li><strong>Använder du en egen kombination?</strong> En annan app kan använda samma. Välj en annan kombination i Inställningar.</li>
       <li><strong>Fungerar Starta diktering i menyn men inte tangenten?</strong> Avsluta Sorla och öppna den igen från Program. Hjälper inte det, <a href="#kontakt">skriv till oss</a>.</li>
     </ol>
 
     <h3 id="fel-text">Texten blir fel eller tom</h3>
     <ol>
-      <li><strong>Hörs du tydligt?</strong> Kontrollera vald mikrofon och nivå i Systeminställningar → Ljud → Ingång, och prata nära mikrofonen. Ett Bluetooth-headset kan ge sämre ljud än den inbyggda mikrofonen.</li>
+      <li><strong>Hörs du tydligt?</strong> Kontrollera vald mikrofon och nivå i Systeminställningar → Ljud → Ljud in (Ingång i äldre macOS), och prata nära mikrofonen. Ett Bluetooth-headset kan ge sämre ljud än den inbyggda mikrofonen.</li>
       <li><strong>Hann du börja?</strong> I läget Håll in kommer startljudet när du har hållit in tangenten en kort stund. Börja prata när du hör det, och släpp först när du har pratat klart. ”Inget hördes” betyder att Sorla inte hörde något tal.</li>
       <li><strong>Pratar du svenska?</strong> Talmodellen är tränad på svenskt tal. Andra språk blir inte rätt.</li>
       <li><strong>Står det att modellen inte kunde läsas in?</strong> Öppna Sorlas meny och välj raden överst. Då öppnas Ställ in Sorla, där du väljer <strong>Försök igen</strong>.</li>

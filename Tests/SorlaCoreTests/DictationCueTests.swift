@@ -2,6 +2,11 @@ import XCTest
 @testable import SorlaCore
 
 final class DictationCueTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     func testEachCueHasItsOwnSymbol() {
         let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .textKept, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
         XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "doc.text", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
@@ -51,7 +56,7 @@ final class DictationCueTests: XCTestCase {
     }
 
     func testMenuWording() {
-        XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Microphone seems to be muted — check Sound › Input")
+        XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Microphone seems to be muted — check the sound input in Sound settings")
         XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Text is on the clipboard — press ⌃⌥V")
     }
 

@@ -2,6 +2,11 @@ import XCTest
 @testable import SorlaCore
 
 final class LocalizationTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check a Swedish Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.swedish) { super.invokeTest() }
+    }
+
     private static let resources = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -129,7 +134,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(WelcomeRow.accessibility.title, "Automatisk inklistring")
             XCTAssertEqual(WelcomeRow.model.title, "Talmodell")
             XCTAssertEqual(WelcomeRow.model.purpose, "Pianissimo (svenska)")
-            AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+            SystemSettingsName.$systemMajorVersion.withValue(27) {
                 XCTAssertEqual(WelcomeRow.accessibility.purpose, "Så att Sorla kan klistra in där du skriver. I Systeminställningar heter behörigheten Enhetskontroll och dataåtkomst.")
             }
             XCTAssertEqual(
@@ -154,7 +159,7 @@ final class LocalizationTests: XCTestCase {
             )
             XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.notDetermined)), "Tillåt mikrofonåtkomst")
             XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.denied)), "Öppna Mikrofon i Systeminställningar")
-            AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+            SystemSettingsName.$systemMajorVersion.withValue(26) {
                 XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Hjälpmedel i Systeminställningar")
             }
             XCTAssertEqual(
@@ -207,14 +212,14 @@ final class LocalizationTests: XCTestCase {
     func testSwedishNamesTheAccessibilityPaneByMacOSVersion() throws {
         try Localization.$bundle.withValue(swedish) {
             for version in [14, 26] {
-                AccessibilityPaneName.$systemMajorVersion.withValue(version) {
-                    XCTAssertEqual(AccessibilityPaneName.current, "Hjälpmedel")
+                SystemSettingsName.$systemMajorVersion.withValue(version) {
+                    XCTAssertEqual(SystemSettingsName.name(.accessibility), "Hjälpmedel")
                     XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Behörigheten Hjälpmedel behövs för att klistra in")
                     XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Hjälpmedel i Systeminställningar")
                 }
             }
-            AccessibilityPaneName.$systemMajorVersion.withValue(27) {
-                XCTAssertEqual(AccessibilityPaneName.current, "Enhetskontroll och dataåtkomst")
+            SystemSettingsName.$systemMajorVersion.withValue(27) {
+                XCTAssertEqual(SystemSettingsName.name(.accessibility), "Enhetskontroll och dataåtkomst")
                 XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Behörigheten Enhetskontroll och dataåtkomst behövs för att klistra in")
                 XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Enhetskontroll och dataåtkomst i Systeminställningar")
                 XCTAssertEqual(
@@ -284,7 +289,7 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: .shortcut("⌃⌥V")), "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: .shortcut("⌃⌥V")), "Släpp tangenterna och tryck ⌃⌥V igen")
             XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: nil), "Släpp tangenterna och försök igen")
-            XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Mikrofonen verkar vara avstängd – kontrollera Ljud › Ingång")
+            XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Mikrofonen verkar vara avstängd – kontrollera ljudingången i inställningarna för Ljud")
             XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Texten ligger i urklippet – tryck ⌃⌥V")
             XCTAssertEqual(DictationCue(issue: .noInputDevice)?.announcement(pasteLast: nil), "Ingen mikrofon hittades")
             XCTAssertEqual(DictationCue.cancelled.announcement(pasteLast: nil), "Inspelningen avbröts")

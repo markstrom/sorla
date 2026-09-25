@@ -316,9 +316,9 @@ struct SettingsView: View {
 
     private var fnHint: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.")
+            Text(verbatim: SettingsRow.fnKeyHint)
                 .font(.callout)
-            Button("Open Keyboard Settings…") {
+            Button(SettingsRow.openKeyboardSettings) {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
                     NSWorkspace.shared.open(url)
                 }
@@ -328,9 +328,9 @@ struct SettingsView: View {
 
     private var loginItemApprovalHint: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Sorla needs approval in Login Items to launch at login.")
+            Text(verbatim: SettingsRow.loginItemApprovalHint)
                 .font(.callout)
-            Button("Open Login Items Settings…") {
+            Button(SettingsRow.openLoginItemsSettings) {
                 LoginItem.openSystemSettingsLoginItems()
             }
         }

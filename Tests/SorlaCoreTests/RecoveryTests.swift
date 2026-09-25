@@ -239,10 +239,15 @@ final class HeldRefusalTests: XCTestCase {
 }
 
 final class RecoveryDialogTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     func testTheMicrophoneDialogSaysWhatIsNeededWithoutADiagnosis() {
         let dialog = RecoveryDialog.microphoneStart
         XCTAssertEqual(dialog.title, "Sorla couldn't start the microphone")
-        XCTAssertEqual(dialog.message, "Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again.")
+        XCTAssertEqual(dialog.message, "Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in Sound settings, then try again.")
         XCTAssertEqual(dialog.action, .openSoundSettings)
         XCTAssertEqual(dialog.actionTitle, "Open Sound Settings")
         XCTAssertEqual(RecoveryDialog.notNow, "Not now")

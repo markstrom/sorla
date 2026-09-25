@@ -38,4 +38,24 @@ public enum SettingsRow: CaseIterable, Sendable {
     public var isShortcutField: Bool {
         self == .customShortcut || self == .pasteLastShortcut
     }
+
+    // The hints under Trigger and Launch at login name System Settings items, so they follow the running macOS (#79).
+    public static var fnKeyHint: String {
+        let pressKeyTo = SystemSettingsName.name(.pressGlobeKeyTo, quoted: true)
+        let doNothing = SystemSettingsName.name(.doNothing, quoted: true)
+        let keyboard = SystemSettingsName.name(.keyboard)
+        return String(localized: "Pressing 🌐/Fn alone may also change the input source, show emoji or start dictation, depending on the system's \(pressKeyTo) setting. Set it to \(doNothing) in \(keyboard) settings.", bundle: Localization.bundle)
+    }
+
+    public static var openKeyboardSettings: String {
+        String(localized: "Open \(SystemSettingsName.name(.keyboard)) Settings…", bundle: Localization.bundle)
+    }
+
+    public static var loginItemApprovalHint: String {
+        String(localized: "Sorla needs approval in \(SystemSettingsName.name(.loginItems)) to launch at login.", bundle: Localization.bundle)
+    }
+
+    public static var openLoginItemsSettings: String {
+        String(localized: "Open \(SystemSettingsName.name(.loginItems)) Settings…", bundle: Localization.bundle)
+    }
 }

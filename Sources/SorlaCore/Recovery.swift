@@ -212,9 +212,9 @@ public struct RecoveryDialog: Equatable, Sendable {
     public static var microphoneStart: RecoveryDialog {
         RecoveryDialog(
             title: String(localized: "Sorla couldn't start the microphone", bundle: Localization.bundle),
-            message: String(localized: "Sorla needs a microphone that is connected and selected as the sound input. Check Input in Sound settings, then try again.", bundle: Localization.bundle),
+            message: String(localized: "Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in \(SystemSettingsName.name(.sound)) settings, then try again.", bundle: Localization.bundle),
             action: .openSoundSettings,
-            actionTitle: String(localized: "Open Sound Settings", bundle: Localization.bundle)
+            actionTitle: String(localized: "Open \(SystemSettingsName.name(.sound)) Settings", bundle: Localization.bundle)
         )
     }
 

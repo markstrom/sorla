@@ -2,6 +2,11 @@ import XCTest
 @testable import SorlaCore
 
 final class MenuStatusRowTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     private func row(
         microphoneDenied: Bool = false,
         accessibilityMissing: Bool = false,
@@ -29,7 +34,7 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     private static let shownAt = Date(timeIntervalSinceReferenceDate: 1_000_000)
-    private let muted = TransientMenuStatus(issue: .microphoneMuted, at: MenuStatusRowTests.shownAt)
+    private var muted: TransientMenuStatus? { TransientMenuStatus(issue: .microphoneMuted, at: MenuStatusRowTests.shownAt) }
 
     func testLoadingAnInstalledModelSaysHowLongItTakes() {
         XCTAssertEqual(row(modelLoading: true), MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings))
@@ -49,7 +54,7 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     func testAccessibilityComesBeforeTheModel() {
-        let row = AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+        let row = SystemSettingsName.$systemMajorVersion.withValue(26) {
             self.row(accessibilityMissing: true, model: .downloading(version: "1.0.0", fraction: 0.5, isUpdate: false))
         }
 
@@ -123,7 +128,7 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     func testTransientExplanationsHaveTheirOwnActions() {
-        XCTAssertEqual(muted?.row, MenuStatusRow(title: "Microphone seems to be muted — check Sound › Input", action: .openSoundSettings))
+        XCTAssertEqual(muted?.row, MenuStatusRow(title: "Microphone seems to be muted — check the sound input in Sound settings", action: .openSoundSettings))
         XCTAssertEqual(
             TransientMenuStatus(issue: .textOnClipboard(pasteLast: .shortcut("⌃⌥V")), at: Self.shownAt)?.row,
             MenuStatusRow(title: "Text is on the clipboard — press ⌃⌥V", action: .pasteLastTranscription)
@@ -134,7 +139,7 @@ final class MenuStatusRowTests: XCTestCase {
         )
         XCTAssertEqual(
             TransientMenuStatus(issue: .noInputDevice, at: Self.shownAt)?.row,
-            MenuStatusRow(title: "No microphone found — check Sound › Input", action: .openSoundSettings)
+            MenuStatusRow(title: "No microphone found — check the sound input in Sound settings", action: .openSoundSettings)
         )
         XCTAssertEqual(
             TransientMenuStatus(issue: .transcriptionFailed, at: Self.shownAt)?.row,

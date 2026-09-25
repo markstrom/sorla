@@ -2,6 +2,11 @@ import XCTest
 @testable import SorlaCore
 
 final class WelcomeChecklistTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     func testShownOnFirstLaunchEvenWithEverythingGranted() {
         XCTAssertTrue(WelcomeChecklist.shouldShow(hasCompletedOnboarding: false, microphone: .granted, isAccessibilityTrusted: true))
     }
@@ -123,10 +128,10 @@ final class WelcomeChecklistTests: XCTestCase {
         let names = { (status: WelcomeRowStatus) in WelcomeChecklist.buttonName(status) }
         XCTAssertEqual(names(WelcomeChecklist.microphoneRow(.notDetermined)), "Allow microphone access")
         XCTAssertEqual(names(WelcomeChecklist.microphoneRow(.denied)), "Open Microphone in System Settings")
-        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+        SystemSettingsName.$systemMajorVersion.withValue(26) {
             XCTAssertEqual(names(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Open Accessibility in System Settings")
         }
-        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+        SystemSettingsName.$systemMajorVersion.withValue(27) {
             XCTAssertEqual(names(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Open Device Control and Data Access in System Settings")
         }
         XCTAssertEqual(
@@ -211,14 +216,14 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertEqual(WelcomeRow.model.purpose, "Pianissimo (Swedish)")
         // #75: the row says what the permission is for; the macOS pane's name (#74) is in the explanation.
         for version in [26, 27] {
-            AccessibilityPaneName.$systemMajorVersion.withValue(version) {
+            SystemSettingsName.$systemMajorVersion.withValue(version) {
                 XCTAssertEqual(WelcomeRow.accessibility.title, "Automatic Pasting")
             }
         }
-        AccessibilityPaneName.$systemMajorVersion.withValue(26) {
+        SystemSettingsName.$systemMajorVersion.withValue(26) {
             XCTAssertEqual(WelcomeRow.accessibility.purpose, "So Sorla can paste where you type. In System Settings the permission is called Accessibility.")
         }
-        AccessibilityPaneName.$systemMajorVersion.withValue(27) {
+        SystemSettingsName.$systemMajorVersion.withValue(27) {
             XCTAssertEqual(WelcomeRow.accessibility.purpose, "So Sorla can paste where you type. In System Settings the permission is called Device Control and Data Access.")
         }
     }
