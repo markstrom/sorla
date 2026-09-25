@@ -104,4 +104,26 @@ final class WelcomeChecklistTests: XCTestCase {
         )
         XCTAssertNil(WelcomeChecklist.toggleModeTip(mode: .toggle))
     }
+
+    // #61: Tab and VoiceOver's control list read a button without its row, so each says what it acts on.
+    func testEachButtonIsNamedForWhatItActsOn() {
+        let names = { (status: WelcomeRowStatus) in WelcomeChecklist.buttonName(status) }
+        XCTAssertEqual(names(WelcomeChecklist.microphoneRow(.notDetermined)), "Allow microphone access")
+        XCTAssertEqual(names(WelcomeChecklist.microphoneRow(.denied)), "Open Microphone in System Settings")
+        XCTAssertEqual(names(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Open Accessibility in System Settings")
+        XCTAssertEqual(
+            names(WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .notInstalled)),
+            "Download the speech model"
+        )
+        XCTAssertEqual(
+            names(WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .failed(.network, isUpdate: false))),
+            "Try downloading the model again"
+        )
+        XCTAssertEqual(
+            names(WelcomeChecklist.modelRow(isInstalled: true, isLoaded: false, loadFailed: true, model: .installed(version: "1"))),
+            "Try loading the model again"
+        )
+        XCTAssertNil(names(.done))
+        XCTAssertNil(names(.inProgress("Preparing model… ~1 min")))
+    }
 }

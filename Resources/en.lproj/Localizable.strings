@@ -202,3 +202,7 @@
 "Sorla couldn't restart, so this version is kept. Try again later." = "Sorla couldn't restart, so this version is kept. Try again later.";
 "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself." = "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself.";
 "Nothing to paste" = "Nothing to paste";
+"Allow microphone access" = "Allow microphone access";
+"Open Microphone in System Settings" = "Open Microphone in System Settings";
+"Open Accessibility in System Settings" = "Open Accessibility in System Settings";
+"Try loading the model again" = "Try loading the model again";

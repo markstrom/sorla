@@ -127,6 +127,17 @@ final class LocalizationTests: XCTestCase {
                 WelcomeChecklist.readinessLine(isReady: true, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil),
                 "Sorla är redo. Håll Höger ⌘ för att diktera."
             )
+            XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.notDetermined)), "Tillåt mikrofonåtkomst")
+            XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.microphoneRow(.denied)), "Öppna Mikrofon i Systeminställningar")
+            XCTAssertEqual(WelcomeChecklist.buttonName(WelcomeChecklist.accessibilityRow(isTrusted: false)), "Öppna Hjälpmedel i Systeminställningar")
+            XCTAssertEqual(
+                WelcomeChecklist.buttonName(WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .failed(.network, isUpdate: false))),
+                "Försök ladda ner modellen igen"
+            )
+            XCTAssertEqual(
+                WelcomeChecklist.buttonName(WelcomeChecklist.modelRow(isInstalled: true, isLoaded: false, loadFailed: true, model: .installed(version: "1"))),
+                "Försök läsa in modellen igen"
+            )
         }
     }
 

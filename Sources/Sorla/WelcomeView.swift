@@ -142,6 +142,7 @@ struct WelcomeView: View {
                     .accessibilityLabel(Text("In progress"))
             case .needsAction(let action, let buttonTitle, _):
                 Button(buttonTitle) { perform(action) }
+                    .accessibilityLabel(Text(verbatim: WelcomeChecklist.buttonName(status) ?? buttonTitle))
             }
         }
         .accessibilityElement(children: .contain)

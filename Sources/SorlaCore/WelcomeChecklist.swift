@@ -82,6 +82,25 @@ public enum WelcomeChecklist {
         return String(localized: "Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop.", bundle: Localization.bundle)
     }
 
+    // Two rows can show "Open System Settings", so Tab and VoiceOver's control list get what each button acts on (#61).
+    public static func buttonName(_ status: WelcomeRowStatus) -> String? {
+        guard case .needsAction(let action, let buttonTitle, _) = status else { return nil }
+        switch action {
+        case .requestMicrophone:
+            return String(localized: "Allow microphone access", bundle: Localization.bundle)
+        case .openMicrophoneSettings:
+            return String(localized: "Open Microphone in System Settings", bundle: Localization.bundle)
+        case .openAccessibilitySettings:
+            return String(localized: "Open Accessibility in System Settings", bundle: Localization.bundle)
+        case .downloadModel where buttonTitle == tryAgain:
+            return String(localized: "Try downloading the model again", bundle: Localization.bundle)
+        case .downloadModel:
+            return String(localized: "Download the speech model", bundle: Localization.bundle)
+        case .reloadModel:
+            return String(localized: "Try loading the model again", bundle: Localization.bundle)
+        }
+    }
+
     private static var openSystemSettings: String { String(localized: "Open System Settings", bundle: Localization.bundle) }
     private static var tryAgain: String { String(localized: "Try Again", bundle: Localization.bundle) }
     private static var preparing: String { String(localized: "Preparing model… ~1 min", bundle: Localization.bundle) }
