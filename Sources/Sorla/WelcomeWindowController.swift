@@ -5,12 +5,19 @@ import SwiftUI
 @MainActor
 final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
     let state: WelcomeState
+    var onClose: (() -> Void)?
     private let appSettings: AppSettings
     private let modelManager: ModelManager
     private var permissionPoll: Timer?
 
-    init(appSettings: AppSettings, modelManager: ModelManager, modelLoadingStatus: ModelLoadingStatus) {
-        self.state = WelcomeState(modelLoadingStatus: modelLoadingStatus)
+    init(
+        appSettings: AppSettings,
+        modelManager: ModelManager,
+        modelLoadingStatus: ModelLoadingStatus,
+        isTextKept: @escaping () -> Bool,
+        announce: @escaping (String) -> Void
+    ) {
+        self.state = WelcomeState(modelLoadingStatus: modelLoadingStatus, isTextKept: isTextKept)
         self.appSettings = appSettings
         self.modelManager = modelManager
 
@@ -29,6 +36,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
             appSettings: appSettings,
             modelManager: modelManager,
             perform: { [weak self] action in self?.perform(action) },
+            announce: announce,
             onDone: { [weak self] in self?.close() }
         ))
         window.center()
@@ -41,7 +49,9 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
 
     var isKey: Bool { window?.isKeyWindow ?? false }
 
-    func show() {
+    func show(forRecovery: Bool) {
+        state.willShow(forRecovery: forRecovery, isAlreadyOpen: window?.isVisible == true)
+        window?.title = state.isRecovery ? WelcomeView.recoveryWindowTitle : WelcomeView.windowTitle
         startPollingPermissions()
         (window as? SorlaWindow)?.present()
     }
@@ -50,15 +60,17 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         permissionPoll?.invalidate()
         permissionPoll = nil
         appSettings.hasCompletedOnboarding = true
+        state.didClose()
+        onClose?()
     }
 
     // macOS doesn't notify about Accessibility changes, so the row polls while the window is open.
     private func startPollingPermissions() {
-        state.refreshPermissions()
+        state.refresh()
         guard permissionPoll == nil else { return }
         permissionPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.state.refreshPermissions()
+                self?.state.refresh()
             }
         }
     }
@@ -68,7 +80,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         case .requestMicrophone:
             Task {
                 _ = await PermissionsManager.requestMicrophoneAccess()
-                state.refreshPermissions()
+                state.refresh()
             }
         case .openMicrophoneSettings:
             if let url = SorlaIssue.microphoneAccessNeeded.settingsURL { NSWorkspace.shared.open(url) }

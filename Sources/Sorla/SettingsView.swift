@@ -29,7 +29,7 @@ struct SettingsView: View {
     private static let logger = Logger(subsystem: "com.sorla.app", category: "SettingsView")
 
     // The recorder's own 130 pt is too narrow for longer translations such as "Spela in kortkommando".
-    private static let recorderWidth: CGFloat = 200
+    static let recorderWidth: CGFloat = 200
     private static var maxHeight: CGFloat { max(360, (NSScreen.main?.visibleFrame.height ?? 800) - 80) }
 
     private static let updatesSectionID = "updates"
@@ -233,11 +233,13 @@ struct SettingsView: View {
             Spacer()
             Button("Check Now") { updateChecker.checkNow() }
                 .accessibilityLabel(Text("Check for updates now"))
+                .accessibilityInputLabels([Text("Check Now")])
                 .disabled(!UpdateRow.canCheckNow(app: updateChecker.appStatus, model: modelManager.status, install: appUpdater.state))
         }
     }
 
-    // "Download" and "Try Again" alone don't say what they act on, so VoiceOver gets the full action.
+    // "Download" and "Try Again" alone don't say what they act on, so VoiceOver gets the full action;
+    // Voice Control still answers to the visible title.
     private func updateRow(
         _ settingsRow: SettingsRow,
         version: String?,
@@ -258,12 +260,15 @@ struct SettingsView: View {
                     case .download:
                         Button("Download", action: download)
                             .accessibilityLabel(downloadLabel)
+                            .accessibilityInputLabels([Text("Download")])
                     case .tryAgain:
                         Button("Try Again", action: download)
                             .accessibilityLabel(tryAgainLabel)
+                            .accessibilityInputLabels([Text("Try Again")])
                     case .install:
                         Button("Install and Relaunch", action: install)
                             .accessibilityLabel(Text("Install Sorla and relaunch it"))
+                            .accessibilityInputLabels([Text("Install and Relaunch")])
                     case nil:
                         EmptyView()
                     }
@@ -311,9 +316,9 @@ struct SettingsView: View {
 
     private var fnHint: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.")
+            Text(verbatim: SettingsRow.fnKeyHint)
                 .font(.callout)
-            Button("Open Keyboard Settings…") {
+            Button(SettingsRow.openKeyboardSettings) {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
                     NSWorkspace.shared.open(url)
                 }
@@ -323,9 +328,9 @@ struct SettingsView: View {
 
     private var loginItemApprovalHint: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Sorla needs approval in Login Items to launch at login.")
+            Text(verbatim: SettingsRow.loginItemApprovalHint)
                 .font(.callout)
-            Button("Open Login Items Settings…") {
+            Button(SettingsRow.openLoginItemsSettings) {
                 LoginItem.openSystemSettingsLoginItems()
             }
         }

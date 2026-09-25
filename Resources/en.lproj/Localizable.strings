@@ -19,32 +19,33 @@
 "Paste" = "Paste";
 "Select All" = "Select All";
 "Sorla (transcribing)" = "Sorla (transcribing)";
-"Sorla (model couldn't be loaded)" = "Sorla (model couldn't be loaded)";
+"Sorla (needs attention)" = "Sorla (needs attention)";
 
 /* Status row */
 "Downloading model… %lld%%" = "Downloading model… %lld%%";
 "Preparing model… ~1 min" = "Preparing model… ~1 min";
-"Model not installed — Download" = "Model not installed — Download";
+"Model not installed" = "Model not installed";
 "%@ — Try Again" = "%@ — Try Again";
 "Model update available (%@)" = "Model update available (%@)";
 "Sorla %@ is available — Download" = "Sorla %@ is available — Download";
 "Microphone access needed" = "Microphone access needed";
-"Accessibility access needed to paste" = "Accessibility access needed to paste";
+"%@ permission needed to paste" = "%@ permission needed to paste";
 "Model couldn't be loaded" = "Model couldn't be loaded";
 "Model download failed" = "Model download failed";
 "Model update failed" = "Model update failed";
-"No microphone found — check Sound › Input" = "No microphone found — check Sound › Input";
+"No microphone found — check the sound input in %@ settings" = "No microphone found — check the sound input in %@ settings";
 "Couldn't transcribe the last recording" = "Couldn't transcribe the last recording";
-"Microphone seems to be muted — check Sound › Input" = "Microphone seems to be muted — check Sound › Input";
+"Microphone seems to be muted — check the sound input in %@ settings" = "Microphone seems to be muted — check the sound input in %@ settings";
 "Text is on the clipboard — press %@" = "Text is on the clipboard — press %@";
+"Text is on the clipboard — choose Paste Last Transcription" = "Text is on the clipboard — choose Paste Last Transcription";
 
 /* Dictation refusals and readiness */
 "The model is still downloading (%lld%%). Dictation will work once it's ready." = "The model is still downloading (%lld%%). Dictation will work once it's ready.";
 "The model is being prepared (~1 min). Dictation will work once it's ready." = "The model is being prepared (~1 min). Dictation will work once it's ready.";
 "The model isn't installed yet. Open the Sorla menu to download it." = "The model isn't installed yet. Open the Sorla menu to download it.";
 "Sorla is ready. Set a shortcut in Settings to dictate." = "Sorla is ready. Set a shortcut in Settings to dictate.";
-"Sorla is ready. Hold %@ to dictate." = "Sorla is ready. Hold %@ to dictate.";
-"Sorla is ready. Press %@ to dictate." = "Sorla is ready. Press %@ to dictate.";
+"Sorla is ready. Click in the field below, hold down %@, speak and release." = "Sorla is ready. Click in the field below, hold down %@, speak and release.";
+"Sorla is ready. Click in the field below, press %@ once to start and once more to stop." = "Sorla is ready. Click in the field below, press %@ once to start and once more to stop.";
 
 /* Settings */
 "Sorla Settings" = "Sorla Settings";
@@ -61,8 +62,8 @@
 "Record a shortcut above to start dictating." = "Record a shortcut above to start dictating.";
 "Hold %@ while speaking; release to paste." = "Hold %@ while speaking; release to paste.";
 "Press %@ to start, press again to stop." = "Press %@ to start, press again to stop.";
-"Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings." = "Pressing 🌐/Fn alone may also run the system's \"Press 🌐 key to\" action (change input source, emoji, or dictation). Set it to \"Do Nothing\" in Keyboard settings.";
-"Open Keyboard Settings…" = "Open Keyboard Settings…";
+"Pressing 🌐/Fn alone may also change the input source, show emoji or start dictation, depending on the system's %@ setting. Set it to %@ in %@ settings." = "Pressing 🌐/Fn alone may also change the input source, show emoji or start dictation, depending on the system's %@ setting. Set it to %@ in %@ settings.";
+"Open %@ Settings…" = "Open %@ Settings…";
 "Model" = "Model";
 "Pianissimo (Swedish)" = "Pianissimo (Swedish)";
 "Not installed" = "Not installed";
@@ -93,8 +94,7 @@
 "Paste last transcription" = "Paste last transcription";
 "The sounds tell you when recording starts and stops." = "The sounds tell you when recording starts and stops.";
 "Launch at login" = "Launch at login";
-"Sorla needs approval in Login Items to launch at login." = "Sorla needs approval in Login Items to launch at login.";
-"Open Login Items Settings…" = "Open Login Items Settings…";
+"Sorla needs approval in %@ to launch at login." = "Sorla needs approval in %@ to launch at login.";
 
 /* Model errors */
 "The model list couldn't be read." = "The model list couldn't be read.";
@@ -127,7 +127,7 @@
 "Pianissimo model credit" = "Pianissimo model credit";
 "License texts are included with the app." = "License texts are included with the app.";
 "The model is loading (~1 min). Dictation will work once it's ready." = "The model is loading (~1 min). Dictation will work once it's ready.";
-"The model couldn't be loaded. Open the Sorla menu and choose “%@”." = "The model couldn't be loaded. Open the Sorla menu and choose “%@”.";
+"The model couldn't be loaded. Open the Sorla menu to try again." = "The model couldn't be loaded. Open the Sorla menu to try again.";
 "Talk. Release. Done." = "Talk. Release. Done.";
 "Check for Updates…" = "Check for Updates…";
 "Checking…" = "Checking…";
@@ -136,14 +136,10 @@
 /* Welcome */
 "Allow" = "Allow";
 "Open System Settings" = "Open System Settings";
-"Dictation works once all three are done." = "Dictation works once all three are done.";
 "Welcome to Sorla" = "Welcome to Sorla";
 "Microphone" = "Microphone";
 "So Sorla can hear you." = "So Sorla can hear you.";
-"Accessibility" = "Accessibility";
-"So Sorla can paste where you type." = "So Sorla can paste where you type.";
-"If the switch is on but this doesn't show a checkmark, quit and reopen Sorla." = "If the switch is on but this doesn't show a checkmark, quit and reopen Sorla.";
-"In progress" = "In progress";
+"So Sorla can paste where you type. In System Settings the permission is called %@." = "So Sorla can paste where you type. In System Settings the permission is called %@.";
 "Try it here" = "Try it here";
 "Done" = "Done";
 "GitHub isn't answering more update checks right now. Try again in a while." = "GitHub isn't answering more update checks right now. Try again in a while.";
@@ -169,20 +165,20 @@
 "Couldn't transcribe the recording" = "Couldn't transcribe the recording";
 "Let go of the keys and press %@ again" = "Let go of the keys and press %@ again";
 "Let go of the keys and try again" = "Let go of the keys and try again";
+"Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)";
+"Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)";
 "Pasting text" = "Pasting text";
 "Keep last transcription" = "Keep last transcription";
 "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once." = "Keeps your latest text in memory for up to five minutes so you can paste it again with Paste Last Transcription. Turning this off forgets it at once.";
 "Recording cancelled" = "Recording cancelled";
-"Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop." = "Hard to hold a key down? Choose Toggle under Mode in Settings: press once to start and again to stop.";
+"Hard to hold a key down? Choose Toggle under Mode in Settings." = "Hard to hold a key down? Choose Toggle under Mode in Settings.";
 "Sorla has been updated — Restart" = "Sorla has been updated — Restart";
 "Sorla has been updated — Quit and open it from Applications" = "Sorla has been updated — Quit and open it from Applications";
-"Restart Sorla to paste again" = "Restart Sorla to paste again";
 "Dictation" = "Dictation";
 "Pasting" = "Pasting";
 "General" = "General";
 "Put back what you had copied" = "Put back what you had copied";
 "Sorla borrows the clipboard to paste, then puts back what was there." = "Sorla borrows the clipboard to paste, then puts back what was there.";
-"Sorla has been updated — restarting" = "Sorla has been updated — restarting";
 "Sorla (needs a restart)" = "Sorla (needs a restart)";
 "Install and Relaunch" = "Install and Relaunch";
 "Install Sorla and relaunch it" = "Install Sorla and relaunch it";
@@ -201,3 +197,45 @@
 "Sorla couldn't replace itself, so this version is kept. Download the update instead." = "Sorla couldn't replace itself, so this version is kept. Download the update instead.";
 "Sorla couldn't restart, so this version is kept. Try again later." = "Sorla couldn't restart, so this version is kept. Try again later.";
 "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself." = "Downloads new versions of Sorla and the speech model in the background. Sorla installs its update once you haven't dictated for 10 minutes, or at its next launch, and restarts by itself.";
+"Nothing to paste" = "Nothing to paste";
+"Allow microphone access" = "Allow microphone access";
+"Open %@ in System Settings" = "Open %@ in System Settings";
+"Try loading the model again" = "Try loading the model again";
+"Recording stopped at the five-minute limit" = "Recording stopped at the five-minute limit";
+
+/* Recovery windows (#72) */
+"Sorla has been updated and needs to restart" = "Sorla has been updated and needs to restart";
+"Not now" = "Not now";
+"Sorla couldn't start the microphone" = "Sorla couldn't start the microphone";
+"Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in %@ settings, then try again." = "Sorla needs a microphone that is connected and selected as the sound input. Check the sound input in %@ settings, then try again.";
+"Open %@ Settings" = "Open %@ Settings";
+"Sorla needs to restart" = "Sorla needs to restart";
+"Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy." = "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy.";
+"Sorla can't reopen itself from where it is running, so quit it and open it again from Applications." = "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.";
+"Restarting opens the new version." = "Restarting opens the new version.";
+"Restart Sorla" = "Restart Sorla";
+"Fix the items above to try dictation." = "Fix the items above to try dictation.";
+"Set Up Sorla" = "Set Up Sorla";
+
+/* Welcome window rows and update switches (#73, #75) */
+"Switch already on? Quit and reopen Sorla." = "Switch already on? Quit and reopen Sorla.";
+"Automatic Pasting" = "Automatic Pasting";
+"Speech Model" = "Speech Model";
+"Allowed" = "Allowed";
+"Permission missing" = "Permission missing";
+"Ready" = "Ready";
+"Missing" = "Missing";
+"Couldn't load" = "Couldn't load";
+"Get fixes and new versions of the speech model without having to remember to check." = "Get fixes and new versions of the speech model without having to remember to check.";
+"Installs them when you haven't dictated for a while. Needs automatic checks." = "Installs them when you haven't dictated for a while. Needs automatic checks.";
+
+/* A blocked paste in Set Up Sorla (#72) */
+"Couldn't paste — Sorla has kept your text" = "Couldn't paste — Sorla has kept your text";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription (%@)." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription (%@).";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu (VO-M twice)." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu (VO-M twice).";
+"The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu." = "The text is saved. Grant the permission, click where you want to type and choose Paste Last Transcription in Sorla's menu.";
+"A test dictation in Try it here replaces the saved text." = "A test dictation in Try it here replaces the saved text.";
+"The text couldn't be saved. Grant the permission and dictate again." = "The text couldn't be saved. Grant the permission and dictate again.";
+"The text is no longer saved. Grant the permission and dictate again." = "The text is no longer saved. Grant the permission and dictate again.";
+"Couldn't paste — the text wasn't saved" = "Couldn't paste — the text wasn't saved";
+"The text can't be kept across the restart, so dictate it again afterwards." = "The text can't be kept across the restart, so dictate it again afterwards.";

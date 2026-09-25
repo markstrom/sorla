@@ -32,15 +32,4 @@ public enum TriggerHint {
         case .toggle: return String(localized: "Press \(key) to start, press again to stop.", bundle: Localization.bundle)
         }
     }
-
-    public static func readyMessage(trigger: TriggerKey, mode: RecordingMode, customShortcut: String?) -> String {
-        if trigger == .customShortcut, customShortcut?.isEmpty ?? true {
-            return String(localized: "Sorla is ready. Set a shortcut in Settings to dictate.", bundle: Localization.bundle)
-        }
-        let key = keyLabel(for: trigger, customShortcut: customShortcut)
-        switch mode {
-        case .pushToTalk: return String(localized: "Sorla is ready. Hold \(key) to dictate.", bundle: Localization.bundle)
-        case .toggle: return String(localized: "Sorla is ready. Press \(key) to dictate.", bundle: Localization.bundle)
-        }
-    }
 }

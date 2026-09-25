@@ -7,12 +7,14 @@ public enum DictationCue: Equatable, Sendable {
     case nothingHeard
     case noText
     case textOnClipboard
-    // Sorla was replaced on disk, so its own pastes won't work again until it restarts.
-    case textOnClipboardUntilRestart
+    // A blocked paste whose text Sorla kept for Paste Last; the clipboard is as the user left it (#72).
+    case textKept
     case releaseKeys
+    // Paste Last asked for with nothing kept: it expired, was forgotten at a lock, or nothing was dictated yet.
+    case nothingToPaste
     case cancelled
-    // Pressed on a replaced Sorla that can reopen itself: it restarts instead of recording.
-    case restarting
+    // Sorla was replaced on disk: pressed when it can reopen itself nothing is recorded, and a paste is dropped (#72).
+    case restartNeeded
     case waitingForModel(String)
     case failed(String)
 
@@ -25,13 +27,17 @@ public enum DictationCue: Equatable, Sendable {
             self = .failed(String(localized: "No microphone found", bundle: Localization.bundle))
         case .transcriptionFailed:
             self = .failed(String(localized: "Couldn't transcribe the recording", bundle: Localization.bundle))
-        case .accessibilityAccessNeeded:
-            self = .textOnClipboard
         case .appReplaced:
-            self = .textOnClipboardUntilRestart
-        case .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
+            self = .restartNeeded
+        // Whether the text was kept decides it; see blockedPaste(isTextKept:).
+        case .accessibilityAccessNeeded, .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
             return nil
         }
+    }
+
+    // A blocked paste never touches the clipboard, so the text is either kept for Paste Last or gone (#72).
+    public static func blockedPaste(isTextKept: Bool) -> DictationCue {
+        isTextKept ? .textKept : .failed(String(localized: "Couldn't paste — the text wasn't saved", bundle: Localization.bundle))
     }
 
     public var symbolName: String {
@@ -39,17 +45,19 @@ public enum DictationCue: Equatable, Sendable {
         case .microphoneMuted: return "mic.slash"
         case .nothingHeard: return "waveform.slash"
         case .noText: return "minus"
-        case .textOnClipboard, .textOnClipboardUntilRestart: return "doc.on.clipboard"
+        case .textOnClipboard: return "doc.on.clipboard"
+        case .textKept: return "doc.text"
         case .releaseKeys: return "keyboard"
+        case .nothingToPaste: return "clipboard"
         case .cancelled: return "xmark"
-        case .restarting: return "arrow.clockwise"
+        case .restartNeeded: return "arrow.clockwise"
         case .waitingForModel: return "hourglass"
         case .failed: return "exclamationmark.triangle"
         }
     }
 
-    // Without a Paste Last shortcut the text can still be pasted with ⌘V, since it is on the clipboard.
-    public func announcement(pasteShortcut: String?) -> String {
+    // Without a way to Paste Last the text can still be pasted with ⌘V, since it is on the clipboard.
+    public func announcement(pasteLast: PasteLastRoute?) -> String {
         switch self {
         case .microphoneMuted:
             return String(localized: "Microphone seems to be muted", bundle: Localization.bundle)
@@ -58,31 +66,40 @@ public enum DictationCue: Equatable, Sendable {
         case .noText:
             return String(localized: "No text", bundle: Localization.bundle)
         case .textOnClipboard:
-            let shortcut = pasteShortcut ?? "⌘V"
+            guard pasteLast != .menu else {
+                return String(localized: "Your text is on the clipboard — choose Paste Last Transcription in Sorla's menu (VO-M twice)", bundle: Localization.bundle)
+            }
+            let shortcut = pasteLast?.keys ?? "⌘V"
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
-        case .textOnClipboardUntilRestart:
-            let onClipboard = DictationCue.textOnClipboard.announcement(pasteShortcut: pasteShortcut)
-            return onClipboard + ". " + String(localized: "Restart Sorla to paste again", bundle: Localization.bundle)
+        case .textKept:
+            return String(localized: "Couldn't paste — Sorla has kept your text", bundle: Localization.bundle)
         case .releaseKeys:
-            guard let pasteShortcut else {
+            switch pasteLast {
+            case .menu:
+                return String(localized: "Let go of the keys and choose Paste Last Transcription in Sorla's menu (VO-M twice)", bundle: Localization.bundle)
+            case .shortcut(let shortcut):
+                return String(localized: "Let go of the keys and press \(shortcut) again", bundle: Localization.bundle)
+            case nil:
                 return String(localized: "Let go of the keys and try again", bundle: Localization.bundle)
             }
-            return String(localized: "Let go of the keys and press \(pasteShortcut) again", bundle: Localization.bundle)
+        // Names no way to paste, so it reads the same with VoiceOver.
+        case .nothingToPaste:
+            return String(localized: "Nothing to paste", bundle: Localization.bundle)
         case .cancelled:
             return String(localized: "Recording cancelled", bundle: Localization.bundle)
-        case .restarting:
-            return String(localized: "Sorla has been updated — restarting", bundle: Localization.bundle)
+        case .restartNeeded:
+            return String(localized: "Sorla has been updated and needs to restart", bundle: Localization.bundle)
         case .waitingForModel(let message), .failed(let message):
             return message
         }
     }
 
     // Only outcomes the user has to act on also leave an explanation in the menu.
-    public func issue(pasteShortcut: String?) -> SorlaIssue? {
+    public func issue(pasteLast: PasteLastRoute?) -> SorlaIssue? {
         switch self {
         case .microphoneMuted: return .microphoneMuted
-        case .textOnClipboard, .textOnClipboardUntilRestart: return .textOnClipboard(pasteShortcut: pasteShortcut ?? "⌘V")
-        case .nothingHeard, .noText, .releaseKeys, .cancelled, .restarting, .waitingForModel, .failed: return nil
+        case .textOnClipboard: return .textOnClipboard(pasteLast: pasteLast)
+        case .textKept, .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel, .failed: return nil
         }
     }
 }

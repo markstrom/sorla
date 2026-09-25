@@ -12,9 +12,9 @@ public enum DictationGate {
             if isModelLoading {
                 return String(localized: "The model is loading (~1 min). Dictation will work once it's ready.", bundle: Localization.bundle)
             }
+            // The menu's row opens the setup window, where Try Again is (#76).
             if didModelFailToLoad {
-                let row = MenuStatusRow.modelLoadFailed.title
-                return String(localized: "The model couldn't be loaded. Open the Sorla menu and choose “\(row)”.", bundle: Localization.bundle)
+                return String(localized: "The model couldn't be loaded. Open the Sorla menu to try again.", bundle: Localization.bundle)
             }
             return nil
         }
@@ -52,10 +52,39 @@ public enum DictationGate {
         }
     }
 
-    // A replaced Sorla's pastes are dropped (#7), so a press restarts it rather than recording words it can't deliver.
+    // Only a model that needs the user's help is a problem worth a window; one on its way just gets the hourglass.
+    public static func modelProblem(
+        isModelInstalled: Bool,
+        isModelLoading: Bool = false,
+        didModelFailToLoad: Bool = false,
+        model: ModelStatus
+    ) -> ModelProblem? {
+        if isModelInstalled {
+            return !isModelLoading && didModelFailToLoad ? .loadFailed : nil
+        }
+        switch model {
+        case .downloading, .preparing, .waitingToInstall: return nil
+        case .failed(.insufficientDiskSpace, _): return .insufficientDiskSpace
+        case .failed: return .downloadFailed
+        default: return .missing
+        }
+    }
+
+    public static func modelRefusal(
+        isModelInstalled: Bool,
+        isModelLoading: Bool = false,
+        didModelFailToLoad: Bool = false,
+        model: ModelStatus
+    ) -> DictationRefusal? {
+        guard let cue = refusal(isModelInstalled: isModelInstalled, isModelLoading: isModelLoading, didModelFailToLoad: didModelFailToLoad, model: model) else { return nil }
+        let problem = modelProblem(isModelInstalled: isModelInstalled, isModelLoading: isModelLoading, didModelFailToLoad: didModelFailToLoad, model: model)
+        return DictationRefusal(cue: cue, problem: problem.map(RecoveryProblem.model))
+    }
+
+    // A replaced Sorla's pastes are dropped (#7), so a press isn't recorded; the user chooses when to restart (#72).
     // One that can't reopen itself records as before and leaves the text on the clipboard.
-    public static func restartRefusal(isAppReplaced: Bool, canRestart: Bool) -> DictationCue? {
-        isAppReplaced && canRestart ? .restarting : nil
+    public static func restartRefusal(isAppReplaced: Bool, canRestart: Bool) -> DictationRefusal? {
+        isAppReplaced && canRestart ? DictationRefusal(cue: .restartNeeded, problem: .restartRequired) : nil
     }
 
     // A push-to-talk press may still become a ⌘-shortcut, so its refusal is only reported on release.

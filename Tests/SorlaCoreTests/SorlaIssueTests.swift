@@ -2,6 +2,11 @@ import XCTest
 @testable import SorlaCore
 
 final class SorlaIssueTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     func testMicrophoneAccessNeededMenuTitle() {
         XCTAssertEqual(SorlaIssue.microphoneAccessNeeded.menuTitle, "Microphone access needed")
     }
@@ -13,8 +18,13 @@ final class SorlaIssueTests: XCTestCase {
         )
     }
 
-    func testAccessibilityAccessNeededMenuTitle() {
-        XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Accessibility access needed to paste")
+    func testAccessibilityAccessNeededMenuTitleNamesThePaneOfTheRunningMacOS() {
+        SystemSettingsName.$systemMajorVersion.withValue(26) {
+            XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Accessibility permission needed to paste")
+        }
+        SystemSettingsName.$systemMajorVersion.withValue(27) {
+            XCTAssertEqual(SorlaIssue.accessibilityAccessNeeded.menuTitle, "Device Control and Data Access permission needed to paste")
+        }
     }
 
     func testAccessibilityAccessNeededSettingsURL() {
@@ -33,7 +43,7 @@ final class SorlaIssueTests: XCTestCase {
     }
 
     func testNoInputDeviceMenuTitlePointsToSoundInput() {
-        XCTAssertEqual(SorlaIssue.noInputDevice.menuTitle, "No microphone found — check Sound › Input")
+        XCTAssertEqual(SorlaIssue.noInputDevice.menuTitle, "No microphone found — check the sound input in Sound settings")
         XCTAssertEqual(SorlaIssue.noInputDevice.settingsURL, URL(string: "x-apple.systempreferences:com.apple.preference.sound?input"))
     }
 

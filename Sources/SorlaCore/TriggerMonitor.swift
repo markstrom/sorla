@@ -75,7 +75,9 @@ public final class TriggerMonitor {
 
     public var isSuspended = false {
         didSet {
-            guard isSuspended, isSuspended != oldValue else { return }
+            guard isSuspended != oldValue else { return }
+            // A dictation started from the menu while Settings was key still needs its Esc watch.
+            guard isSuspended else { return updateKeyWatch() }
             releaseRecheck?.cancel()
             if isRecordingActive {
                 isRecordingActive = false

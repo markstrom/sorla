@@ -2,6 +2,11 @@ import XCTest
 @testable import SorlaCore
 
 final class MenuStatusRowTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     private func row(
         microphoneDenied: Bool = false,
         accessibilityMissing: Bool = false,
@@ -29,7 +34,7 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     private static let shownAt = Date(timeIntervalSinceReferenceDate: 1_000_000)
-    private let muted = TransientMenuStatus(issue: .microphoneMuted, at: MenuStatusRowTests.shownAt)
+    private var muted: TransientMenuStatus? { TransientMenuStatus(issue: .microphoneMuted, at: MenuStatusRowTests.shownAt) }
 
     func testLoadingAnInstalledModelSaysHowLongItTakes() {
         XCTAssertEqual(row(modelLoading: true), MenuStatusRow(title: "Preparing model… ~1 min", action: .openSettings))
@@ -49,9 +54,11 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     func testAccessibilityComesBeforeTheModel() {
-        let row = row(accessibilityMissing: true, model: .downloading(version: "1.0.0", fraction: 0.5, isUpdate: false))
+        let row = SystemSettingsName.$systemMajorVersion.withValue(26) {
+            self.row(accessibilityMissing: true, model: .downloading(version: "1.0.0", fraction: 0.5, isUpdate: false))
+        }
 
-        XCTAssertEqual(row, MenuStatusRow(title: "Accessibility access needed to paste", action: .showWelcome))
+        XCTAssertEqual(row, MenuStatusRow(title: "Accessibility permission needed to paste", action: .showWelcome))
     }
 
     func testDownloadProgressIsShown() {
@@ -69,30 +76,36 @@ final class MenuStatusRowTests: XCTestCase {
         )
     }
 
-    func testFailedDownloadOffersARetry() {
+    // #76: a blocker that badges the icon names itself and opens the setup window, whose row has the fix.
+    func testAFailedFirstDownloadOpensTheSetupWindow() {
         XCTAssertEqual(
             row(model: .failed(.network, isUpdate: false)),
-            MenuStatusRow(title: "Model download failed — Try Again", action: .downloadModel)
+            MenuStatusRow(title: "Model download failed", action: .showWelcome)
         )
+        XCTAssertEqual(row(model: .failed(.insufficientDiskSpace(required: 1_000_000_000), isUpdate: false))?.action, .showWelcome)
+    }
+
+    // The installed model still works, so a failed update is no blocker and retries from the menu.
+    func testAFailedUpdateOffersARetry() {
         XCTAssertEqual(
             row(model: .failed(.selfTestFailed, isUpdate: true)),
             MenuStatusRow(title: "Model update failed — Try Again", action: .downloadModel)
         )
     }
 
-    func testMissingModelOffersADownload() {
+    func testAMissingModelOpensTheSetupWindow() {
         XCTAssertEqual(
             row(model: .notInstalled),
-            MenuStatusRow(title: "Model not installed — Download", action: .downloadModel)
+            MenuStatusRow(title: "Model not installed", action: .showWelcome)
         )
     }
 
-    func testLoadFailureRetriesLoadingTheModel() {
+    func testALoadFailureOpensTheSetupWindow() {
         XCTAssertEqual(
             row(modelLoadFailed: true),
-            MenuStatusRow(title: "Model couldn't be loaded — Try Again", action: .reloadModel)
+            MenuStatusRow(title: "Model couldn't be loaded", action: .showWelcome)
         )
-        XCTAssertEqual(row(model: .upToDate(version: "1.0.0"), modelLoadFailed: true)?.action, .reloadModel)
+        XCTAssertEqual(row(model: .upToDate(version: "1.0.0"), modelLoadFailed: true), .modelLoadFailed)
     }
 
     // The dictation refusal points to this row, so it must be the one the menu shows.
@@ -104,7 +117,7 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     func testFailuresComeBeforeAnAvailableUpdate() {
-        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), modelLoadFailed: true)?.action, .reloadModel)
+        XCTAssertEqual(row(model: .updateAvailable(version: "1.1.0"), modelLoadFailed: true), .modelLoadFailed)
     }
 
     func testAvailableUpdateComesLast() {
@@ -115,14 +128,18 @@ final class MenuStatusRowTests: XCTestCase {
     }
 
     func testTransientExplanationsHaveTheirOwnActions() {
-        XCTAssertEqual(muted?.row, MenuStatusRow(title: "Microphone seems to be muted — check Sound › Input", action: .openSoundSettings))
+        XCTAssertEqual(muted?.row, MenuStatusRow(title: "Microphone seems to be muted — check the sound input in Sound settings", action: .openSoundSettings))
         XCTAssertEqual(
-            TransientMenuStatus(issue: .textOnClipboard(pasteShortcut: "⌃⌥V"), at: Self.shownAt)?.row,
+            TransientMenuStatus(issue: .textOnClipboard(pasteLast: .shortcut("⌃⌥V")), at: Self.shownAt)?.row,
             MenuStatusRow(title: "Text is on the clipboard — press ⌃⌥V", action: .pasteLastTranscription)
         )
         XCTAssertEqual(
+            TransientMenuStatus(issue: .textOnClipboard(pasteLast: nil), at: Self.shownAt)?.row,
+            MenuStatusRow(title: "Text is on the clipboard — press ⌘V", action: .pasteLastTranscription)
+        )
+        XCTAssertEqual(
             TransientMenuStatus(issue: .noInputDevice, at: Self.shownAt)?.row,
-            MenuStatusRow(title: "No microphone found — check Sound › Input", action: .openSoundSettings)
+            MenuStatusRow(title: "No microphone found — check the sound input in Sound settings", action: .openSoundSettings)
         )
         XCTAssertEqual(
             TransientMenuStatus(issue: .transcriptionFailed, at: Self.shownAt)?.row,
@@ -214,7 +231,7 @@ final class MenuStatusRowTests: XCTestCase {
 
     // Its pastes are dropped until it restarts, and a restart retries the model too; permissions still need the user.
     func testARestartOutranksEverythingButPermissions() {
-        let clipboard = TransientMenuStatus(issue: .textOnClipboard(pasteShortcut: "⌘V"), at: Self.shownAt)
+        let clipboard = TransientMenuStatus(issue: .textOnClipboard(pasteLast: nil), at: Self.shownAt)
         XCTAssertEqual(row(appReplaced: true, transient: clipboard)?.action, .restart)
         XCTAssertEqual(row(modelLoadFailed: true, appReplaced: true)?.action, .restart)
         XCTAssertEqual(row(model: .downloading(version: "1.1.0", fraction: 0.5, isUpdate: true), appReplaced: true)?.action, .restart)
@@ -223,9 +240,36 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(row(accessibilityMissing: true, appReplaced: true)?.action, .showWelcome)
     }
 
-    // A paste that would have been dropped leaves the text on the clipboard for the user's own ⌘V.
-    func testAReplacedAppsPasteShowsTheClipboardCue() {
-        XCTAssertEqual(DictationCue(issue: .appReplaced), .textOnClipboardUntilRestart)
+    // A paste that would have been dropped leaves the clipboard alone and asks for the restart (#72).
+    func testAReplacedAppsPasteShowsTheRestartCue() {
+        XCTAssertEqual(DictationCue(issue: .appReplaced), .restartNeeded)
         XCTAssertNil(SorlaIssue.appReplaced.settingsURL)
+    }
+
+    // MARK: - VoiceOver (#64)
+
+    // VoiceOver may take ⌃⌥V (VO-V), and the row is already in the menu with the item it names.
+    func testWithVoiceOverTheClipboardRowNamesTheMenuItem() {
+        XCTAssertEqual(
+            TransientMenuStatus(issue: .textOnClipboard(pasteLast: .menu), at: Self.shownAt)?.row,
+            MenuStatusRow(title: "Text is on the clipboard — choose Paste Last Transcription", action: .pasteLastTranscription)
+        )
+    }
+
+    func testTurningVoiceOverOnOrOffRewordsTheClipboardRowForTheSameTime() throws {
+        let shortcut = try XCTUnwrap(TransientMenuStatus(issue: .textOnClipboard(pasteLast: .shortcut("⌃⌥V")), at: Self.shownAt))
+        let menu = shortcut.rerouted(pasteLast: .menu)
+        XCTAssertEqual(menu.row.title, "Text is on the clipboard — choose Paste Last Transcription")
+        XCTAssertEqual(menu.shownAt, Self.shownAt)
+        XCTAssertEqual(menu.rerouted(pasteLast: .shortcut("⌃⌥V")).row, shortcut.row)
+    }
+
+    // ⌘V was named because Paste Last couldn't help (no permission, a replaced app), so VoiceOver changes nothing.
+    func testRerouteLeavesOtherRowsAlone() throws {
+        let commandV = try XCTUnwrap(TransientMenuStatus(issue: .textOnClipboard(pasteLast: nil), at: Self.shownAt))
+        XCTAssertEqual(commandV.rerouted(pasteLast: .menu), commandV)
+        XCTAssertEqual(muted?.rerouted(pasteLast: .menu), muted)
+        let updated = TransientMenuStatus(updatedTo: "1.2.0", at: Self.shownAt)
+        XCTAssertEqual(updated.rerouted(pasteLast: .menu), updated)
     }
 }

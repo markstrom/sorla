@@ -2,57 +2,62 @@ import XCTest
 @testable import SorlaCore
 
 final class DictationCueTests: XCTestCase {
+    // Names of System Settings items follow the Mac's language unless pinned; these check an English Mac (#79).
+    override func invokeTest() {
+        SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
+    }
+
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .releaseKeys, .cancelled, .restarting, .waitingForModel(""), .failed("")]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "keyboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .textKept, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "doc.text", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
-        XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteShortcut: nil), "Microphone seems to be muted")
-        XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteShortcut: nil), "Nothing heard")
-        XCTAssertEqual(DictationCue.noText.announcement(pasteShortcut: nil), "No text")
-        XCTAssertEqual(DictationCue.cancelled.announcement(pasteShortcut: nil), "Recording cancelled")
+        XCTAssertEqual(DictationCue.microphoneMuted.announcement(pasteLast: nil), "Microphone seems to be muted")
+        XCTAssertEqual(DictationCue.nothingHeard.announcement(pasteLast: nil), "Nothing heard")
+        XCTAssertEqual(DictationCue.noText.announcement(pasteLast: nil), "No text")
+        XCTAssertEqual(DictationCue.cancelled.announcement(pasteLast: nil), "Recording cancelled")
+        XCTAssertEqual(DictationCue.nothingToPaste.announcement(pasteLast: .shortcut("⌃⌥V")), "Nothing to paste")
+        XCTAssertNil(DictationCue.nothingToPaste.issue(pasteLast: .shortcut("⌃⌥V")))
     }
 
     func testTheClipboardCueNamesThePasteLastShortcutOrFallsBackToCommandV() {
-        XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: "⌃⌥V"), "Your text is on the clipboard — press ⌃⌥V")
-        XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V")
+        XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: .shortcut("⌃⌥V")), "Your text is on the clipboard — press ⌃⌥V")
+        XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: nil), "Your text is on the clipboard — press ⌘V")
     }
 
-    // VoiceOver users can't see the menu row, so the cue itself says a restart is needed.
-    func testAReplacedAppsClipboardCueAlsoAsksForARestart() {
-        let cue = DictationCue.textOnClipboardUntilRestart
-        XCTAssertEqual(cue.announcement(pasteShortcut: nil), "Your text is on the clipboard — press ⌘V. Restart Sorla to paste again")
-        XCTAssertEqual(cue.symbolName, DictationCue.textOnClipboard.symbolName)
-        XCTAssertEqual(cue.issue(pasteShortcut: nil), .textOnClipboard(pasteShortcut: "⌘V"))
+    // #72: the paste is dropped and the clipboard left alone, so the cue says what is needed; the restart dialog follows.
+    func testAReplacedAppsPasteAsksForARestart() {
+        XCTAssertEqual(DictationCue(issue: .appReplaced), .restartNeeded)
     }
 
-    // Shown in place of the red dot, so a press on a replaced Sorla says why nothing is recorded (#43).
-    func testTheRestartCueSaysSorlaIsRestarting() {
-        XCTAssertEqual(DictationCue.restarting.announcement(pasteShortcut: nil), "Sorla has been updated — restarting")
-        XCTAssertNil(DictationCue.restarting.issue(pasteShortcut: nil))
+    // Shown in place of the red dot, so a press on a replaced Sorla says why nothing is recorded (#43);
+    // it no longer restarts by itself, so it doesn't say so (#72).
+    func testTheRestartCueSaysARestartIsNeeded() {
+        XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteLast: nil), "Sorla has been updated and needs to restart")
+        XCTAssertNil(DictationCue.restartNeeded.issue(pasteLast: nil))
     }
 
     func testTheHeldKeysCueAsksForTheShortcutAgain() {
-        XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: "⌃⌥V"), "Let go of the keys and press ⌃⌥V again")
-        XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteShortcut: nil), "Let go of the keys and try again")
-        XCTAssertNil(DictationCue.releaseKeys.issue(pasteShortcut: "⌃⌥V"))
+        XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: .shortcut("⌃⌥V")), "Let go of the keys and press ⌃⌥V again")
+        XCTAssertEqual(DictationCue.releaseKeys.announcement(pasteLast: nil), "Let go of the keys and try again")
+        XCTAssertNil(DictationCue.releaseKeys.issue(pasteLast: .shortcut("⌃⌥V")))
     }
 
     func testOnlyCuesTheUserMustActOnLeaveAMenuExplanation() {
-        XCTAssertEqual(DictationCue.microphoneMuted.issue(pasteShortcut: nil), .microphoneMuted)
-        XCTAssertEqual(DictationCue.textOnClipboard.issue(pasteShortcut: "⌃⌥V"), .textOnClipboard(pasteShortcut: "⌃⌥V"))
-        XCTAssertEqual(DictationCue.textOnClipboard.issue(pasteShortcut: nil), .textOnClipboard(pasteShortcut: "⌘V"))
-        XCTAssertNil(DictationCue.nothingHeard.issue(pasteShortcut: nil))
-        XCTAssertNil(DictationCue.noText.issue(pasteShortcut: nil))
-        XCTAssertNil(DictationCue.cancelled.issue(pasteShortcut: nil))
-        XCTAssertNil(DictationCue.waitingForModel("x").issue(pasteShortcut: nil))
-        XCTAssertNil(DictationCue.failed("x").issue(pasteShortcut: nil))
+        XCTAssertEqual(DictationCue.microphoneMuted.issue(pasteLast: nil), .microphoneMuted)
+        XCTAssertEqual(DictationCue.textOnClipboard.issue(pasteLast: .shortcut("⌃⌥V")), .textOnClipboard(pasteLast: .shortcut("⌃⌥V")))
+        XCTAssertEqual(DictationCue.textOnClipboard.issue(pasteLast: nil), .textOnClipboard(pasteLast: nil))
+        XCTAssertNil(DictationCue.nothingHeard.issue(pasteLast: nil))
+        XCTAssertNil(DictationCue.noText.issue(pasteLast: nil))
+        XCTAssertNil(DictationCue.cancelled.issue(pasteLast: nil))
+        XCTAssertNil(DictationCue.waitingForModel("x").issue(pasteLast: nil))
+        XCTAssertNil(DictationCue.failed("x").issue(pasteLast: nil))
     }
 
     func testMenuWording() {
-        XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Microphone seems to be muted — check Sound › Input")
-        XCTAssertEqual(SorlaIssue.textOnClipboard(pasteShortcut: "⌃⌥V").menuTitle, "Text is on the clipboard — press ⌃⌥V")
+        XCTAssertEqual(SorlaIssue.microphoneMuted.menuTitle, "Microphone seems to be muted — check the sound input in Sound settings")
+        XCTAssertEqual(SorlaIssue.textOnClipboard(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Text is on the clipboard — press ⌃⌥V")
     }
 
     func testFailedStartsAndFinishesShowAWarningCue() {
@@ -62,21 +67,29 @@ final class DictationCueTests: XCTestCase {
         XCTAssertEqual(DictationCue(issue: .noInputDevice)?.symbolName, "exclamationmark.triangle")
     }
 
-    func testMissingAccessibilityShowsTheClipboardCue() {
-        XCTAssertEqual(DictationCue(issue: .accessibilityAccessNeeded), .textOnClipboard)
+    // #72: a blocked paste never puts the text on the clipboard, so the cue only says whether Sorla kept it.
+    func testMissingAccessibilitySaysWhetherTheTextWasKept() {
+        XCTAssertNil(DictationCue(issue: .accessibilityAccessNeeded), "the blocked paste's cue depends on whether the text was kept")
+        XCTAssertEqual(DictationCue.blockedPaste(isTextKept: true), .textKept)
+        XCTAssertEqual(DictationCue.blockedPaste(isTextKept: false), .failed("Couldn't paste — the text wasn't saved"))
+        XCTAssertEqual(DictationCue.textKept.announcement(pasteLast: .shortcut("⌃⌥V")), "Couldn't paste — Sorla has kept your text")
+        for cue in [DictationCue.blockedPaste(isTextKept: true), .blockedPaste(isTextKept: false)] {
+            XCTAssertFalse(cue.announcement(pasteLast: nil).contains("clipboard"))
+            XCTAssertNil(cue.issue(pasteLast: nil))
+        }
     }
 
     // These have their own cue, or aren't the result of a dictation, so the menu row is enough.
     func testModelProblemsAndOwnCuesGetNoIssueCue() {
-        let issues: [SorlaIssue] = [.modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed, .microphoneMuted, .textOnClipboard(pasteShortcut: "⌘V")]
+        let issues: [SorlaIssue] = [.modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed, .microphoneMuted, .textOnClipboard(pasteLast: nil)]
         for issue in issues {
             XCTAssertNil(DictationCue(issue: issue), "\(issue)")
         }
     }
 
     func testTheCueAnnouncesItsOwnMessage() {
-        XCTAssertEqual(DictationCue.waitingForModel("Wait").announcement(pasteShortcut: nil), "Wait")
-        XCTAssertEqual(DictationCue.failed("Broken").announcement(pasteShortcut: "⌃⌥V"), "Broken")
+        XCTAssertEqual(DictationCue.waitingForModel("Wait").announcement(pasteLast: nil), "Wait")
+        XCTAssertEqual(DictationCue.failed("Broken").announcement(pasteLast: .shortcut("⌃⌥V")), "Broken")
     }
 }
 

@@ -37,7 +37,7 @@ final class DictationGateTests: XCTestCase {
     func testAnInstalledModelThatFailedToLoadIsRefusedWithTheRecoveryStep() {
         XCTAssertEqual(
             DictationGate.blockedMessage(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0")),
-            "The model couldn't be loaded. Open the Sorla menu and choose “Model couldn't be loaded — Try Again”."
+            "The model couldn't be loaded. Open the Sorla menu to try again."
         )
     }
 
@@ -68,7 +68,7 @@ final class DictationGateTests: XCTestCase {
 
     func testAModelThatNeedsTheUserRefusesWithAWarning() {
         let failedLoad = DictationGate.refusal(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1.0.0"))
-        XCTAssertEqual(failedLoad, .failed("The model couldn't be loaded. Open the Sorla menu and choose “Model couldn't be loaded — Try Again”."))
+        XCTAssertEqual(failedLoad, .failed("The model couldn't be loaded. Open the Sorla menu to try again."))
         XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .failed(.network, isUpdate: false))?.symbolName, "exclamationmark.triangle")
         XCTAssertEqual(DictationGate.refusal(isModelInstalled: false, model: .notInstalled)?.symbolName, "exclamationmark.triangle")
     }
@@ -82,10 +82,35 @@ final class DictationGateTests: XCTestCase {
         XCTAssertFalse(DictationGate.waitsForRelease(mode: .toggle))
     }
 
-    // A replaced Sorla can't paste, so a press restarts it; one that can't reopen itself falls back to the clipboard (#43).
-    func testAReplacedAppRestartsInsteadOfRecording() {
-        XCTAssertEqual(DictationGate.restartRefusal(isAppReplaced: true, canRestart: true), .restarting)
+    // A replaced Sorla can't paste, so a press isn't recorded and asks for a restart (#43, #72);
+    // one that can't reopen itself falls back to the clipboard.
+    func testAReplacedAppAsksForARestartInsteadOfRecording() {
+        XCTAssertEqual(DictationGate.restartRefusal(isAppReplaced: true, canRestart: true), DictationRefusal(cue: .restartNeeded, problem: .restartRequired))
         XCTAssertNil(DictationGate.restartRefusal(isAppReplaced: true, canRestart: false))
         XCTAssertNil(DictationGate.restartRefusal(isAppReplaced: false, canRestart: true))
+    }
+
+    // #72: only a model that needs the user opens the Welcome window; one on its way just waits.
+    func testOnlyAModelThatNeedsTheUserIsAProblem() {
+        XCTAssertNil(DictationGate.modelProblem(isModelInstalled: false, model: .downloading(version: "1", fraction: 0.5, isUpdate: false)))
+        XCTAssertNil(DictationGate.modelProblem(isModelInstalled: false, model: .preparing(version: "1", isUpdate: false)))
+        XCTAssertNil(DictationGate.modelProblem(isModelInstalled: false, model: .waitingToInstall(version: "1")))
+        XCTAssertNil(DictationGate.modelProblem(isModelInstalled: true, isModelLoading: true, model: .installed(version: "1")))
+        XCTAssertNil(DictationGate.modelProblem(isModelInstalled: true, model: .installed(version: "1")))
+        XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .notInstalled), .missing)
+        XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .failed(.network, isUpdate: false)), .downloadFailed)
+        XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .failed(.insufficientDiskSpace(required: 1_400_000_000), isUpdate: false)), .insufficientDiskSpace)
+        XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1")), .loadFailed)
+    }
+
+    func testAModelRefusalCarriesItsCueAndProblem() {
+        XCTAssertEqual(
+            DictationGate.modelRefusal(isModelInstalled: false, model: .notInstalled),
+            DictationRefusal(cue: .failed("The model isn't installed yet. Open the Sorla menu to download it."), problem: .model(.missing))
+        )
+        let downloading = DictationGate.modelRefusal(isModelInstalled: false, model: .downloading(version: "1", fraction: 0.5, isUpdate: false))
+        XCTAssertEqual(downloading?.cue.symbolName, "hourglass")
+        XCTAssertNil(downloading?.problem)
+        XCTAssertNil(DictationGate.modelRefusal(isModelInstalled: true, model: .installed(version: "1")))
     }
 }

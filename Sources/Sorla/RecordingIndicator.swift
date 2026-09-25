@@ -193,7 +193,7 @@ struct RecordingIndicatorView: View {
         case .cue(_, let label):
             return Text(verbatim: label)
         case .recording where viewModel.isMicrophoneMuted:
-            return Text(verbatim: DictationCue.microphoneMuted.announcement(pasteShortcut: nil))
+            return Text(verbatim: DictationCue.microphoneMuted.announcement(pasteLast: nil))
         case .recording:
             return viewModel.isNearLimit ? Text("Recording, stopping soon") : Text("Recording")
         }

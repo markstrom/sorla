@@ -6,7 +6,6 @@ public enum MenuStatusAction: Equatable, Sendable {
     case downloadApp
     case installApp
     case showUpdates
-    case reloadModel
     case openSettings
     case openSoundSettings
     case pasteLastTranscription
@@ -21,6 +20,8 @@ public struct TransientMenuStatus: Equatable, Sendable {
 
     public let row: MenuStatusRow
     public let shownAt: Date
+    // What it explains, so its wording can follow VoiceOver being turned on or off (#64).
+    private let issue: SorlaIssue?
 
     public init?(issue: SorlaIssue, at shownAt: Date) {
         let action: MenuStatusAction
@@ -34,12 +35,23 @@ public struct TransientMenuStatus: Equatable, Sendable {
         }
         self.row = MenuStatusRow(title: issue.menuTitle, action: action)
         self.shownAt = shownAt
+        self.issue = issue
     }
 
     // Said once after Sorla relaunched into a version it installed itself.
     public init(updatedTo version: String, at shownAt: Date) {
         self.row = MenuStatusRow(title: String(localized: "Sorla was updated to \(version)", bundle: Localization.bundle), action: .dismiss)
         self.shownAt = shownAt
+        self.issue = nil
+    }
+
+    // The same explanation for the same time, naming Paste Last as `pasteLast` now says. A row that named only ⌘V
+    // did so because Paste Last couldn't help, and stays as it is.
+    public func rerouted(pasteLast: PasteLastRoute?) -> TransientMenuStatus {
+        guard case .textOnClipboard(let named?) = issue, let pasteLast, pasteLast != named,
+              let rerouted = TransientMenuStatus(issue: .textOnClipboard(pasteLast: pasteLast), at: shownAt)
+        else { return self }
+        return rerouted
     }
 
     public func isExpired(at now: Date) -> Bool {
@@ -57,8 +69,9 @@ public struct MenuStatusRow: Equatable, Sendable {
         self.action = action
     }
 
+    // Each blocker that badges the menu bar icon names itself here and opens the setup window, whose row has the fix (#76).
     public static var modelLoadFailed: MenuStatusRow {
-        MenuStatusRow(title: String(localized: "\(SorlaIssue.modelNotLoaded.menuTitle) — Try Again", bundle: Localization.bundle), action: .reloadModel)
+        MenuStatusRow(title: SorlaIssue.modelNotLoaded.menuTitle, action: .showWelcome)
     }
 
     // Whatever blocks dictation or shows progress outranks the last dictation's explanation; update offers come after it.
@@ -95,10 +108,11 @@ public struct MenuStatusRow: Equatable, Sendable {
             return MenuStatusRow(title: String(localized: "Downloading model… \(ModelStatus.percent(fraction))%", bundle: Localization.bundle), action: .openSettings)
         case .preparing, .waitingToInstall:
             return MenuStatusRow(title: String(localized: "Preparing model… ~1 min", bundle: Localization.bundle), action: .openSettings)
+        // The setup window's row also says how much space is needed when that is why.
         case .failed(_, isUpdate: false):
-            return retry(.modelDownloadFailed)
+            return MenuStatusRow(title: SorlaIssue.modelDownloadFailed.menuTitle, action: .showWelcome)
         case .notInstalled:
-            return MenuStatusRow(title: String(localized: "Model not installed — Download", bundle: Localization.bundle), action: .downloadModel)
+            return MenuStatusRow(title: String(localized: "Model not installed", bundle: Localization.bundle), action: .showWelcome)
         default:
             break
         }
@@ -108,8 +122,9 @@ public struct MenuStatusRow: Equatable, Sendable {
         if let transient, !transient.isExpired(at: now) {
             return transient.row
         }
+        // The installed model still works, so this is no blocker and retries straight from the menu.
         if case .failed(_, isUpdate: true) = model {
-            return retry(.modelUpdateFailed)
+            return MenuStatusRow(title: String(localized: "\(SorlaIssue.modelUpdateFailed.menuTitle) — Try Again", bundle: Localization.bundle), action: .downloadModel)
         }
         if let appUpdate {
             return appUpdate.menuRow
@@ -118,9 +133,5 @@ public struct MenuStatusRow: Equatable, Sendable {
             return MenuStatusRow(title: String(localized: "Model update available (\(version))", bundle: Localization.bundle), action: .downloadModel)
         }
         return nil
-    }
-
-    private static func retry(_ issue: SorlaIssue) -> MenuStatusRow {
-        MenuStatusRow(title: String(localized: "\(issue.menuTitle) — Try Again", bundle: Localization.bundle), action: .downloadModel)
     }
 }

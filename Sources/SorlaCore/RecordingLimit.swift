@@ -12,6 +12,11 @@ public struct RecordingLimit: Equatable, Sendable {
         case stop(after: TimeInterval)
     }
 
+    // The dimmed bars only warn those who can see them; a warning spoken earlier would be recorded (#63).
+    public static var stopAnnouncement: String {
+        String(localized: "Recording stopped at the five-minute limit", bundle: Localization.bundle)
+    }
+
     public init(maximum: TimeInterval, warningLead: TimeInterval) {
         self.maximum = maximum
         self.warningLead = warningLead
