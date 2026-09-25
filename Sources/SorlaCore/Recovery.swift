@@ -102,6 +102,13 @@ public struct BlockedPaste: Equatable, Sendable {
         transcriptRevision != nil && transcriptRevision == currentRevision
     }
 
+    // A dictation into the setup window's own Try it here while this text waits to be pasted back is a test: it goes
+    // only into the field, and this text keeps its place for Paste Where You Were Typing and for Paste Last, since it
+    // is what the user really dictated. It still goes when Paste Last's text would: expiry, a lock or the setting off.
+    public func makesTest(isSetupWindowKey: Bool, currentRevision: Int?) -> Bool {
+        isSetupWindowKey && reason == .accessibility && isKept(currentRevision: currentRevision)
+    }
+
     // After the user chose Copy Text.
     public func copied(clipboardChangeCount: Int) -> BlockedPaste {
         BlockedPaste(reason: reason, clipboardChangeCount: clipboardChangeCount, transcriptRevision: transcriptRevision)

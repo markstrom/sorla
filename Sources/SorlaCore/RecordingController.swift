@@ -52,6 +52,9 @@ public final class RecordingController {
     public var isAppReplaced: () -> Bool = { false }
     // After the issue: the text was left on the clipboard, and this says how to tell it is still there (#72).
     public var onPasteBlocked: ((BlockedPaste) -> Void)?
+    // Asked at release. A test in the setup window's Try it here, while a blocked text waits to be pasted back, is
+    // pasted into the field but not kept, so it doesn't take that text's place (#72; BlockedPaste.makesTest).
+    public var isTestDictation: @MainActor () -> Bool = { false }
 
     private var recentTranscript = RecentTranscript()
     private var transcriptExpiry: Task<Void, Never>?
@@ -244,6 +247,7 @@ public final class RecordingController {
 
         let released = Date()
         let frontmostPIDAtRelease = pasteEnvironment.frontmostProcessID
+        let isTest = isTestDictation()
 
         dictationJobs[dictationID] = Task { @MainActor in
             let result = await self.transcribe(
@@ -257,7 +261,8 @@ public final class RecordingController {
                 generation: generation,
                 result: result,
                 frontmostPIDAtRelease: frontmostPIDAtRelease,
-                released: released
+                released: released,
+                isTest: isTest
             ))
         }
         return true
@@ -276,6 +281,7 @@ public final class RecordingController {
         let result: DictationResult
         let frontmostPIDAtRelease: pid_t?
         let released: Date
+        let isTest: Bool
     }
 
     // The audio lives only in here, so it is let go as soon as the transcription is done.
@@ -436,7 +442,7 @@ public final class RecordingController {
         case .failed:
             onIssue?(.transcriptionFailed)
         case .text(let text, let audioSeconds):
-            keepLastTranscript(text)
+            if !finished.isTest { keepLastTranscript(text) }
             guard PasteService.shouldAutoPaste(
                 frontmostPIDAtRelease: finished.frontmostPIDAtRelease,
                 frontmostPIDAtDelivery: pasteEnvironment.frontmostProcessID

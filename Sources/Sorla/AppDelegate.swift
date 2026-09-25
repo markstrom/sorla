@@ -216,6 +216,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         recordingController.onPasteBlocked = { [weak self] blocked in
             self?.pasteWasBlocked(blocked)
         }
+        // Testing in Set Up Sorla after granting access mustn't replace the text waiting to be pasted back (#72).
+        recordingController.isTestDictation = { [weak self] in
+            guard let self, let blocked = self.blockedPaste else { return false }
+            return blocked.makesTest(
+                isSetupWindowKey: self.welcomeWindowController?.isKey == true,
+                currentRevision: self.recordingController.lastTranscriptRevision()
+            )
+        }
 
         let triggerMonitor = TriggerMonitor(
             onStart: { [weak self] in

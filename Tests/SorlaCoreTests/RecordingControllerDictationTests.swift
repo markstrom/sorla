@@ -803,6 +803,78 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(blocked, [])
     }
 
+    // MARK: - A test in Set Up Sorla keeps the blocked text's place (#72)
+
+    // Blocked, access granted in the open window, then a test in Try it here, which goes only into the field.
+    private func blockThenTest(_ original: String, test: String) async throws -> BlockedPaste {
+        let allBlocked = await dictateBlocked(original)
+        let blocked = try XCTUnwrap(allBlocked.first)
+        paste.isAccessibilityTrusted = true
+        controller.isTestDictation = { [unowned self] in
+            blocked.makesTest(isSetupWindowKey: true, currentRevision: controller.lastTranscriptRevision())
+        }
+        let job = await dictate(call: 1)
+        await engine.finish(1, with: test)
+        await job.value
+        await controller.deliveries?.value
+        // Sleeps: the two tails, then the test's clipboard restore.
+        await clock.waitForSleeps(3)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+        return blocked
+    }
+
+    func testATestInTheSetupWindowLeavesTheBlockedTextToPasteBack() async throws {
+        let blocked = try await blockThenTest("Det jag ville skriva", test: "Ett prov")
+
+        XCTAssertEqual(paste.pastes, ["Ett prov"], "the test lands in the field")
+        XCTAssertEqual(controller.lastTranscript(), "Det jag ville skriva")
+        let isKept = blocked.isKept(currentRevision: controller.lastTranscriptRevision())
+        XCTAssertEqual(BlockedPasteNote.current(isTextOnClipboard: false, isTextKept: isKept, isAccessibilityTrusted: true), .readyToPaste)
+
+        // Paste Where You Were Typing goes by Paste Last, which still has the original.
+        controller.pasteLastTranscript()
+        await controller.pasteLastRequest?.value
+        XCTAssertEqual(paste.pastes, ["Ett prov", "Det jag ville skriva"])
+        await clock.waitForSleeps(4)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+    }
+
+    // Kept no longer than Paste Last's text: five minutes, or until a lock.
+    func testTheBlockedTextStillExpiresAfterATest() async throws {
+        let blocked = try await blockThenTest("Det jag ville skriva", test: "Ett prov")
+        let later = Date().addingTimeInterval(RecentTranscript.lifetime + 1)
+
+        XCTAssertNil(controller.lastTranscript(at: later))
+        XCTAssertFalse(blocked.isKept(currentRevision: controller.lastTranscriptRevision()))
+        XCTAssertEqual(BlockedPasteNote.current(isTextOnClipboard: false, isTextKept: false, isAccessibilityTrusted: true), .gone)
+    }
+
+    func testALockStillForgetsTheBlockedTextAfterATest() async throws {
+        let blocked = try await blockThenTest("Det jag ville skriva", test: "Ett prov")
+        controller.forgetLastTranscript()
+        XCTAssertFalse(blocked.isKept(currentRevision: controller.lastTranscriptRevision()))
+    }
+
+    // Anywhere else a new dictation is the user's latest text, so it takes the kept text's place as before.
+    func testADictationElsewhereReplacesTheBlockedText() async throws {
+        let allBlocked = await dictateBlocked("A")
+        let blocked = try XCTUnwrap(allBlocked.first)
+        paste.isAccessibilityTrusted = true
+        controller.isTestDictation = { blocked.makesTest(isSetupWindowKey: false, currentRevision: 1) }
+        let job = await dictate(call: 1)
+        await engine.finish(1, with: "B")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(controller.lastTranscript(), "B")
+        XCTAssertFalse(blocked.isKept(currentRevision: controller.lastTranscriptRevision()))
+        await clock.waitForSleeps(3)
+        await clock.advance(by: settle)
+        await controller.clipboardRestore?.value
+    }
+
     // MARK: - An update waits for everything in flight, not just the indicator (#29)
 
     func testTheActivityIsQuietOnlyOnceTheClipboardIsBack() async {

@@ -371,3 +371,29 @@ final class QuietRestartTests: XCTestCase {
         XCTAssertFalse(restart.isPending)
     }
 }
+
+// #72: a test in Set Up Sorla's Try it here mustn't take the place of the text waiting to be pasted back.
+final class BlockedPasteTestDictationTests: XCTestCase {
+    private let blocked = BlockedPaste(reason: .accessibility, clipboardChangeCount: nil, transcriptRevision: 3)
+
+    func testADictationIntoTheSetupWindowWhileTheTextIsKeptIsATest() {
+        XCTAssertTrue(blocked.makesTest(isSetupWindowKey: true, currentRevision: 3))
+    }
+
+    func testAnywhereElseItIsTheUsersNewText() {
+        XCTAssertFalse(blocked.makesTest(isSetupWindowKey: false, currentRevision: 3))
+    }
+
+    // Once the text is gone or replaced there is nothing to protect.
+    func testNothingKeptMeansNoTest() {
+        XCTAssertFalse(blocked.makesTest(isSetupWindowKey: true, currentRevision: nil))
+        XCTAssertFalse(blocked.makesTest(isSetupWindowKey: true, currentRevision: 4))
+        XCTAssertFalse(BlockedPaste(reason: .accessibility, clipboardChangeCount: 7, transcriptRevision: nil).makesTest(isSetupWindowKey: true, currentRevision: nil))
+    }
+
+    // A replaced Sorla can't paste even into its own window; that text lives on the clipboard.
+    func testAReplacedAppsTextIsNotProtected() {
+        let replaced = BlockedPaste(reason: .appReplaced, clipboardChangeCount: 7, transcriptRevision: 3)
+        XCTAssertFalse(replaced.makesTest(isSetupWindowKey: true, currentRevision: 3))
+    }
+}
