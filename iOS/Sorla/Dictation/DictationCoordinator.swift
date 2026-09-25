@@ -144,6 +144,7 @@ final class DictationCoordinator {
             try recorder.start()
         } catch {
             system.endActivity()
+            diagnose("audioStart: \(error)")
             return report(.failed(.audioStartFailed))
         }
         system.sessionMarker = Date()
@@ -171,6 +172,7 @@ final class DictationCoordinator {
         system.updateActivity(.transcribing)
         system.beginBackgroundTask { [weak self] in self?.pending?.resolve(.failed(.backgroundTimeExpired)) }
 
+        diagnose(Self.levels(of: samples))
         let outcome: DictationOutcome
         switch SpeechCheck.assess(samples) {
         case .nothingToTranscribe:
@@ -246,6 +248,24 @@ final class DictationCoordinator {
     private func report(_ outcome: DictationOutcome) -> DictationOutcome {
         system.record(metric(outcome))
         return outcome
+    }
+
+    // Device diagnostics for the prototype: numbers and system errors only, never audio or text.
+    private func diagnose(_ detail: String) {
+        system.record(DictationMetric(date: Date(), outcome: "diagnostic.\(detail)", appWasActive: system.isAppActive, captureEnd: nil))
+    }
+
+    static func levels(of samples: [Float]) -> String {
+        guard !samples.isEmpty else { return "audio: no samples" }
+        var peak: Float = 0
+        var sumOfSquares: Float = 0
+        for sample in samples {
+            peak = max(peak, abs(sample))
+            sumOfSquares += sample * sample
+        }
+        let rms = (sumOfSquares / Float(samples.count)).squareRoot()
+        func dBFS(_ value: Float) -> String { value > 0 ? String(format: "%.1f", 20 * log10(value)) : "-inf" }
+        return "audio: \(samples.count) samples, peak \(dBFS(peak)) dBFS, rms \(dBFS(rms)) dBFS"
     }
 
     private func metric(_ outcome: DictationOutcome) -> DictationMetric {

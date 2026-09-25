@@ -3,7 +3,8 @@ import AppIntents
 // One action for the Action Button or Back Tap: the first run starts listening and returns at once,
 // the next stops, transcribes on the phone and returns the result. Sorla itself never writes the
 // clipboard here; the Shortcut copies the text only when `Ready to Paste` is true.
-struct ToggleDictationIntent: AudioRecordingIntent {
+// LiveActivityIntent is what lets the app start its Live Activity while in the background (the device refused with .visibility without it).
+struct ToggleDictationIntent: AudioRecordingIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "Diktera med Sorla"
     static let description = IntentDescription(
         "Starts dictation the first time and stops it the next. Returns the transcribed text only when there is something to paste."

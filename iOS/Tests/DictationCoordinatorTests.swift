@@ -334,11 +334,14 @@ final class DictationCoordinatorTests: XCTestCase {
         _ = await coordinator.toggle()
         _ = await coordinator.toggle()
 
-        XCTAssertEqual(system.metrics.map(\.outcome), ["started", "transcribed"])
-        XCTAssertNotNil(system.metrics[0].invocationToListeningMs)
-        XCTAssertNotNil(system.metrics[1].stopToResultMs)
-        XCTAssertEqual(system.metrics[1].audioSeconds ?? 0, 2, accuracy: 0.001)
-        XCTAssertEqual(system.metrics[1].backgroundSecondsRemainingAtStop, 25)
+        let outcomes = system.metrics.filter { !$0.outcome.hasPrefix("diagnostic.") }
+        XCTAssertEqual(outcomes.map(\.outcome), ["started", "transcribed"])
+        XCTAssertNotNil(outcomes[0].invocationToListeningMs)
+        XCTAssertNotNil(outcomes[1].stopToResultMs)
+        XCTAssertEqual(outcomes[1].audioSeconds ?? 0, 2, accuracy: 0.001)
+        XCTAssertEqual(outcomes[1].backgroundSecondsRemainingAtStop, 25)
+        // Levels are numbers only, so the diagnostic row can't carry the transcript either.
+        XCTAssertTrue(system.metrics.contains { $0.outcome.hasPrefix("diagnostic.audio: 32000 samples") })
         let encoded = String(decoding: try! JSONEncoder().encode(system.metrics), as: UTF8.self)
         XCTAssertFalse(encoded.contains("Hemlig"))
     }
