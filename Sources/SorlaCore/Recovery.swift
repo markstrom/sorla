@@ -236,7 +236,7 @@ public struct RecoveryDialog: Equatable, Sendable {
     public static func restart(canRestart: Bool, isTextOnClipboard: Bool) -> RecoveryDialog {
         var message = String(localized: "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy.", bundle: Localization.bundle)
         if isTextOnClipboard {
-            message += " " + DictationCue.textOnClipboard.announcement(pasteShortcut: nil) + "."
+            message += " " + WelcomeChecklist.textOnClipboardInWindow
         }
         guard canRestart else {
             message += " " + String(localized: "Sorla can't reopen itself from where it is running, so quit it and open it again from Applications.", bundle: Localization.bundle)

@@ -111,10 +111,15 @@ public enum WelcomeChecklist {
 
     // Opened because a paste was blocked. Only said while the text really is on the clipboard,
     // and Paste Last isn't offered, since it needs the same access (#72).
+    // The window has the focus, so ⌘V only works back where the user was typing; closing it takes them there.
     public static func pasteBlockedMessage(isTextOnClipboard: Bool, isAccessibilityTrusted: Bool) -> String? {
         guard isTextOnClipboard else { return nil }
-        guard !isAccessibilityTrusted else { return DictationCue.textOnClipboard.announcement(pasteShortcut: nil) }
-        return String(localized: "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V.", bundle: Localization.bundle)
+        guard !isAccessibilityTrusted else { return textOnClipboardInWindow }
+        return String(localized: "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.", bundle: Localization.bundle)
+    }
+
+    public static var textOnClipboardInWindow: String {
+        String(localized: "Your text is on the clipboard — close this window and press ⌘V where you were typing.", bundle: Localization.bundle)
     }
 
     // What the two update toggles really do right now; both are off until the user turns them on (#73).

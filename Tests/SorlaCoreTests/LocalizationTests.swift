@@ -149,13 +149,13 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(RecoveryDialog.notNow, "Inte nu")
             XCTAssertEqual(
                 RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true).message,
-                "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian. Texten ligger i urklippet – tryck ⌘V. När Sorla startar om öppnas den nya versionen."
+                "Sorla uppdaterades medan den var igång, och macOS tar inte emot inklistringar från den gamla kopian. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev. När Sorla startar om öppnas den nya versionen."
             )
             XCTAssertEqual(RecoveryDialog.restart(canRestart: true, isTextOnClipboard: false).actionTitle, "Starta om Sorla")
             XCTAssertEqual(RecoveryDialog.restart(canRestart: false, isTextOnClipboard: false).actionTitle, "Avsluta Sorla")
             XCTAssertEqual(
                 WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
-                "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – tryck ⌘V."
+                "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev."
             )
             XCTAssertEqual(WelcomeChecklist.readinessLine(isReady: false, trigger: .rightCommand, mode: .pushToTalk, customShortcut: nil), "Åtgärda punkterna ovan för att prova diktering.")
             XCTAssertEqual(WelcomeChecklist.closeButtonTitle(isReady: false), "Inte nu")

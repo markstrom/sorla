@@ -144,11 +144,11 @@ final class WelcomeChecklistTests: XCTestCase {
     func testABlockedPasteIsExplainedOnlyWhileTheTextIsOnTheClipboard() {
         XCTAssertEqual(
             WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: false),
-            "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V."
+            "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing."
         )
         XCTAssertEqual(
             WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: true, isAccessibilityTrusted: true),
-            "Your text is on the clipboard — press ⌘V"
+            "Your text is on the clipboard — close this window and press ⌘V where you were typing."
         )
         XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: false))
         XCTAssertNil(WelcomeChecklist.pasteBlockedMessage(isTextOnClipboard: false, isAccessibilityTrusted: true))

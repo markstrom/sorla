@@ -218,7 +218,8 @@
 "Restarting opens the new version." = "När Sorla startar om öppnas den nya versionen.";
 "Restart Sorla" = "Starta om Sorla";
 "Fix the items above to try dictation." = "Åtgärda punkterna ovan för att prova diktering.";
-"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V." = "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – tryck ⌘V.";
+"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten är klar, men Sorla behöver behörigheten Hjälpmedel för att klistra in den. Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
+"Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Texten ligger i urklippet – stäng fönstret och tryck ⌘V där du skrev.";
 "Set Up Sorla" = "Ställ in Sorla";
 
 /* Update defaults in Welcome (#73) */

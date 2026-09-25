@@ -218,7 +218,8 @@
 "Restarting opens the new version." = "Restarting opens the new version.";
 "Restart Sorla" = "Restart Sorla";
 "Fix the items above to try dictation." = "Fix the items above to try dictation.";
-"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V." = "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — press ⌘V.";
+"The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing." = "The text is ready, but Sorla needs Accessibility access to paste it. The text is on the clipboard — close this window and press ⌘V where you were typing.";
+"Your text is on the clipboard — close this window and press ⌘V where you were typing." = "Your text is on the clipboard — close this window and press ⌘V where you were typing.";
 "Set Up Sorla" = "Set Up Sorla";
 
 /* Update defaults in Welcome (#73) */

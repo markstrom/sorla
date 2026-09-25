@@ -262,7 +262,7 @@ final class RecoveryDialogTests: XCTestCase {
     func testTheRestartDialogMentionsTheClipboardOnlyWhenTheTextIsThere() {
         XCTAssertEqual(
             RecoveryDialog.restart(canRestart: true, isTextOnClipboard: true).message,
-            "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy. Your text is on the clipboard — press ⌘V. Restarting opens the new version."
+            "Sorla was updated while it was running, and macOS doesn't accept pastes from the old copy. Your text is on the clipboard — close this window and press ⌘V where you were typing. Restarting opens the new version."
         )
     }
 

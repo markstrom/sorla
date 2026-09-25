@@ -108,7 +108,7 @@
     <h2 id="hinder">Om något hindrar dikteringen</h2>
     <p>Trycker du på tangenten, eller väljer Starta diktering, när något saknas som bara du kan åtgärda, öppnar Sorla ett fönster som säger vad det är och vad du kan göra. I läget Håll in öppnas det först när du släpper tangenten, och aldrig för ett kortkommando som <code>Höger ⌘</code> + <code>C</code>, ett kort tryck eller en inspelning du avbryter. Pågår en annan diktering väntar fönstret tills den är klar.</p>
     <ul>
-      <li><strong>Ställ in Sorla</strong>: samma lista som i välkomstfönstret, med Mikrofon, Hjälpmedel och talmodellen, och en knapp för det som saknas. Raderna uppdateras när du kommer tillbaka från Systeminställningar. Kunde Sorla känna igen texten men inte klistra in den för att Hjälpmedel saknas, står det att texten ligger i urklippet och att du kan trycka <code>⌘V</code>, så länge den faktiskt ligger där. Får modellen inte plats står det hur mycket ledigt utrymme som behövs, och <strong>Försök igen</strong> provar på nytt.</li>
+      <li><strong>Ställ in Sorla</strong>: samma lista som i välkomstfönstret, med Mikrofon, Hjälpmedel och talmodellen, och en knapp för det som saknas. Raderna uppdateras när du kommer tillbaka från Systeminställningar. Kunde Sorla känna igen texten men inte klistra in den för att Hjälpmedel saknas, står det att texten ligger i urklippet, så länge den faktiskt ligger där: stäng fönstret och tryck <code>⌘V</code> där du skrev. När fönstret stängs kommer du tillbaka till appen du skrev i. Får modellen inte plats står det hur mycket ledigt utrymme som behövs, och <strong>Försök igen</strong> provar på nytt.</li>
       <li><strong>Sorla kunde inte starta mikrofonen</strong>: kontrollera att en mikrofon är ansluten och vald under Ingång i inställningarna för Ljud. <strong>Öppna inställningar för Ljud</strong> tar dig dit. En tyst eller avstängd mikrofon ger inget fönster, bara den överstrukna mikrofonen i indikatorn som förut.</li>
       <li><strong>Sorla behöver startas om</strong>: se <a href="#uppdateringar">Uppdateringar</a>.</li>
     </ul>
@@ -173,7 +173,7 @@
     <h2>Felsökning</h2>
     <details>
       <summary>Ingen text klistras in</summary>
-      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet — tryck <code>⌘V</code>. Sorla öppnar också fönstret <a href="#hinder">Ställ in Sorla</a>. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Hjälpmedel inte får en bock</a>.</p>
+      <p>Hjälpmedel saknas troligen. Texten ligger då kvar i urklippet. Sorla öppnar fönstret <a href="#hinder">Ställ in Sorla</a>; stäng det och tryck <code>⌘V</code> där du skrev. Ge behörigheten i Systeminställningar → Integritet och säkerhet → Hjälpmedel och starta om Sorla vid behov. Är reglaget redan på, se <a href="#hjalpmedel">Om Hjälpmedel inte får en bock</a>.</p>
     </details>
     <details>
       <summary>Tom eller konstig text</summary>
