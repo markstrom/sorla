@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Esc cancels a dictation started from the menu while Settings was open; before, Esc did nothing until the next press (#55).
+- Esc cancels a dictation started from the menu while Settings was open (#55).
 
 ## 1.1.0 — 2026-09-24
 
