@@ -21,25 +21,27 @@ final class LocalizationTests: XCTestCase {
         return withoutPercentSigns.matches(of: pattern).map { String(withoutPercentSigns[$0.range]) }
     }
 
-    private var swedishBundleDirectory: URL?
+    private var languageBundleDirectories: [URL] = []
 
-    // A bundle holding only sv.lproj, so Swedish is its preferred localization regardless of the Mac's languages.
+    // A bundle holding one .lproj, so that language is its preferred localization regardless of the Mac's languages.
+    private func languageBundle(_ language: String) throws -> Bundle {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("SorlaLocalizationTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: directory.appendingPathComponent("\(language).lproj"),
+            withDestinationURL: Self.resources.appendingPathComponent("\(language).lproj")
+        )
+        languageBundleDirectories.append(directory)
+        return try XCTUnwrap(Bundle(url: directory))
+    }
+
     private var swedish: Bundle {
-        get throws {
-            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("SorlaLocalizationTests-\(UUID().uuidString)")
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try FileManager.default.createSymbolicLink(
-                at: directory.appendingPathComponent("sv.lproj"),
-                withDestinationURL: Self.resources.appendingPathComponent("sv.lproj")
-            )
-            swedishBundleDirectory = directory
-            return try XCTUnwrap(Bundle(url: directory))
-        }
+        get throws { try languageBundle("sv") }
     }
 
     override func tearDownWithError() throws {
-        if let swedishBundleDirectory {
-            try FileManager.default.removeItem(at: swedishBundleDirectory)
+        for directory in languageBundleDirectories {
+            try FileManager.default.removeItem(at: directory)
         }
     }
 
@@ -277,15 +279,42 @@ final class LocalizationTests: XCTestCase {
         XCTAssertFalse(keys[1].isTranslated(in: ["Version %@": ""]))
     }
 
+    // English comes from en.lproj too, not from the key falling through.
     func testSettingsRowTitlesAreTranslated() throws {
-        let english = SettingsRow.allCases.map(\.title)
+        let englishTitles = try Localization.$bundle.withValue(languageBundle("en")) { SettingsRow.allCases.map(\.title) }
         let swedishTitles = try Localization.$bundle.withValue(swedish) { SettingsRow.allCases.map(\.title) }
-        for (row, (en, sv)) in zip(SettingsRow.allCases, zip(english, swedishTitles)) {
+        let englishTable = try strings("en")
+        let swedishTable = try strings("sv")
+        for (row, (en, sv)) in zip(SettingsRow.allCases, zip(englishTitles, swedishTitles)) {
             XCTAssertFalse(en.isEmpty, "\(row)")
             XCTAssertFalse(sv.isEmpty, "\(row)")
             if row != .appUpdates {
                 XCTAssertNotEqual(en, sv, "\(row) has no Swedish title")
+                XCTAssertTrue(englishTable.values.contains(en), "\(row): “\(en)” is not from en.lproj")
+                XCTAssertTrue(swedishTable.values.contains(sv), "\(row): “\(sv)” is not from sv.lproj")
             }
+        }
+    }
+
+    // A key copied into sv.lproj with its English text would pass the key checks, so Settings' own wording is compared.
+    func testEverySettingsLabelAndAccessibleNameHasSwedishWording() throws {
+        let english = try strings("en")
+        let swedish = try strings("sv")
+        var keys: [SourceStringKeys.Key] = []
+        for file in ["Sorla/SettingsView.swift", "Sorla/ShortcutField.swift"] {
+            keys += try SourceStringKeys.localizedKeys(in: String(contentsOf: Self.sources.appendingPathComponent(file), encoding: .utf8), includeViews: true)
+        }
+        for file in ["SorlaCore/SettingsRow.swift", "SorlaCore/UpdateRow.swift"] {
+            keys += try SourceStringKeys.localizedKeys(in: String(contentsOf: Self.sources.appendingPathComponent(file), encoding: .utf8), includeViews: false)
+        }
+        let literals = keys.filter { !$0.parts.contains(nil) }.map(\.pattern)
+        XCTAssertGreaterThan(literals.count, 30, "the scan found too few keys to be working")
+        for key in literals {
+            XCTAssertNotEqual(swedish[key], english[key], "“\(key)” reads the same in Swedish")
+        }
+        // The dynamic update rows' buttons are only read out by their full action.
+        for key in ["Download the new version of Sorla", "Download the speech model", "Try downloading the model again", "Install Sorla and relaunch it", "Check for updates now"] {
+            XCTAssertTrue(literals.contains(key), key)
         }
     }
 

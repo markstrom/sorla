@@ -29,7 +29,7 @@ struct SettingsView: View {
     private static let logger = Logger(subsystem: "com.sorla.app", category: "SettingsView")
 
     // The recorder's own 130 pt is too narrow for longer translations such as "Spela in kortkommando".
-    private static let recorderWidth: CGFloat = 200
+    static let recorderWidth: CGFloat = 200
     private static var maxHeight: CGFloat { max(360, (NSScreen.main?.visibleFrame.height ?? 800) - 80) }
 
     private static let updatesSectionID = "updates"
