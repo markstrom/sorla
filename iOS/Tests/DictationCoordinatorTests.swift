@@ -91,7 +91,7 @@ final class DictationCoordinatorTests: XCTestCase {
     func testTheRecordersSessionSetupIsLoggedBeforeStarted() async {
         _ = await coordinator.toggle()
 
-        XCTAssertEqual(system.metrics.map(\.outcome), ["diagnostic.session: category playAndRecord", "started"])
+        XCTAssertEqual(system.metrics.map(\.outcome), ["diagnostic.session: category record", "started"])
     }
 
     func testTheSessionSetupIsLoggedEvenWhenTheMicrophoneFailsToStart() async {
@@ -100,7 +100,7 @@ final class DictationCoordinatorTests: XCTestCase {
         _ = await coordinator.toggle()
 
         let outcomes = system.metrics.map(\.outcome)
-        XCTAssertEqual(outcomes.first, "diagnostic.session: category playAndRecord")
+        XCTAssertEqual(outcomes.first, "diagnostic.session: category record")
         XCTAssertTrue(outcomes[1].hasPrefix("diagnostic.audioStart: "))
         XCTAssertEqual(outcomes.last, "failed.audioStartFailed")
     }
@@ -108,9 +108,9 @@ final class DictationCoordinatorTests: XCTestCase {
     func testRecorderDiagnosticsWhileListeningAreLogged() async {
         _ = await coordinator.toggle()
 
-        recorder.diagnose("audioRestart: first second silent, started over on a new engine")
+        recorder.diagnose("audioRestart: first second silent, restarted session and engine")
 
-        XCTAssertEqual(system.metrics.last?.outcome, "diagnostic.audioRestart: first second silent, started over on a new engine")
+        XCTAssertEqual(system.metrics.last?.outcome, "diagnostic.audioRestart: first second silent, restarted session and engine")
     }
 
     func testTheAudioRowSaysWhereTheSoundWasAndHowLongItListened() async {

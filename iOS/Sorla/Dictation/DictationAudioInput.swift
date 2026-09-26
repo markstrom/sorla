@@ -1,58 +1,125 @@
 import Accelerate
 import AVFoundation
 
-// The microphone side of the iPhone recorder: the Mac's `AudioInput`, plus a way to carry on after the
-// engine's configuration changed mid-recording.
-protocol DictationAudioInput: AudioInput {
-    // Continues the running recording on a new engine, delivering to the same frames callback.
-    // False when that isn't possible (the new input runs at another rate, so the audio can't be joined, or
-    // it didn't start); the input is then stopped.
-    func restart() -> Bool
+// What an input did when asked to carry on after its engine stopped itself on a configuration change.
+enum InputResumption: Equatable {
+    case continued
+    // The input now runs at another rate, so the audio can't be joined; the input is stopped.
+    case rateChanged
+    // The input is stopped; the reason is a system error or name, never audio.
+    case failed(String)
 }
 
-// A new AVAudioEngine for every recording, made in `prepare()`, which the recorder calls only after the session
-// is configured and active: the input format is read after activation and the tap is installed with it. An
-// engine made earlier (at launch, before the category allowed input) or one that lived through a media-services
-// reset can run and deliver nothing but zeros. Each engine is the Mac's `EngineAudioInput`, unchanged.
-final class FreshEngineAudioInput: DictationAudioInput {
-    private var engineInput: EngineAudioInput?
-    private var sampleRate: Double = 0
+// The microphone side of the iPhone recorder: the Mac's `AudioInput`, plus what a long-lived engine needs.
+protocol DictationAudioInput: AudioInput {
+    // Engine and formats as of the last prepare or resume (numbers only), for the diagnostic.engine row.
+    var preparation: String { get }
+    // Carries on after the engine stopped itself on a configuration change, delivering to the same frames callback.
+    func resume() -> InputResumption
+    // Forgets the engine (it doesn't survive a media-services reset); the next prepare makes a new one.
+    func discardEngine()
+}
+
+// One AVAudioEngine for the life of the process, made by the first `prepare()`, which the recorder calls only
+// once the session is configured for input and active. The engine used to be made at launch, while the category
+// was still the default playback-only one, and the first recording after launch then delivered only zeros while
+// later ones on the same engine worked. The format is read again on every prepare, so a route that changed
+// between recordings gets the right tap. The engine is only reset on a real configuration change.
+final class SharedEngineAudioInput: DictationAudioInput {
+    private var engine: AVAudioEngine?
+    private var format: AVAudioFormat?
     private var onFrames: ((UnsafeBufferPointer<Float>) -> Void)?
+    private var recordings = 0
+    private(set) var preparation = "no engine"
 
     func prepare() throws -> Double {
-        engineInput?.stop()
-        engineInput = nil
-        let input = EngineAudioInput()
-        sampleRate = try input.prepare()
-        engineInput = input
-        return sampleRate
+        let isNew = engine == nil
+        let engine = self.engine ?? AVAudioEngine()
+        self.engine = engine
+        let input = engine.inputNode
+        input.removeTap(onBus: 0)
+        let format = input.inputFormat(forBus: 0)
+        recordings = isNew ? 1 : recordings + 1
+        preparation = "engine \(isNew ? "new" : "reused, recording \(recordings)"), "
+            + "input \(Self.describe(format)), node output \(Self.describe(input.outputFormat(forBus: 0)))"
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            throw AudioRecorderError.noInputDevice
+        }
+        self.format = format
+        return format.sampleRate
     }
 
     func start(onFrames: @escaping (UnsafeBufferPointer<Float>) -> Void) throws {
-        guard let engineInput else { throw AudioRecorderError.noInputDevice }
+        guard let engine, let format else { throw AudioRecorderError.noInputDevice }
+        try run(engine, format: format, onFrames: onFrames)
         self.onFrames = onFrames
-        try engineInput.start(onFrames: onFrames)
     }
 
     func stop() {
-        engineInput?.stop()
-        engineInput = nil
         onFrames = nil
+        guard let engine else { return }
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
     }
 
-    func restart() -> Bool {
-        guard let onFrames else { return false }
-        engineInput?.stop()
-        engineInput = nil
-        let input = EngineAudioInput()
+    func resume() -> InputResumption {
+        guard let engine, let format, let onFrames else { return .failed("not recording") }
+        stop()
+        engine.reset()
+        let current = engine.inputNode.inputFormat(forBus: 0)
+        preparation = "engine reset, input \(Self.describe(current))"
+        guard current.channelCount > 0 else { return .failed("no input") }
+        guard current.sampleRate == format.sampleRate else { return .rateChanged }
         do {
-            guard try input.prepare() == sampleRate else { return false }
-            try input.start(onFrames: onFrames)
+            try run(engine, format: current, onFrames: onFrames)
         } catch {
-            return false
+            return .failed(String(describing: error))
         }
-        engineInput = input
-        return true
+        self.format = current
+        self.onFrames = onFrames
+        return .continued
+    }
+
+    func discardEngine() {
+        stop()
+        engine = nil
+        format = nil
+        preparation = "no engine"
+    }
+
+    private func run(
+        _ engine: AVAudioEngine, format: AVAudioFormat, onFrames: @escaping (UnsafeBufferPointer<Float>) -> Void
+    ) throws {
+        let input = engine.inputNode
+        input.installTap(onBus: 0, bufferSize: AVAudioFrameCount(SpectrumAnalyzer.frameCount), format: format) { buffer, _ in
+            guard let channelData = buffer.floatChannelData else { return }
+            onFrames(UnsafeBufferPointer(start: channelData[0], count: Int(buffer.frameLength)))
+        }
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            input.removeTap(onBus: 0)
+            throw error
+        }
+    }
+
+    private static func describe(_ format: AVAudioFormat) -> String {
+        let layout = format.isInterleaved ? "interleaved" : "deinterleaved"
+        return "\(Int(format.sampleRate.rounded())) Hz \(format.channelCount) ch \(format.commonFormat.name) \(layout)"
+    }
+}
+
+private extension AVAudioCommonFormat {
+    var name: String {
+        switch self {
+        case .pcmFormatFloat32: return "float32"
+        case .pcmFormatFloat64: return "float64"
+        case .pcmFormatInt16: return "int16"
+        case .pcmFormatInt32: return "int32"
+        case .otherFormat: return "other"
+        @unknown default: return "unknown"
+        }
     }
 }
 

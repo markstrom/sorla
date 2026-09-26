@@ -13,6 +13,7 @@ final class LiveDictationRecorderTests: XCTestCase {
     private var recorder: LiveDictationRecorder!
     private var diagnostics: [String] = []
     private var captureEnds: [CaptureEnd] = []
+    private var isInForeground = true
 
     override func setUp() async throws {
         calls = CallLog()
@@ -22,6 +23,7 @@ final class LiveDictationRecorderTests: XCTestCase {
         clock = ManualClock()
         diagnostics = []
         captureEnds = []
+        isInForeground = true
         let clock = self.clock!
         recorder = LiveDictationRecorder(
             session: session,
@@ -29,6 +31,7 @@ final class LiveDictationRecorderTests: XCTestCase {
             resample: { samples, _ in samples },
             center: center,
             now: { clock.now },
+            isInForeground: { [unowned self] in self.isInForeground },
             onMain: { job in MainActor.assumeIsolated(job) }
         )
         recorder.onDiagnostic = { [weak self] in self?.diagnostics.append($0) }
@@ -37,15 +40,15 @@ final class LiveDictationRecorderTests: XCTestCase {
 
     // MARK: Session
 
-    func testTheDictationSessionIsMixableSoItCanBeActivatedFromTheBackground() {
+    func testTheDictationSessionIsTheNonMixableRecordSessionThatCapturedSpeech() {
         let configuration = DictationSessionConfiguration.dictation
-        XCTAssertEqual(configuration.category, .playAndRecord)
+        XCTAssertEqual(configuration.category, .record)
         XCTAssertEqual(configuration.mode, .default)
-        XCTAssertTrue(configuration.options.contains(.mixWithOthers))
-        XCTAssertTrue(configuration.options.contains(.allowBluetoothHFP))
+        XCTAssertEqual(configuration.options, [.allowBluetoothHFP])
+        XCTAssertFalse(configuration.options.contains(.mixWithOthers))
     }
 
-    func testStartConfiguresAndActivatesTheSessionBeforeMakingTheEngine() throws {
+    func testStartConfiguresAndActivatesTheSessionBeforeTouchingTheEngine() throws {
         try recorder.start()
 
         XCTAssertEqual(calls.entries, ["configure", "activate", "prepareInput", "startInput"])
@@ -53,11 +56,12 @@ final class LiveDictationRecorderTests: XCTestCase {
         XCTAssertTrue(session.isActive)
     }
 
-    func testStartLogsTheSessionSetup() throws {
+    func testStartLogsTheSessionAndTheEngine() throws {
         try recorder.start()
 
         XCTAssertEqual(diagnostics, [
-            "session: category playAndRecord, mode default, options mixWithOthers+allowBluetoothHFP, input MicrophoneBuiltIn, 48000 Hz, 1 ch",
+            "session: category record, mode default, options allowBluetoothHFP, input MicrophoneBuiltIn, 48000 Hz, 1 ch",
+            "engine: engine 1, 16000 Hz",
         ])
     }
 
@@ -66,20 +70,21 @@ final class LiveDictationRecorderTests: XCTestCase {
 
         XCTAssertThrowsError(try recorder.start())
 
-        XCTAssertEqual(input.prepares, 0)
+        XCTAssertEqual(input.enginesMade, 0)
         XCTAssertFalse(input.isRunning)
         XCTAssertEqual(calls.entries, ["configure", "activate", "deactivate"])
         XCTAssertEqual(diagnostics.count, 1)
         XCTAssertTrue(diagnostics[0].hasPrefix("session: "))
     }
 
-    func testAnInputThatFailsToStartDeactivatesTheSession() {
+    func testAnInputThatFailsToStartDeactivatesTheSessionAndLogsTheEngine() {
         input.prepareError = AudioRecorderError.noInputDevice
 
         XCTAssertThrowsError(try recorder.start())
 
         XCTAssertFalse(session.isActive)
-        XCTAssertEqual(diagnostics.count, 1)
+        XCTAssertEqual(diagnostics.count, 2)
+        XCTAssertTrue(diagnostics[1].hasPrefix("engine: "))
     }
 
     func testStopReturnsTheAudioAndDeactivatesTheSession() throws {
@@ -115,16 +120,45 @@ final class LiveDictationRecorderTests: XCTestCase {
         XCTAssertEqual(AudioSessionSnapshot.names(of: []), "none")
     }
 
-    // MARK: A dead input
+    // MARK: One engine
 
-    func testASilentFirstSecondStartsOverOnANewEngineAndDropsTheSilence() throws {
+    func testOneEngineServesEveryRecording() throws {
         try recorder.start()
+        _ = try recorder.stop()
+        try recorder.start()
+        recorder.cancel()
+        try recorder.start()
+
+        XCTAssertEqual(input.enginesMade, 1)
+        XCTAssertEqual(input.prepares, 3)
+    }
+
+    func testAnInputRouteAppearingAfterActivationRestartsNothing() throws {
+        try recorder.start()
+        center.post(
+            name: AVAudioSession.routeChangeNotification, object: nil,
+            userInfo: [AVAudioSessionRouteChangeReasonKey: AVAudioSession.RouteChangeReason.categoryChange.rawValue]
+        )
+        input.deliver(seconds: 0.5, level: 0.3)
+
+        XCTAssertEqual(input.prepares, 1)
+        XCTAssertEqual(diagnostics.count, 2)
+        XCTAssertEqual(try recorder.stop().count, 8_000)
+    }
+
+    // MARK: A silent start
+
+    func testASilentFirstSecondRestartsSessionAndEngineOnceAndDropsTheSilence() throws {
+        try recorder.start()
+        calls.clear()
 
         input.deliver(seconds: 1, level: 0)
 
-        XCTAssertEqual(input.prepares, 2)
+        XCTAssertEqual(calls.entries, ["deactivate", "configure", "activate", "prepareInput", "startInput"])
+        XCTAssertEqual(input.enginesMade, 1)
         XCTAssertTrue(input.isRunning)
-        XCTAssertEqual(diagnostics.last, "audioRestart: first second silent, started over on a new engine")
+        XCTAssertTrue(session.isActive)
+        XCTAssertEqual(diagnostics.last, "audioRestart: first second silent, restarted session and engine (engine 1, 16000 Hz)")
         input.deliver(seconds: 0.5, level: 0.3)
         XCTAssertEqual(try recorder.stop(), Array(repeating: 0.3, count: 8_000))
     }
@@ -138,46 +172,96 @@ final class LiveDictationRecorderTests: XCTestCase {
         XCTAssertEqual(try recorder.stop().count, 16_000)
     }
 
-    func testAnInputThatStaysSilentIsStartedOverOnlyAFewTimes() throws {
+    func testAnInputThatStaysSilentIsRestartedOnlyOnce() throws {
         try recorder.start()
 
-        for _ in 0..<6 {
+        for _ in 0..<4 {
             input.deliver(seconds: 1, level: 0)
         }
 
-        XCTAssertEqual(input.prepares, 1 + LiveDictationRecorder.maximumRestarts)
+        XCTAssertEqual(input.prepares, 2)
+        XCTAssertEqual(diagnostics.last, "audioRestart: first second silent again, not restarted")
         // What is left is silence, which the coordinator reports as `failed.silentInput`.
-        let samples = try recorder.stop()
-        XCTAssertEqual(SpeechCheck.assess(samples), .silentInput)
+        XCTAssertEqual(SpeechCheck.assess(try recorder.stop()), .silentInput)
     }
 
-    func testEveryRecordingGetsANewEngine() throws {
+    func testASilentFirstSecondInTheBackgroundIsOnlyLogged() throws {
         try recorder.start()
+        isInForeground = false
+
+        input.deliver(seconds: 1, level: 0)
+
+        XCTAssertEqual(input.prepares, 1)
+        XCTAssertTrue(session.isActive)
+        XCTAssertEqual(diagnostics.last, "audioRestart: first second silent, in the background, not restarted")
+        XCTAssertEqual(try recorder.stop().count, 16_000)
+    }
+
+    func testAFailedRestartEndsCapture() throws {
+        try recorder.start()
+        session.activationError = NSError(domain: NSOSStatusErrorDomain, code: 560_557_684)
+
+        input.deliver(seconds: 1, level: 0)
+
+        XCTAssertEqual(captureEnds, [.interrupted])
+        XCTAssertTrue(diagnostics.last?.hasPrefix("audioRestart: first second silent, restart failed: ") ?? false)
+    }
+
+    func testEveryRecordingMayRestartItsSilentStartOnce() throws {
+        try recorder.start()
+        input.deliver(seconds: 1, level: 0)
         _ = try recorder.stop()
         try recorder.start()
 
-        XCTAssertEqual(input.prepares, 2)
+        input.deliver(seconds: 1, level: 0)
+
+        XCTAssertEqual(input.prepares, 4)
     }
 
     // MARK: Configuration changes, interruptions, background
 
-    func testAConfigurationChangeAfterSpeechCarriesOnAndKeepsTheAudio() throws {
+    func testAConfigurationChangeAtTheSameRateCarriesOnOnTheSameEngineAndKeepsTheAudio() throws {
         try recorder.start()
         input.deliver(seconds: 0.5, level: 0.3)
 
         center.post(name: .AVAudioEngineConfigurationChange, object: nil)
         input.deliver(seconds: 0.5, level: 0.2)
 
-        XCTAssertEqual(input.restarts, 1)
+        XCTAssertEqual(input.resumes, 1)
+        XCTAssertEqual(input.enginesMade, 1)
         XCTAssertEqual(captureEnds, [])
-        XCTAssertEqual(diagnostics.last, "audioRestart: configuration change, continued on a new engine")
+        XCTAssertEqual(diagnostics.last, "audioRestart: configuration change, continued (engine 1, 16000 Hz)")
         XCTAssertEqual(try recorder.stop().count, 16_000)
     }
 
-    func testAConfigurationChangeThatCantCarryOnEndsCaptureAndKeepsTheAudio() throws {
-        input.restartSucceeds = false
+    func testAConfigurationChangeBeforeAnythingWasHeardCarriesOnToo() throws {
+        try recorder.start()
+
+        center.post(name: .AVAudioEngineConfigurationChange, object: nil)
+
+        XCTAssertEqual(input.resumes, 1)
+        XCTAssertEqual(input.prepares, 1)
+        XCTAssertTrue(input.isRunning)
+    }
+
+    func testANewRateBeforeAnythingWasHeardStartsOverAtThatRate() throws {
+        try recorder.start()
+        input.deliver(seconds: 0.5, level: 0)
+        input.sampleRate = 24_000
+
+        center.post(name: .AVAudioEngineConfigurationChange, object: nil)
+        input.deliver(seconds: 0.5, level: 0.3)
+
+        XCTAssertEqual(captureEnds, [])
+        XCTAssertEqual(input.prepares, 2)
+        XCTAssertEqual(diagnostics.last, "audioRestart: configuration change, new rate, nothing heard yet, started over (engine 1, 24000 Hz)")
+        XCTAssertEqual(try recorder.stop(), Array(repeating: 0.3, count: 12_000))
+    }
+
+    func testANewRateAfterSpeechEndsCaptureAndKeepsTheAudio() throws {
         try recorder.start()
         input.deliver(seconds: 0.5, level: 0.3)
+        input.sampleRate = 24_000
 
         center.post(name: .AVAudioEngineConfigurationChange, object: nil)
 
@@ -185,14 +269,28 @@ final class LiveDictationRecorderTests: XCTestCase {
         XCTAssertEqual(try recorder.stop().count, 8_000)
     }
 
-    func testAConfigurationChangeBeforeAnythingWasHeardStartsOver() throws {
+    func testAnInputThatCantCarryOnEndsCaptureAndKeepsTheAudio() throws {
+        input.resumeFails = true
         try recorder.start()
+        input.deliver(seconds: 0.5, level: 0.3)
 
         center.post(name: .AVAudioEngineConfigurationChange, object: nil)
 
-        XCTAssertEqual(input.prepares, 2)
-        XCTAssertEqual(input.restarts, 0)
-        XCTAssertEqual(captureEnds, [])
+        XCTAssertEqual(captureEnds, [.routeChanged])
+        XCTAssertEqual(diagnostics.last, "audioRestart: configuration change, input could not continue: test")
+        XCTAssertEqual(try recorder.stop().count, 8_000)
+    }
+
+    func testConfigurationChangesAreFollowedOnlyAFewTimesPerRecording() throws {
+        try recorder.start()
+        input.deliver(seconds: 0.5, level: 0.3)
+
+        for _ in 0...LiveDictationRecorder.maximumResumes {
+            center.post(name: .AVAudioEngineConfigurationChange, object: nil)
+        }
+
+        XCTAssertEqual(input.resumes, LiveDictationRecorder.maximumResumes)
+        XCTAssertEqual(captureEnds, [.routeChanged])
     }
 
     func testAnInterruptionEndsCapture() throws {
@@ -205,23 +303,45 @@ final class LiveDictationRecorderTests: XCTestCase {
         XCTAssertEqual(captureEnds, [.interrupted])
     }
 
-    func testAMediaServicesResetEndsCapture() throws {
+    func testAMediaServicesResetEndsCaptureAndTheNextRecordingGetsANewEngine() throws {
         try recorder.start()
 
         center.post(name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
 
         XCTAssertEqual(captureEnds, [.interrupted])
-        XCTAssertEqual(diagnostics.last, "audioRestart: media services were reset")
+        XCTAssertEqual(diagnostics.last, "audioRestart: media services were reset, capture ended")
+        _ = try recorder.stop()
+        try recorder.start()
+        XCTAssertEqual(input.enginesMade, 2)
     }
 
-    func testGoingToTheBackgroundIsLoggedWithTheLevelSoFar() throws {
+    func testAMediaServicesResetBetweenRecordingsDropsTheEngineQuietly() throws {
+        try recorder.start()
+        _ = try recorder.stop()
+
+        center.post(name: AVAudioSession.mediaServicesWereResetNotification, object: nil)
+
+        XCTAssertEqual(input.discards, 1)
+        XCTAssertEqual(captureEnds, [])
+        XCTAssertEqual(diagnostics.count, 2)
+        try recorder.start()
+        XCTAssertEqual(input.enginesMade, 2)
+    }
+
+    func testGoingToTheBackgroundIsLoggedWithTheLevelSoFarAndCaptureGoesOn() throws {
         try recorder.start()
         input.deliver(seconds: 0.5, level: 0.5)
         clock.advance(by: .milliseconds(4_200))
 
+        isInForeground = false
         center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        input.deliver(seconds: 0.5, level: 0.2)
 
         XCTAssertEqual(diagnostics.last, "background: after 4.2 s listening, peak so far -6.0 dBFS")
+        XCTAssertTrue(input.isRunning)
+        XCTAssertTrue(session.isActive)
+        XCTAssertEqual(captureEnds, [])
+        XCTAssertEqual(try recorder.stop().count, 16_000)
     }
 
     func testNothingIsObservedAfterStop() throws {
@@ -233,8 +353,8 @@ final class LiveDictationRecorderTests: XCTestCase {
         center.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
 
         XCTAssertEqual(captureEnds, [])
-        XCTAssertEqual(input.prepares, 1)
-        XCTAssertEqual(diagnostics.count, 1)
+        XCTAssertEqual(input.resumes, 0)
+        XCTAssertEqual(diagnostics.count, 2)
     }
 
     private func postInterruption(_ type: AVAudioSession.InterruptionType) {

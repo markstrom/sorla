@@ -7,7 +7,7 @@ final class FakeRecorder: DictationRecorder {
     var onDiagnostic: ((String) -> Void)?
     var startError: Error?
     // What the real recorder reports about the session when it starts.
-    var startDiagnostic: String? = "session: category playAndRecord"
+    var startDiagnostic: String? = "session: category record"
     var samples: [Float] = FakeRecorder.speech(seconds: 2)
     private(set) var starts = 0
     private(set) var stops = 0
@@ -216,7 +216,7 @@ final class ManualTimeLimit {
 final class FakeAudioSession: DictationAudioSession {
     var activationError: Error?
     var snapshotValue = AudioSessionSnapshot(
-        category: .playAndRecord, mode: .default, options: [.mixWithOthers, .allowBluetoothHFP],
+        category: .record, mode: .default, options: [.allowBluetoothHFP],
         inputPort: .builtInMic, sampleRate: 48_000, inputChannels: 1
     )
     private(set) var configurations: [DictationSessionConfiguration] = []
@@ -251,16 +251,24 @@ final class FakeAudioSession: DictationAudioSession {
 final class CallLog {
     private(set) var entries: [String] = []
     func append(_ entry: String) { entries.append(entry) }
+    func clear() { entries = [] }
 }
 
-// A microphone that delivers exactly the frames a test hands it, on the test's thread.
+// A microphone with one engine that lives until it is discarded, delivering exactly the frames a test hands it,
+// on the test's thread.
 final class FakeAudioInput: DictationAudioInput {
     var sampleRate: Double = 16_000
     var prepareError: Error?
-    var restartSucceeds = true
+    // Whether the next resume fails; a rate change is taken from `sampleRate`.
+    var resumeFails = false
     private(set) var prepares = 0
-    private(set) var restarts = 0
+    private(set) var enginesMade = 0
+    private(set) var resumes = 0
+    private(set) var discards = 0
     private(set) var isRunning = false
+    private(set) var preparation = "no engine"
+    private var hasEngine = false
+    private var runningRate: Double = 0
     private var onFrames: ((UnsafeBufferPointer<Float>) -> Void)?
     let calls: CallLog
 
@@ -270,8 +278,14 @@ final class FakeAudioInput: DictationAudioInput {
 
     func prepare() throws -> Double {
         calls.append("prepareInput")
+        if !hasEngine {
+            hasEngine = true
+            enginesMade += 1
+        }
+        preparation = "engine \(enginesMade), \(Int(sampleRate)) Hz"
         if let prepareError { throw prepareError }
         prepares += 1
+        runningRate = sampleRate
         return sampleRate
     }
 
@@ -286,12 +300,21 @@ final class FakeAudioInput: DictationAudioInput {
         onFrames = nil
     }
 
-    func restart() -> Bool {
-        restarts += 1
-        if !restartSucceeds {
-            stop()
-        }
-        return restartSucceeds
+    func resume() -> InputResumption {
+        resumes += 1
+        let onFrames = self.onFrames
+        stop()
+        if resumeFails { return .failed("test") }
+        guard sampleRate == runningRate else { return .rateChanged }
+        self.onFrames = onFrames
+        isRunning = true
+        return .continued
+    }
+
+    func discardEngine() {
+        discards += 1
+        stop()
+        hasEngine = false
     }
 
     func deliver(_ frames: [Float]) {

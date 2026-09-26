@@ -1,18 +1,19 @@
 import AVFoundation
 
-// How the dictation's audio session is set up. It is mixable because iOS refuses to activate a
-// non-mixable session while the app is in the background (NSOSStatusErrorDomain 560557684, '!int',
-// cannotInterruptOthers), and an Action Button start finds Sorla there. `.record` can't be mixable, so the
-// category is `.playAndRecord`; Sorla plays nothing, so the playback half and `.defaultToSpeaker` are unused.
+// How the dictation's audio session is set up: `.record` with `.allowBluetoothHFP`, not mixable. A recording
+// always starts with Sorla in the foreground (iOS refuses to start audio input from the background, even through
+// an AudioRecordingIntent: kAUStartIO failed with 2003329396 on an iPhone 16 Plus, iOS 27.0), so the session
+// doesn't have to be mixable. The mixable `.playAndRecord` + `.mixWithOthers` setup tried before delivered only
+// zeros in the foreground on the same phone; this is the configuration that captured real speech there.
 struct DictationSessionConfiguration: Equatable {
     var category: AVAudioSession.Category
     var mode: AVAudioSession.Mode
     var options: AVAudioSession.CategoryOptions
 
     static let dictation = DictationSessionConfiguration(
-        category: .playAndRecord,
+        category: .record,
         mode: .default,
-        options: [.mixWithOthers, .allowBluetoothHFP]
+        options: [.allowBluetoothHFP]
     )
 }
 
