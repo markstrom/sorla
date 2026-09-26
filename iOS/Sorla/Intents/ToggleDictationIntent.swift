@@ -10,12 +10,35 @@ struct ToggleDictationIntent: AudioRecordingIntent, LiveActivityIntent {
         "Starts dictation the first time and stops it the next. Returns the transcribed text only when there is something to paste."
     )
 
+    // Runs in the background, but may come to the foreground when it decides to. Only a start does: iOS refuses to
+    // start audio input from the background (kAUStartIO, 2003329396, on iOS 27), so Sorla opens briefly to start
+    // listening. Stopping and transcribing stay in the background.
+    static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]
+
     init() {}
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<DictationResultEntity> {
-        let outcome = await DictationRuntime.shared.toggle()
+        let outcome = await DictationRuntime.shared.toggle(foreground: IntentForegroundTransition(intent: self))
         return .result(value: DictationResultEntity(outcome))
+    }
+}
+
+@MainActor
+private struct IntentForegroundTransition: ForegroundTransition {
+    let intent: ToggleDictationIntent
+
+    var isRunningInBackground: Bool {
+        intent.systemContext.currentMode == .background
+    }
+
+    var canContinueInForeground: Bool {
+        intent.systemContext.currentMode.canContinueInForeground
+    }
+
+    // alwaysConfirm false: no "Continue in Sorla?" question when iOS doesn't insist on one.
+    func continueInForeground() async throws {
+        try await intent.continueInForeground("Sorla opens to start listening.", alwaysConfirm: false)
     }
 }
 

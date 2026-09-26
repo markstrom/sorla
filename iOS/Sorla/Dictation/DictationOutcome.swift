@@ -44,6 +44,8 @@ enum DictationFailure: String, Equatable, Sendable, CaseIterable {
     case modelMissing
     case liveActivityUnavailable
     case audioStartFailed
+    // Starting needs Sorla in the foreground, and iOS didn't let it come forward (or the person declined).
+    case foregroundUnavailable
     // The microphone ran but delivered only silence (below -90 dBFS), so there was nothing to transcribe.
     case silentInput
     // The process that was recording is gone (terminated by the system or force-quit).
@@ -58,6 +60,7 @@ enum DictationFailure: String, Equatable, Sendable, CaseIterable {
         case .modelMissing: return "Open Sorla and install the speech model."
         case .liveActivityUnavailable: return "Turn on Live Activities for Sorla in Settings."
         case .audioStartFailed: return "The microphone couldn't start."
+        case .foregroundUnavailable: return "Sorla has to open to start listening. Unlock the iPhone and try again."
         case .silentInput: return "The microphone delivered no sound."
         case .sessionLost: return "The last recording was interrupted. Trigger again to start a new one."
         case .transcriptionFailed: return "The recording couldn't be transcribed."

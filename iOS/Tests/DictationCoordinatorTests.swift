@@ -397,6 +397,128 @@ final class DictationCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.phase, .idle)
     }
 
+    // MARK: Starting from the background (the intent brings Sorla forward first)
+
+    func testAStartFromTheBackgroundBringsSorlaForwardBeforeTheMicrophoneStarts() async {
+        let foreground = FakeForeground()
+        var startsWhenAsked: Int?
+        var activityWhenAsked: Bool?
+        foreground.onContinue = { [recorder, system] in
+            startsWhenAsked = recorder!.starts
+            activityWhenAsked = system!.isActivityShowing
+        }
+
+        let outcome = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(outcome, .started)
+        XCTAssertEqual(foreground.continues, 1)
+        XCTAssertEqual(startsWhenAsked, 0)
+        XCTAssertEqual(activityWhenAsked, false)
+        XCTAssertEqual(recorder.starts, 1)
+        XCTAssertEqual(system.activeWaits, 1)
+        let rows = system.metrics.map(\.outcome)
+        XCTAssertTrue(rows[0].hasPrefix("diagnostic.foreground: came forward to start, app active after "), rows[0])
+        XCTAssertEqual(rows.last, "started")
+    }
+
+    func testTheStopStaysInTheBackground() async {
+        makeCoordinator(FakeTranscriber(immediateReply: .text("Hej")))
+        _ = await coordinator.toggle(foreground: FakeForeground())
+        system.isAppActive = false
+        let foreground = FakeForeground()
+
+        let outcome = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(outcome, .transcribed("Hej"))
+        XCTAssertEqual(foreground.continues, 0)
+    }
+
+    func testAStartWithSorlaAlreadyInFrontDoesNotAsk() async {
+        system.isAppActive = true
+        let foreground = FakeForeground()
+
+        let outcome = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(outcome, .started)
+        XCTAssertEqual(foreground.continues, 0)
+    }
+
+    func testAnIntentAlreadyRunningInTheForegroundDoesNotAsk() async {
+        let foreground = FakeForeground()
+        foreground.isRunningInBackground = false
+
+        _ = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(foreground.continues, 0)
+        XCTAssertEqual(recorder.starts, 1)
+    }
+
+    func testAStartThatWouldBeRefusedDoesNotBringSorlaForward() async {
+        let foreground = FakeForeground()
+        system.isModelInstalled = false
+
+        let outcome = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(outcome, .failed(.modelMissing))
+        XCTAssertEqual(foreground.continues, 0)
+    }
+
+    func testWhenSorlaMayNotComeForwardTheMicrophoneStaysOff() async {
+        let foreground = FakeForeground()
+        foreground.canContinueInForeground = false
+
+        let outcome = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(outcome, .failed(.foregroundUnavailable))
+        XCTAssertEqual(foreground.continues, 0)
+        XCTAssertEqual(recorder.starts, 0)
+        XCTAssertEqual(system.activityStarts, 0)
+        XCTAssertNil(system.sessionMarker)
+        XCTAssertEqual(coordinator.phase, .idle)
+        XCTAssertEqual(system.metrics.map(\.outcome), [
+            "diagnostic.foreground: iOS doesn't let Sorla come forward now, not started",
+            "failed.foregroundUnavailable",
+        ])
+    }
+
+    func testARefusedTransitionLeavesTheMicrophoneOff() async {
+        let foreground = FakeForeground()
+        foreground.error = CocoaError(.userCancelled)
+
+        let outcome = await coordinator.toggle(foreground: foreground)
+
+        XCTAssertEqual(outcome, .failed(.foregroundUnavailable))
+        XCTAssertEqual(recorder.starts, 0)
+        XCTAssertTrue(system.metrics[0].outcome.hasPrefix("diagnostic.foreground: refused ("))
+        let next = await coordinator.toggle(foreground: FakeForeground())
+        XCTAssertEqual(next, .started)
+    }
+
+    func testAnAppThatIsStillNotActiveIsLoggedAndTheStartIsTriedAnyway() async {
+        system.becomesActive = false
+
+        let outcome = await coordinator.toggle(foreground: FakeForeground())
+
+        XCTAssertEqual(outcome, .started)
+        XCTAssertTrue(system.metrics[0].outcome.contains("app still not active"), system.metrics[0].outcome)
+    }
+
+    func testATriggerWhileComingForwardIsBusyAndStartsNothing() async {
+        let foreground = FakeForeground()
+        foreground.holds = true
+        let first = Task { await coordinator.toggle(foreground: foreground) }
+        await foreground.waitUntilHeld()
+
+        let second = await coordinator.toggle(foreground: FakeForeground())
+        XCTAssertEqual(second, .busy)
+        XCTAssertEqual(recorder.starts, 0)
+
+        foreground.release()
+        let outcome = await first.value
+        XCTAssertEqual(outcome, .started)
+        XCTAssertEqual(recorder.starts, 1)
+    }
+
     // MARK: Lost sessions
 
     func testATriggerAfterTheRecordingProcessDiedReportsItInsteadOfStarting() async {

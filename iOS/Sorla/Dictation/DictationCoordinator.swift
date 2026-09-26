@@ -26,6 +26,18 @@ protocol DictationSystem: AnyObject {
     func beginBackgroundTask(onExpiration: @escaping @MainActor () -> Void)
     func endBackgroundTask()
     func record(_ metric: DictationMetric)
+    // After the intent asked to continue in the foreground: waits a short while for the app to become active
+    // and says whether it did.
+    func waitUntilActive() async -> Bool
+}
+
+// How an intent invocation can move Sorla to the foreground (AppIntents' `.foreground(.dynamic)` mode), so the
+// start rule can be tested without the system.
+@MainActor
+protocol ForegroundTransition {
+    var isRunningInBackground: Bool { get }
+    var canContinueInForeground: Bool { get }
+    func continueInForeground() async throws
 }
 
 @MainActor
@@ -74,6 +86,7 @@ final class DictationCoordinator {
     private var captureEnd: CaptureEnd?
     private var pending: PendingTranscription?
     private var preload: Task<Void, Never>?
+    private var isComingForward = false
 
     init(
         recorder: DictationRecorder,
@@ -93,10 +106,21 @@ final class DictationCoordinator {
         recorder.onDiagnostic = { [weak self] detail in self?.diagnose(detail) }
     }
 
-    func toggle() async -> DictationOutcome {
+    // `foreground` is given by the intent. iOS refuses to start audio input from the background (kAUStartIO fails
+    // even for an AudioRecordingIntent), so a trigger that will start listening while Sorla is in the background
+    // brings it to the foreground first. Stopping, and everything after, stays in the background.
+    func toggle(foreground: ForegroundTransition? = nil) async -> DictationOutcome {
         let invokedAt = now()
+        if isComingForward {
+            system.record(metric(.busy))
+            return .busy
+        }
         switch phase {
         case .idle:
+            if let foreground, startWillListen, !system.isAppActive, foreground.isRunningInBackground,
+               let refusal = await comeForward(foreground) {
+                return report(refusal)
+            }
             return start(invokedAt: invokedAt)
         case .listening, .captured:
             return await stop(invokedAt: invokedAt)
@@ -134,6 +158,31 @@ final class DictationCoordinator {
         preload = nil
         isModelReady = false
         await transcriber.unload()
+    }
+
+    // The start checks that can refuse without touching anything; a start they refuse never brings Sorla forward.
+    private var startWillListen: Bool {
+        system.sessionMarker == nil && system.isMicrophoneAuthorized && system.isModelInstalled
+    }
+
+    // Returns the outcome when Sorla couldn't come to the foreground, nil once it has.
+    private func comeForward(_ foreground: ForegroundTransition) async -> DictationOutcome? {
+        guard foreground.canContinueInForeground else {
+            diagnose("foreground: iOS doesn't let Sorla come forward now, not started")
+            return .failed(.foregroundUnavailable)
+        }
+        isComingForward = true
+        defer { isComingForward = false }
+        let askedAt = now()
+        do {
+            try await foreground.continueInForeground()
+        } catch {
+            diagnose("foreground: refused (\(error)), not started")
+            return .failed(.foregroundUnavailable)
+        }
+        let active = await system.waitUntilActive()
+        diagnose("foreground: came forward to start, app \(active ? "active" : "still not active") after \(Int(milliseconds(from: askedAt).rounded())) ms")
+        return nil
     }
 
     private func start(invokedAt: ContinuousClock.Instant) -> DictationOutcome {

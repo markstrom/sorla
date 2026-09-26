@@ -40,8 +40,8 @@ final class DictationRuntime: ObservableObject {
         }
     }
 
-    func toggle() async -> DictationOutcome {
-        let outcome = await coordinator.toggle()
+    func toggle(foreground: ForegroundTransition? = nil) async -> DictationOutcome {
+        let outcome = await coordinator.toggle(foreground: foreground)
         lastMessage = outcome.message
         return outcome
     }

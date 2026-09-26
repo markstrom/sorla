@@ -54,6 +54,9 @@ final class FakeSystem: DictationSystem {
     var sessionMarker: Date?
     var backgroundTimeRemaining: TimeInterval? = 25
     var canStartActivity = true
+    // What waiting for the app to become active finds, after the intent asked to continue in the foreground.
+    var becomesActive = true
+    private(set) var activeWaits = 0
     private(set) var activityPhases: [DictationActivityPhase] = []
     private(set) var isActivityShowing = false
     private(set) var activityStarts = 0
@@ -95,6 +98,50 @@ final class FakeSystem: DictationSystem {
 
     func record(_ metric: DictationMetric) {
         metrics.append(metric)
+    }
+
+    func waitUntilActive() async -> Bool {
+        activeWaits += 1
+        if becomesActive { isAppActive = true }
+        return isAppActive
+    }
+}
+
+// The intent's view of the foreground. `continueInForeground` can be held until the test lets it go.
+@MainActor
+final class FakeForeground: ForegroundTransition {
+    var isRunningInBackground = true
+    var canContinueInForeground = true
+    var error: Error?
+    var holds = false
+    // Whatever the test wants to know at the moment Sorla is asked to come forward.
+    var onContinue: (() -> Void)?
+    private(set) var continues = 0
+    private var held: CheckedContinuation<Void, Never>?
+    private var heldWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func continueInForeground() async throws {
+        continues += 1
+        onContinue?()
+        if holds {
+            await withCheckedContinuation { continuation in
+                held = continuation
+                heldWaiters.forEach { $0.resume() }
+                heldWaiters = []
+            }
+        }
+        if let error { throw error }
+    }
+
+    // Returns once `continueInForeground` is being held.
+    func waitUntilHeld() async {
+        guard held == nil else { return }
+        await withCheckedContinuation { heldWaiters.append($0) }
+    }
+
+    func release() {
+        held?.resume()
+        held = nil
     }
 }
 

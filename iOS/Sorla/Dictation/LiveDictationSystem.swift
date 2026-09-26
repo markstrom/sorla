@@ -100,4 +100,13 @@ final class LiveDictationSystem: DictationSystem {
     func record(_ metric: DictationMetric) {
         log.append(metric)
     }
+
+    // `continueInForeground` can return before the scene is active; audio input may only start once it is.
+    func waitUntilActive() async -> Bool {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !isAppActive, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return isAppActive
+    }
 }
