@@ -17,7 +17,7 @@ final class DictationRuntime: ObservableObject {
         self.log = log
         coordinator = DictationCoordinator(
             recorder: LiveDictationRecorder(),
-            transcriber: ParakeetTranscriptionEngine(),
+            transcriber: PhoneTranscriptionEngine(),
             system: LiveDictationSystem(log: log),
             limitWatch: RecordingLimitWatch(limit: Self.recordingLimit)
         )

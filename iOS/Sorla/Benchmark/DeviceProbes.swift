@@ -9,14 +9,23 @@ import UIKit
 // next launch is a fresh process. Never audio, never transcript text.
 //
 //   -SorlaLoadProbe all|ane|gpu|cpu|ane-fast|ane-async   load, first inference, 10 s + 30 s clips, cleanup, reload
-//   -SorlaIdleProbe YES                                 load (default units) and stay loaded, logging memory every 5 s
+//   -SorlaIdleProbe YES                                 load (CPU, as dictation) and stay loaded, logging memory every 5 s
 //   -SorlaMicProbe <seconds> [-SorlaMicProbeLoad YES]   one capture through LiveDictationRecorder, with or without a
 //                                                       concurrent model load, then per-0.5 s levels
 enum DeviceProbes {
+    static var isRequested: Bool {
+        let defaults = UserDefaults.standard
+        return defaults.string(forKey: "SorlaLoadProbe") != nil || defaults.bool(forKey: "SorlaIdleProbe")
+            || defaults.double(forKey: "SorlaMicProbe") > 0
+    }
+
     @MainActor
     static func runIfRequested() async -> Bool {
         let defaults = UserDefaults.standard
         if let variant = defaults.string(forKey: "SorlaLoadProbe") {
+            // Launched behind the lock screen the app is in the background and would be suspended mid-load;
+            // mixable silent playback (UIBackgroundModes audio) keeps it running. GPU work is refused there.
+            ProbeKeepAlive.start()
             await LoadProbe.run(variant: variant)
             exit(0)
         }
@@ -34,6 +43,10 @@ enum DeviceProbes {
             exit(0)
         }
         return false
+    }
+
+    static func progress(_ text: String) {
+        IdleProbe.appendLine("\(uptime()) \(text)", to: ReportArchive.folder.appendingPathComponent("probe-progress.log"))
     }
 
     static func uptime() -> String { String(format: "%.2f s", DeviceConditions.processUptime() ?? -1) }
@@ -154,7 +167,11 @@ enum LoadProbe {
     static func run(variant name: String) async {
         let variant = ProbeModelLoader.variant(named: name)
         var lines = ["### Load probe — \(variant.name)", ""]
-        func add(_ line: String) { lines.append(line) }
+        func add(_ line: String) {
+            lines.append(line)
+            DeviceProbes.progress("\(variant.name): \(line)")
+        }
+        add("| App state at start | \(UIApplication.shared.applicationState == .background ? "background" : "foreground") |")
         add("| Measure | Value |")
         add("|---|---|")
         add("| Process uptime at start | \(DeviceProbes.uptime()) |")
@@ -226,7 +243,7 @@ enum IdleProbe {
         append("### Idle probe\n\n| Uptime | State | Footprint MB | Resident MB | Available MB | Event |\n|---|---|---|---|---|---|")
         log("launched")
         do {
-            let (models, _) = try await ProbeModelLoader.load(ProbeModelLoader.variant(named: "ane"), from: PianissimoModel.directory)
+            let (models, _) = try await ProbeModelLoader.load(ProbeModelLoader.variant(named: "cpu"), from: PianissimoModel.directory)
             let manager = AsrManager(config: .default)
             try await manager.loadModels(models)
             var state = try TdtDecoderState(decoderLayers: await manager.decoderLayerCount)
@@ -262,7 +279,13 @@ enum IdleProbe {
     }
 
     static func append(_ line: String) {
-        guard let url, let data = (line + "\n").data(using: .utf8) else { return }
+        guard let url else { return }
+        appendLine(line, to: url)
+    }
+
+    nonisolated static func appendLine(_ line: String, to url: URL) {
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard let data = (line + "\n").data(using: .utf8) else { return }
         if let handle = try? FileHandle(forWritingTo: url) {
             handle.seekToEndOfFile()
             handle.write(data)
@@ -291,7 +314,7 @@ enum MicProbe {
             lines.append("- \(DeviceProbes.uptime()) started")
             if loadConcurrently {
                 load = Task.detached(priority: .userInitiated) {
-                    _ = try? AsrModels.loadLocal(from: PianissimoModel.directory, version: .v3)
+                    _ = try? AsrModels.loadLocal(from: PianissimoModel.directory, version: .v3, configuration: PhoneModelConfiguration.make())
                 }
             }
             try? await Task.sleep(for: .seconds(seconds))
@@ -301,7 +324,8 @@ enum MicProbe {
         } catch {
             lines.append("- start/stop failed: \(ErrorSummary.of(error))")
         }
-        if let load { await load.value }
+        // The load is not awaited: the probe exits with it still running, as a capture would end mid-load.
+        _ = load
         ReportArchive.save(lines.joined(separator: "\n") + "\n", prefix: "micprobe-\(loadConcurrently ? "load" : "noload")")
     }
 
@@ -311,5 +335,32 @@ enum MicProbe {
             let peak = samples[start..<min(samples.count, start + chunk)].reduce(Float(0)) { max($0, abs($1)) }
             return peak > 0 ? String(format: "%.0f", 20 * log10(peak)) : "-inf"
         }.joined(separator: " ")
+    }
+}
+
+// Silent, mixable playback that keeps a probe process running in the background (never used by dictation).
+@MainActor
+enum ProbeKeepAlive {
+    static let engine = AVAudioEngine()
+
+    static func start() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+            let format = engine.mainMixerNode.outputFormat(forBus: 0)
+            let source = AVAudioSourceNode(format: format) { _, _, _, buffers in
+                for buffer in UnsafeMutableAudioBufferListPointer(buffers) {
+                    if let data = buffer.mData { memset(data, 0, Int(buffer.mDataByteSize)) }
+                }
+                return noErr
+            }
+            engine.attach(source)
+            engine.connect(source, to: engine.mainMixerNode, format: format)
+            try engine.start()
+            DeviceProbes.progress("keep-alive playing")
+        } catch {
+            DeviceProbes.progress("keep-alive failed: \(ErrorSummary.of(error))")
+        }
     }
 }

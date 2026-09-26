@@ -154,7 +154,7 @@ final class BenchmarkRunner: ObservableObject {
         let manager: AsrManager
         do {
             let models = try await Task.detached(priority: .userInitiated) {
-                try AsrModels.loadLocal(from: directory, version: .v3)
+                try AsrModels.loadLocal(from: directory, version: .v3, configuration: PhoneModelConfiguration.make())
             }.value
             manager = AsrManager(config: .default)
             try await manager.loadModels(models)

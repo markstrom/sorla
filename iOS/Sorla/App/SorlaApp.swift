@@ -7,6 +7,8 @@ struct SorlaApp: App {
 
     init() {
         DictationRuntime.shared.launch()
+        // Started here rather than from a view, so a probe also runs when launched behind the lock screen.
+        Task { @MainActor in _ = await DeviceProbes.runIfRequested() }
     }
 
     var body: some Scene {
@@ -20,7 +22,7 @@ struct SorlaApp: App {
                     .tabItem { Label("Benchmark", systemImage: "gauge.with.dots.needle.33percent") }
             }
             .task {
-                if await DeviceProbes.runIfRequested() { return }
+                guard !DeviceProbes.isRequested else { return }
                 await AutoBenchmark.runIfRequested(setup: modelSetup, runner: benchmark)
             }
         }
