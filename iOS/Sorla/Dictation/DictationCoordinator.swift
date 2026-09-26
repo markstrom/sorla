@@ -70,8 +70,14 @@ final class DictationCoordinator {
         .seconds(max(30, 3 * audioSeconds))
     }
 
-    private(set) var phase: DictationPhase = .idle
+    private(set) var phase: DictationPhase = .idle {
+        didSet {
+            if phase != oldValue { onPhaseChange?(phase) }
+        }
+    }
     private(set) var isModelReady = false
+    // Told every phase change, so the Sorla keyboard can show whether Sorla is listening or transcribing.
+    var onPhaseChange: ((DictationPhase) -> Void)?
 
     private let recorder: DictationRecorder
     private let transcriber: TranscriptionEngine

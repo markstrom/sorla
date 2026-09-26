@@ -34,6 +34,7 @@ targets:
     sources:
       - path: Sorla
       - path: Shared
+      - path: Handoff
       - path: Benchmark/Utterances
         type: folder
         buildPhase: resources
@@ -77,6 +78,13 @@ targets:
         product: FluidAudio
       - target: SorlaLiveActivity
         embed: true
+      - target: SorlaKeyboard
+        embed: true
+    entitlements:
+      path: Sorla/Sorla.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.sorla.ios
     settings:
       base:
         PRODUCT_NAME: Sorla
@@ -97,6 +105,27 @@ targets:
         PRODUCT_NAME: SorlaLiveActivity
         PRODUCT_BUNDLE_IDENTIFIER: com.sorla.ios.LiveActivity
         INFOPLIST_FILE: LiveActivity/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+
+  # The Sorla keyboard (prototype for #66): inserts the finished transcript into the focused field. It shares only
+  # Handoff/ with the app (Foundation, no SorlaCore, no model, no audio), so it stays far below the keyboard memory limit.
+  SorlaKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Keyboard
+      - path: Handoff
+    entitlements:
+      path: Keyboard/SorlaKeyboard.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.sorla.ios
+    settings:
+      base:
+        PRODUCT_NAME: SorlaKeyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.sorla.ios.keyboard
+        INFOPLIST_FILE: Keyboard/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES
 

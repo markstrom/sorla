@@ -46,6 +46,8 @@ Alternatives, and why not: `openAppWhenRun` (deprecated in iOS 26) and `.foregro
 
 Sorla never calls `UIPasteboard` in this flow. The Shortcut copies **Text** only inside `If Ready to Paste is true`, so start, cancel, busy, failure and empty recognition leave the clipboard untouched (the agreed iOS rule). The entity's display representation is the Message, so Shortcuts' output preview doesn't show the transcript.
 
+**With the Sorla keyboard** ([keyboard.md](keyboard.md)): the same successful, non-empty transcript is also handed to the Sorla keyboard through the App Group, which inserts it into the focused field. The contract above is unchanged, and the app still never writes the clipboard; with the keyboard enabled and Full Access on, the Shortcut's Copy step can simply be removed.
+
 ### Audio
 
 - **Session: `.record`, mode `.default`, options `.allowBluetoothHFP`, not mixable** (`DictationSessionConfiguration.dictation`), category and mode set before `setActive(true)` on every start, deactivated (`notifyOthersOnDeactivation`) the moment capture stops. `UIBackgroundModes` contains `audio`, which is what lets an active recording continue in the background; once the session is inactive the app is an ordinary background app again. There is no silent playback and no dummy recording. Other audio (music, a podcast) is interrupted while dictating, as a recording app normally does.
@@ -138,6 +140,8 @@ In Shortcuts, create **“Diktera med Sorla”**:
 4. Inside If, after the copy: **Vibrate Device** (the ready cue; a spoken/visual cue can replace it, record which).
 5. Otherwise: **If** *Outcome* *is* **Failed** → **Show Notification** with *Message*.
 6. Settings → Action Button → **Shortcut** → “Diktera med Sorla”. For Back Tap: Settings → Accessibility → Touch → Back Tap → Double Tap → “Diktera med Sorla”.
+
+With the Sorla keyboard enabled and Full Access on, step 3 can be removed: the keyboard inserts the text itself (see [keyboard.md](keyboard.md)).
 
 Use the **Dictation** tab's log (Copy Log as Markdown) for timings after each session.
 

@@ -45,7 +45,7 @@ struct DictationView: View {
                 } header: {
                     Text("Try it here")
                 } footer: {
-                    Text("This button returns the result to nobody, so nothing is copied. Use the Shortcut to copy text.")
+                    Text("This button returns the result to nobody, so nothing is copied. With the Sorla keyboard showing, the text is inserted there. Use the Shortcut to copy text.")
                 }
 
                 Section {

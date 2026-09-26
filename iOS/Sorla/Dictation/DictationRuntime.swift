@@ -7,6 +7,7 @@ final class DictationRuntime: ObservableObject {
 
     let log: DictationLog
     let coordinator: DictationCoordinator
+    let keyboard: KeyboardHandoffPublisher
     // Only the outcome's wording is kept for the UI, never the transcript.
     @Published private(set) var lastMessage: String?
 
@@ -21,6 +22,14 @@ final class DictationRuntime: ObservableObject {
             system: LiveDictationSystem(log: log),
             limitWatch: RecordingLimitWatch(limit: Self.recordingLimit)
         )
+        keyboard = KeyboardHandoffPublisher(store: TranscriptHandoffStore.shared()) { detail in
+            log.append(DictationMetric(
+                date: Date(), outcome: "diagnostic.\(detail)",
+                appWasActive: UIApplication.shared.applicationState == .active, captureEnd: nil
+            ))
+        }
+        let keyboard = self.keyboard
+        coordinator.onPhaseChange = { keyboard.publish($0) }
     }
 
     // Two minutes for the prototype: long enough for dictation, short enough to bound background compute.
@@ -29,6 +38,7 @@ final class DictationRuntime: ObservableObject {
 
     func launch() {
         LiveDictationSystem.endStaleActivities()
+        keyboard.launch()
         ModelStorage.excludeFromBackup()
         memoryWarningObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main
@@ -42,6 +52,7 @@ final class DictationRuntime: ObservableObject {
 
     func toggle(foreground: ForegroundTransition? = nil) async -> DictationOutcome {
         let outcome = await coordinator.toggle(foreground: foreground)
+        keyboard.deliver(outcome)
         lastMessage = outcome.message
         return outcome
     }
