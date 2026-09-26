@@ -154,11 +154,12 @@ final class LiveDictationRecorderTests: XCTestCase {
 
         input.deliver(seconds: 1, level: 0)
 
-        XCTAssertEqual(calls.entries, ["deactivate", "configure", "activate", "prepareInput", "startInput"])
-        XCTAssertEqual(input.enginesMade, 1)
+        XCTAssertEqual(calls.entries.suffix(5), ["deactivate", "configure", "activate", "prepareInput", "startInput"])
+        XCTAssertEqual(input.discards, 1)
+        XCTAssertEqual(input.enginesMade, 2)
         XCTAssertTrue(input.isRunning)
         XCTAssertTrue(session.isActive)
-        XCTAssertEqual(diagnostics.last, "audioRestart: first second silent, restarted session and engine (engine 1, 16000 Hz)")
+        XCTAssertEqual(diagnostics.last, "audioRestart: first second silent, restarted session and a new engine (engine 2, 16000 Hz)")
         input.deliver(seconds: 0.5, level: 0.3)
         XCTAssertEqual(try recorder.stop(), Array(repeating: 0.3, count: 8_000))
     }

@@ -114,8 +114,7 @@ final class LiveDictationRecorder: DictationRecorder {
 
     // The whole first second was below -90 dBFS. On the first device run the first recording after launch did this
     // and the next recording, with the session activated again and the engine started again, captured speech. So
-    // once, in the foreground, do exactly what the next recording would: drop the silence, deactivate, set the
-    // session up again and restart the engine. If it stays silent, the coordinator reports `failed.silentInput`.
+    // once, in the foreground: drop the silence, deactivate, set the session up again and start a new engine. If it stays silent, the coordinator reports `failed.silentInput`.
     private func silentStart() {
         // Checked again here: by the time this runs the recording may have ended or been started over.
         guard isCapturing, meter.seconds >= 1, meter.peak < SpeechCheck.silentInputPeak else { return }
@@ -130,11 +129,14 @@ final class LiveDictationRecorder: DictationRecorder {
             return
         }
         recorder.cancel()
+        // A new engine, not the same one started again: on the device a fresh launch once stayed silent after the
+        // same engine was restarted, while an engine made anew per recording has never been tried in `.record`.
+        input.discardEngine()
         session.deactivate()
         do {
             try activateSession()
             try recorder.start()
-            onDiagnostic?("audioRestart: first second silent, restarted session and engine (\(input.preparation))")
+            onDiagnostic?("audioRestart: first second silent, restarted session and a new engine (\(input.preparation))")
         } catch {
             onDiagnostic?("audioRestart: first second silent, restart failed: \(error)")
             captureEnded(.interrupted)
