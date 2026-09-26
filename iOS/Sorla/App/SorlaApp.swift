@@ -19,7 +19,10 @@ struct SorlaApp: App {
                 BenchmarkView(runner: benchmark)
                     .tabItem { Label("Benchmark", systemImage: "gauge.with.dots.needle.33percent") }
             }
-            .task { await AutoBenchmark.runIfRequested(setup: modelSetup, runner: benchmark) }
+            .task {
+                if await DeviceProbes.runIfRequested() { return }
+                await AutoBenchmark.runIfRequested(setup: modelSetup, runner: benchmark)
+            }
         }
     }
 }
