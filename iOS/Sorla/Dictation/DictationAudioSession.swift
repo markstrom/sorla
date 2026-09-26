@@ -25,13 +25,18 @@ struct AudioSessionSnapshot: Equatable {
     var inputPort: AVAudioSession.Port?
     var sampleRate: Double
     var inputChannels: Int
+    // Whether the session reports an input at all, and whether another app's audio was playing: the two things
+    // that differ between a start right after Sorla comes forward and one from inside the app.
+    var isInputAvailable = true
+    var isOtherAudioPlaying = false
 
     var summary: String {
         let port = inputPort.map { $0.rawValue } ?? "none"
         return "category \(Self.shortName(category.rawValue, prefix: "AVAudioSessionCategory")), "
             + "mode \(Self.shortName(mode.rawValue, prefix: "AVAudioSessionMode")), "
             + "options \(Self.names(of: options)), input \(port), "
-            + "\(Int(sampleRate.rounded())) Hz, \(inputChannels) ch"
+            + "\(Int(sampleRate.rounded())) Hz, \(inputChannels) ch, "
+            + "input available \(isInputAvailable ? "yes" : "no"), other audio \(isOtherAudioPlaying ? "yes" : "no")"
     }
 
     private static func shortName(_ raw: String, prefix: String) -> String {
@@ -98,7 +103,9 @@ final class SystemDictationAudioSession: DictationAudioSession {
             options: session.categoryOptions,
             inputPort: session.currentRoute.inputs.first?.portType,
             sampleRate: session.sampleRate,
-            inputChannels: session.inputNumberOfChannels
+            inputChannels: session.inputNumberOfChannels,
+            isInputAvailable: session.isInputAvailable,
+            isOtherAudioPlaying: session.isOtherAudioPlaying
         )
     }
 }

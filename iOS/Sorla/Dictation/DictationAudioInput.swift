@@ -124,21 +124,35 @@ private extension AVAudioCommonFormat {
 }
 
 // Watches the level of what the microphone delivers, from the audio thread. A real microphone is never below
-// -90 dBFS for a whole second; if the first second is, the input is dead and `add` says so, once.
+// -90 dBFS for a whole silence window; if the start of an input is, the input is dead and `add` says so, once.
+// It also says, once, when the first sound arrives, so a restart that recovered can be timed.
 final class InputMeter: @unchecked Sendable {
+    enum Event: Equatable {
+        // The whole silence window arrived and all of it was below -90 dBFS.
+        case silentStart
+        // The first frame at or above -90 dBFS.
+        case firstSound
+    }
+
     private let lock = NSLock()
     private var sampleRate: Double = 0
+    private var window: Double = 1
     private var frameCount = 0
     private var peakSoFar: Float = 0
-    private var reportedSilentStart = false
+    private var reported = false
+
+    // How many seconds of silence count as a dead input; set on the main actor before the input is prepared, and
+    // taken over by the next reset.
+    var silenceWindow: Double = 1
 
     func reset(sampleRate: Double) {
         lock.lock()
         defer { lock.unlock() }
         self.sampleRate = sampleRate
+        window = silenceWindow
         frameCount = 0
         peakSoFar = 0
-        reportedSilentStart = false
+        reported = false
     }
 
     var peak: Float {
@@ -153,8 +167,16 @@ final class InputMeter: @unchecked Sendable {
         return sampleRate > 0 ? Double(frameCount) / sampleRate : 0
     }
 
-    // Returns true exactly once per reset: when a full second has arrived and all of it was silent.
-    func add(_ frames: UnsafeBufferPointer<Float>) -> Bool {
+    // Whether the input as it stands now started silent, checked again on the main actor since a reported event
+    // may belong to an input that has been started over since.
+    var isSilentStart: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return sampleRate > 0 && Double(frameCount) >= window * sampleRate && peakSoFar < SpeechCheck.silentInputPeak
+    }
+
+    // Returns an event at most once per reset: the input either starts silent or it has sound.
+    func add(_ frames: UnsafeBufferPointer<Float>) -> Event? {
         var framePeak: Float = 0
         if let base = frames.baseAddress, frames.count > 0 {
             vDSP_maxmgv(base, 1, &framePeak, vDSP_Length(frames.count))
@@ -163,11 +185,14 @@ final class InputMeter: @unchecked Sendable {
         defer { lock.unlock() }
         frameCount += frames.count
         peakSoFar = max(peakSoFar, framePeak)
-        guard !reportedSilentStart, sampleRate > 0, Double(frameCount) >= sampleRate,
-              peakSoFar < SpeechCheck.silentInputPeak
-        else { return false }
-        reportedSilentStart = true
-        return true
+        guard !reported, sampleRate > 0 else { return nil }
+        if peakSoFar >= SpeechCheck.silentInputPeak {
+            reported = true
+            return .firstSound
+        }
+        guard Double(frameCount) >= window * sampleRate else { return nil }
+        reported = true
+        return .silentStart
     }
 }
 
@@ -175,12 +200,12 @@ final class InputMeter: @unchecked Sendable {
 final class MeteredAudioInput: AudioInput {
     private let input: DictationAudioInput
     private let meter: InputMeter
-    private let onSilentStart: () -> Void
+    private let onEvent: (InputMeter.Event) -> Void
 
-    init(_ input: DictationAudioInput, meter: InputMeter, onSilentStart: @escaping () -> Void) {
+    init(_ input: DictationAudioInput, meter: InputMeter, onEvent: @escaping (InputMeter.Event) -> Void) {
         self.input = input
         self.meter = meter
-        self.onSilentStart = onSilentStart
+        self.onEvent = onEvent
     }
 
     func prepare() throws -> Double {
@@ -191,10 +216,10 @@ final class MeteredAudioInput: AudioInput {
 
     func start(onFrames: @escaping (UnsafeBufferPointer<Float>) -> Void) throws {
         let meter = self.meter
-        let onSilentStart = self.onSilentStart
+        let onEvent = self.onEvent
         try input.start { frames in
             onFrames(frames)
-            if meter.add(frames) { onSilentStart() }
+            if let event = meter.add(frames) { onEvent(event) }
         }
     }
 
