@@ -4,13 +4,13 @@ import XCTest
 final class ModelPinTests: XCTestCase {
     func testMacOS14To25KeepsThePackageRelease() {
         for system in [SemanticVersion.sonoma, .sequoia, SemanticVersion(major: 25, minor: 9, patch: 9)] {
-            XCTAssertEqual(ModelPin.forSystem(system), .packages, "\(system)")
+            XCTAssertEqual(ModelPins.forSystem(system), ModelPins(preferred: .packages), "\(system)")
         }
     }
 
     func testMacOS26AndLaterUseTheCompiledRelease() {
         for system in [SemanticVersion.tahoe, SemanticVersion(major: 26, minor: 1, patch: 0), SemanticVersion(major: 27, minor: 0, patch: 0)] {
-            XCTAssertEqual(ModelPin.forSystem(system), .compiled, "\(system)")
+            XCTAssertEqual(ModelPins.forSystem(system), ModelPins(preferred: .compiled, fallback: .packages), "\(system)")
         }
     }
 

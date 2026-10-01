@@ -20,6 +20,19 @@ public struct ModelStaging: Sendable {
         downloadsDirectory.appendingPathComponent(path)
     }
 
+    // A download in progress sits beside its destination until it is complete.
+    public static func partialLocation(for destination: URL) -> URL {
+        destination.appendingPathExtension("partial")
+    }
+
+    // Downloads left by other versions, which may hold files this version shares with them.
+    public var otherVersionsDownloads: [URL] {
+        let entries = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        return entries
+            .filter { $0.lastPathComponent != directory.lastPathComponent }
+            .map { $0.appendingPathComponent("download", isDirectory: true) }
+    }
+
     public func filesNeedingDownload(_ files: [ModelFile]) -> [ModelFile] {
         files.filter { !FileVerifier.matches(downloadLocation(for: $0.path), size: $0.size, sha256: $0.sha256) }
     }
@@ -75,21 +88,23 @@ public struct ModelStaging: Sendable {
 }
 
 public enum DiskSpace {
-    // Packages need room for the downloads plus their compiled copies side by side;
-    // compiled models are cloned or moved into place, so one copy is enough.
-    public static func required(forDownloadOf totalSize: Int64, format: ModelFormat = .packages) -> Int64 {
-        switch format {
-        case .packages:
-            let (doubled, overflow) = totalSize.multipliedReportingOverflow(by: 2)
-            return overflow ? .max : doubled
-        case .compiled:
-            return totalSize
-        }
+    // What is still to download, plus: for packages their compiled copies beside them; for compiled models,
+    // which are cloned or moved into place, a margin for the file system and what else the Mac writes meanwhile.
+    public static func required(forDownloadOf totalSize: Int64, alreadyStaged: Int64 = 0, format: ModelFormat = .packages) -> Int64 {
+        let remaining = max(totalSize - min(max(alreadyStaged, 0), totalSize), 0)
+        let extra = format == .packages ? totalSize : margin(for: totalSize)
+        let (sum, overflow) = remaining.addingReportingOverflow(extra)
+        return overflow ? .max : sum
     }
 
-    public static func hasRoom(available: Int64?, forDownloadOf totalSize: Int64, format: ModelFormat = .packages) -> Bool {
+    // A tenth of the model, and at least 200 MB.
+    public static func margin(for totalSize: Int64) -> Int64 {
+        max(totalSize / 10, 200_000_000)
+    }
+
+    public static func hasRoom(available: Int64?, forDownloadOf totalSize: Int64, alreadyStaged: Int64 = 0, format: ModelFormat = .packages) -> Bool {
         guard let available else { return false }
-        return available >= required(forDownloadOf: totalSize, format: format)
+        return available >= required(forDownloadOf: totalSize, alreadyStaged: alreadyStaged, format: format)
     }
 
     public static func available(at url: URL) -> Int64? {
@@ -101,6 +116,7 @@ public enum DiskSpace {
 public enum ModelPlacement: Equatable, Sendable {
     case cloned
     case moved
+    case copied
 }
 
 // An APFS clone shares the verified download's blocks, so a failed self-test can retry without downloading again.
@@ -125,6 +141,24 @@ public struct ModelFilePlacer: Sendable {
             try? fileManager.removeItem(at: destination)
             try fileManager.moveItem(at: source, to: destination)
             return .moved
+        }
+    }
+
+    // Leaves the source where it is: for files another model or version still owns.
+    @discardableResult
+    public func copy(_ source: URL, to destination: URL, canCopy: () -> Bool = { true }) throws -> ModelPlacement {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+        do {
+            try clone(source, destination)
+            return .cloned
+        } catch {
+            try? fileManager.removeItem(at: destination)
+            guard canCopy() else { throw error }
+            try fileManager.copyItem(at: source, to: destination)
+            return .copied
         }
     }
 

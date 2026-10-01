@@ -239,6 +239,12 @@ public final class ModelManager: ObservableObject {
                 status = .updateAvailable(version: version)
                 return
             }
+            // A first install has no model to keep, so a release that won't work on this Mac gives way to the fallback;
+            // an update keeps the installed model instead, as before.
+            if !isUpdate, installer.fallBack(after: error) {
+                await installFallback(access: access)
+                return
+            }
             rememberFailure(of: version, after: error)
             fail(error, isUpdate: isUpdate)
             return
@@ -276,6 +282,17 @@ public final class ModelManager: ObservableObject {
         status = .upToDate(version: version)
         Self.logger.info("model \(version, privacy: .public) installed and ready")
         onInstalled?(!replacedModel)
+    }
+
+    private func installFallback(access: ModelNetworkAccess) async {
+        let fallback: PublishedModel
+        do {
+            fallback = try await fetchLatest(access: access)
+        } catch {
+            fail(error, isUpdate: false)
+            return
+        }
+        await install(fallback, isUpdate: false, access: access)
     }
 
     // A self-tested first install stays; an update rolls back but keeps its downloads so a retry needn't refetch.

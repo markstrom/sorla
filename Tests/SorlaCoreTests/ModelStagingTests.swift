@@ -130,11 +130,46 @@ final class ModelStagingTests: XCTestCase {
         XCTAssertFalse(DiskSpace.hasRoom(available: nil, forDownloadOf: 1))
     }
 
-    func testCompiledModelsNeedRoomForOneCopy() {
-        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_595_324, format: .compiled), 688_595_324)
-        XCTAssertTrue(DiskSpace.hasRoom(available: 688_595_324, forDownloadOf: 688_595_324, format: .compiled))
-        XCTAssertFalse(DiskSpace.hasRoom(available: 688_595_323, forDownloadOf: 688_595_324, format: .compiled))
+    func testCompiledModelsNeedRoomForOneCopyAndAMargin() {
+        XCTAssertEqual(DiskSpace.margin(for: 688_595_324), 200_000_000)
+        XCTAssertEqual(DiskSpace.margin(for: 5_000_000_000), 500_000_000)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_595_324, format: .compiled), 888_595_324)
+        XCTAssertTrue(DiskSpace.hasRoom(available: 888_595_324, forDownloadOf: 688_595_324, format: .compiled))
+        XCTAssertFalse(DiskSpace.hasRoom(available: 888_595_323, forDownloadOf: 688_595_324, format: .compiled))
         XCTAssertEqual(DiskSpace.required(forDownloadOf: .max, format: .compiled), .max)
+    }
+
+    func testBytesAlreadyStagedAreNotCountedAgain() {
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_595_324, alreadyStaged: 687_500_000, format: .compiled), 201_095_324)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_257_471, alreadyStaged: 688_257_471), 688_257_471)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 100, alreadyStaged: 500, format: .compiled), 200_000_000)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 100, alreadyStaged: -5), 200)
+    }
+
+    func testCopyingClonesAndLeavesTheSourceInPlace() throws {
+        let source = modelsDirectory.appendingPathComponent("installed/weight.bin")
+        let destination = modelsDirectory.appendingPathComponent("staging/weight.bin")
+        try place("weights", at: source)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        XCTAssertEqual(try ModelFilePlacer().copy(source, to: destination), .cloned)
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "weights")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+    }
+
+    func testCopyingFallsBackToARealCopyOnlyWhenAllowed() throws {
+        let source = modelsDirectory.appendingPathComponent("installed/weight.bin")
+        let destination = modelsDirectory.appendingPathComponent("staging/weight.bin")
+        try place("weights", at: source)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let placer = ModelFilePlacer { _, _ in throw POSIXError(.ENOTSUP) }
+
+        XCTAssertThrowsError(try placer.copy(source, to: destination) { false })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+
+        XCTAssertEqual(try placer.copy(source, to: destination) { true }, .copied)
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "weights")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
     }
 
     func testPlacingAFolderClonesItAndKeepsTheDownload() throws {

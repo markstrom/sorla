@@ -3,6 +3,7 @@ import Foundation
 
 actor FakeModelNetwork: ModelNetwork {
     private(set) var requests: [URL] = []
+    private(set) var resumed: [URL] = []
     private(set) var accesses: [URL: ModelNetworkAccess] = [:]
     private(set) var downloadLimits: [URL: Int64] = [:]
     // Stands in for a hotspot or Low Data Mode: URLSession refuses `.inexpensiveOnly` requests with this reason.
@@ -82,8 +83,16 @@ actor FakeModelNetwork: ModelNetwork {
         if let error = errors[url] { throw error }
         guard !failing.contains(url), let data = responses[url] else { throw URLError(.notConnectedToInternet) }
         guard Int64(data.count) <= maxBytes else { throw ModelNetworkError.tooLarge }
-        try data.write(to: destination)
-        progress(Int64(data.count))
+        // Like the real network, a partial file left beside the destination is continued, whatever it holds.
+        let partial = ModelStaging.partialLocation(for: destination)
+        var body = data
+        if let earlier = try? Data(contentsOf: partial) {
+            resumed.append(url)
+            body = earlier.count < data.count ? earlier + data.suffix(from: earlier.count) : data
+            try FileManager.default.removeItem(at: partial)
+        }
+        try body.write(to: destination)
+        progress(Int64(body.count))
     }
 }
 
@@ -93,7 +102,11 @@ actor FakeModelPreparer: ModelPreparer {
     private var selfTestFails = false
     private var compileFails = false
 
+    private var precompiledSelfTestFails = false
+
     func failSelfTest() { selfTestFails = true }
+    // Only a model whose weights arrived precompiled, as when the compiled release won't load on some macOS.
+    func failSelfTestOfPrecompiledModels() { precompiledSelfTestFails = true }
     func failCompile() { compileFails = true }
 
     func compile(package: URL, into destination: URL) async throws {
@@ -106,6 +119,8 @@ actor FakeModelPreparer: ModelPreparer {
     func selfTest(modelDirectory: URL) async throws {
         selfTested.append(modelDirectory)
         if selfTestFails { throw CocoaError(.fileReadCorruptFile) }
+        let precompiled = FileManager.default.fileExists(atPath: modelDirectory.appendingPathComponent("Encoder.mlmodelc/weights/weight.bin").path)
+        if precompiledSelfTestFails, precompiled { throw CocoaError(.fileReadCorruptFile) }
     }
 }
 

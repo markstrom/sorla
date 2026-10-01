@@ -104,6 +104,44 @@ final class URLSessionModelNetworkTests: XCTestCase {
         XCTAssertEqual(StubModelServer.ranges, [nil])
     }
 
+    func testACompletePartialFileIsHandedOverWithoutARequest() async throws {
+        StubModelServer.serve(body)
+        try body.write(to: partial)
+
+        try await download()
+
+        XCTAssertEqual(contents(destination), "hello world")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
+        XCTAssertEqual(StubModelServer.ranges, [])
+    }
+
+    func testARangeTheServerCannotSatisfyDiscardsThePartialFile() async throws {
+        StubModelServer.serve(Data(), status: 416)
+        try Data("hello ".utf8).write(to: partial)
+
+        do {
+            try await download()
+            XCTFail("expected the range to be refused")
+        } catch {
+            XCTAssertEqual(error as? ModelNetworkError, .httpStatus(416))
+        }
+        XCTAssertEqual(StubModelServer.ranges, ["bytes=6-"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partial.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
+    func testAnEmptySuccessIsNotADownload() async throws {
+        StubModelServer.serve(Data(), status: 204)
+
+        do {
+            try await download()
+            XCTFail("expected 204 to be refused")
+        } catch {
+            XCTAssertEqual(error as? ModelNetworkError, .httpStatus(204))
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
     func testAServerErrorKeepsThePartialFileForLater() async throws {
         StubModelServer.serve(Data(), status: 503)
         try Data("hello ".utf8).write(to: partial)
@@ -180,6 +218,8 @@ final class URLSessionModelNetworkTests: XCTestCase {
         let missing = HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil)
 
         XCTAssertNoThrow(try URLSessionModelNetwork.checkStatus(ok))
+        let empty = HTTPURLResponse(url: url, statusCode: 204, httpVersion: nil, headerFields: nil)
+        XCTAssertThrowsError(try URLSessionModelNetwork.checkStatus(empty))
         XCTAssertThrowsError(try URLSessionModelNetwork.checkStatus(missing)) { error in
             XCTAssertEqual(error as? ModelNetworkError, .httpStatus(404))
         }

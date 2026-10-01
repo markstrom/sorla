@@ -107,6 +107,114 @@ final class ModelInstallerTests: XCTestCase {
         XCTAssertEqual(ModelInstaller.installError(URLError(.notConnectedToInternet)) as? ModelInstallError, .network)
     }
 
+    func testAResumedFileThatFailsVerificationIsDownloadedOnceMoreFromTheStart() async throws {
+        let path = "Encoder.mlpackage/Data/com.apple.CoreML/weights/weight.bin"
+        try place("XXXX", at: ModelStaging.partialLocation(for: staging.downloadLocation(for: path)))
+
+        _ = try await installer().stage(published.latest) { _ in }
+
+        let attempts = await network.requests.filter { $0 == self.published.url(for: path) }
+        XCTAssertEqual(attempts.count, 2)
+        let resumed = await network.resumed
+        XCTAssertEqual(resumed, [published.url(for: path)])
+        XCTAssertTrue(staging.filesNeedingDownload(published.files).isEmpty)
+    }
+
+    func testAResumedFileThatFailsAgainFromTheStartIsDamaged() async throws {
+        let path = "Encoder.mlpackage/Manifest.json"
+        await network.serve(Data("ENC".utf8), at: published.url(for: path))
+        try place("en", at: ModelStaging.partialLocation(for: staging.downloadLocation(for: path)))
+
+        await assertThrows(.verificationFailed(path: path)) { _ = try await self.installer().stage(self.published.latest) { _ in } }
+
+        let attempts = await network.requests.filter { $0 == self.published.url(for: path) }
+        XCTAssertEqual(attempts.count, 2)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: ModelStaging.partialLocation(for: staging.downloadLocation(for: path)).path))
+    }
+
+    func testFilesTheMacAlreadyHasAreReusedByChecksumWhateverTheirPath() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        let installed = ModelSwap(modelsDirectory: modelsDirectory).installed
+        // The installed 1.0.0 holds the small weights and the vocabulary; an older version's packages hold the encoder weights.
+        try place(compiled.contents["Decoder.mlmodelc/weights/weight.bin"]!, at: installed.appendingPathComponent("Decoder.mlmodelc/weights/weight.bin"))
+        try place(compiled.contents["parakeet_vocab.json"]!, at: installed.appendingPathComponent("parakeet_vocab.json"))
+        let older = ModelStaging(modelsDirectory: modelsDirectory, version: "1.0.0")
+        try place(compiled.contents["Encoder.mlmodelc/weights/weight.bin"]!, at: older.downloadLocation(for: "Encoder.mlpackage/Data/com.apple.CoreML/weights/weight.bin"))
+
+        _ = try await installer(pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+
+        let downloaded = Set(await network.requests)
+        let expected = compiled.contents.keys.filter { !$0.contains("weights/") && $0 != "parakeet_vocab.json" }.map(compiled.url(for:))
+        XCTAssertEqual(downloaded, Set(expected))
+        XCTAssertTrue(staging.filesNeedingDownload(compiled.files).isEmpty)
+        // The installed model is left as it was, and other versions' downloads go once they have been used.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: installed.appendingPathComponent("Decoder.mlmodelc/weights/weight.bin").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: older.directory.path))
+    }
+
+    func testAFileOfTheRightSizeButOtherContentIsNotReused() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        let path = "Encoder.mlmodelc/weights/weight.bin"
+        try place(String(repeating: "x", count: compiled.contents[path]!.utf8.count), at: ModelSwap(modelsDirectory: modelsDirectory).installed.appendingPathComponent(path))
+
+        _ = try await installer(pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+
+        let downloaded = await network.requests
+        XCTAssertTrue(downloaded.contains(compiled.url(for: path)))
+    }
+
+    func testReusedFilesCountTowardsTheDiskCheck() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        let path = "Encoder.mlmodelc/weights/weight.bin"
+        try place(compiled.contents[path]!, at: ModelSwap(modelsDirectory: modelsDirectory).installed.appendingPathComponent(path))
+        let remaining = compiled.release.totalSize - Int64(compiled.contents[path]!.utf8.count)
+        let required = remaining + DiskSpace.margin(for: compiled.release.totalSize)
+
+        await assertThrows(.insufficientDiskSpace(required: required)) {
+            _ = try await self.installer(availableDiskSpace: required - 1, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+        }
+    }
+
+    func testOnlyAFirstInstallOfThePreferredReleaseThatCannotBeUsedFallsBack() {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        let pins = ModelPins(preferred: compiled.pin, fallback: published.pin)
+        let installer = ModelInstaller(modelsDirectory: modelsDirectory, pins: pins, system: .tahoe, network: network, preparer: preparer)
+
+        XCTAssertEqual(installer.pin, compiled.pin)
+        for error: Error in [ModelInstallError.network, ModelInstallError.verificationFailed(path: "x"), ModelInstallError.insufficientDiskSpace(required: 1), CancellationError()] {
+            XCTAssertFalse(installer.fallBack(after: error), "\(error)")
+        }
+        XCTAssertEqual(installer.pin, compiled.pin)
+
+        XCTAssertTrue(installer.fallBack(after: ModelInstallError.selfTestFailed))
+        XCTAssertEqual(installer.pin, published.pin)
+        XCTAssertFalse(installer.fallBack(after: ModelInstallError.selfTestFailed), "there's nothing further to fall back to")
+
+        // Remembered for this release on this macOS version only.
+        let sameMac = ModelInstaller(modelsDirectory: modelsDirectory, pins: pins, system: .tahoe, network: network, preparer: preparer)
+        XCTAssertEqual(sameMac.pin, published.pin)
+        let updatedMac = ModelInstaller(modelsDirectory: modelsDirectory, pins: pins, system: SemanticVersion(major: 26, minor: 0, patch: 1), network: network, preparer: preparer)
+        XCTAssertEqual(updatedMac.pin, compiled.pin)
+    }
+
+    func testAPlacementFailureCountsAsAReleaseThatCannotBeUsed() {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        let installer = ModelInstaller(
+            modelsDirectory: modelsDirectory, pins: ModelPins(preferred: compiled.pin, fallback: published.pin),
+            system: .tahoe, network: network, preparer: preparer
+        )
+
+        XCTAssertTrue(installer.fallBack(after: ModelInstallError.installFailed))
+    }
+
+    func testASingleReleaseHasNoFallback() {
+        XCTAssertFalse(installer().fallBack(after: ModelInstallError.selfTestFailed))
+        XCTAssertEqual(installer().pin, published.pin)
+    }
+
     func testStagesAPrecompiledReleaseWithoutCompiling() async throws {
         let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
         await compiled.publish(on: network)
@@ -152,18 +260,18 @@ final class ModelInstallerTests: XCTestCase {
         XCTAssertEqual(compiledPackages, [])
     }
 
-    func testAPrecompiledReleaseNeedsRoomForOneCopy() async throws {
+    func testAPrecompiledReleaseNeedsRoomForOneCopyAndAMargin() async throws {
         let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
         await compiled.publish(on: network)
-        let total = compiled.release.totalSize
+        let required = compiled.release.totalSize + DiskSpace.margin(for: compiled.release.totalSize)
 
-        await assertThrows(.insufficientDiskSpace(required: total)) {
-            _ = try await self.installer(availableDiskSpace: total - 1, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+        await assertThrows(.insufficientDiskSpace(required: required)) {
+            _ = try await self.installer(availableDiskSpace: required - 1, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
         }
         let requests = await network.requests
         XCTAssertTrue(requests.isEmpty)
 
-        _ = try await installer(availableDiskSpace: total, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+        _ = try await installer(availableDiskSpace: required, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
     }
 
     func testAPrecompiledReleaseIsNotStagedOnAnOlderMacOS() async throws {
@@ -236,6 +344,8 @@ final class ModelInstallerTests: XCTestCase {
         await assertThrows(.verificationFailed(path: path)) { _ = try await self.installer().stage(self.published.latest) { _ in } }
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: staging.downloadLocation(for: path).path))
+        let attempts = await network.requests.filter { $0 == self.published.url(for: path) }
+        XCTAssertEqual(attempts.count, 1, "a fresh download isn't fetched again")
         let selfTested = await preparer.selfTested
         XCTAssertTrue(selfTested.isEmpty)
     }

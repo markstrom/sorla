@@ -40,12 +40,12 @@ final class ModelManagerTests: XCTestCase {
     private func makeManager(
         autoCheck: Bool = false,
         autoDownload: Bool = false,
-        pin: ModelPin? = nil,
+        pins: ModelPins? = nil,
         onReload: @escaping @MainActor () -> Void = {}
     ) -> ModelManager {
         let installer = ModelInstaller(
             modelsDirectory: modelsDirectory,
-            pin: pin ?? pinned.pin,
+            pins: pins ?? ModelPins(preferred: pinned.pin),
             system: system,
             network: network,
             preparer: preparer,
@@ -104,17 +104,17 @@ final class ModelManagerTests: XCTestCase {
     private var packages100: PublishedModelFixture { PublishedModelFixture(version: "1.0.0") }
     private var compiled110: PublishedModelFixture { PublishedModelFixture(version: "1.1.0", format: .compiled) }
 
-    private func publishBothPins() async -> ModelPin {
+    private func publishBothPins() async -> ModelPins {
         await packages100.publish(on: network)
         await compiled110.publish(on: network)
-        return ModelPin.choose(for: system, packages: packages100.pin, compiled: compiled110.pin)
+        return ModelPins.choose(for: system, packages: packages100.pin, compiled: compiled110.pin)
     }
 
     func testOnMacOS26AnInstalled100MovesToThePrecompiled110() async throws {
         system = .tahoe
         try installModel(version: "1.0.0")
         let pin = await publishBothPins()
-        let manager = makeManager(autoCheck: true, autoDownload: true, pin: pin)
+        let manager = makeManager(autoCheck: true, autoDownload: true, pins: pin)
 
         manager.start()
         await finishTimerCheck(manager, sleeps: 1)
@@ -139,7 +139,7 @@ final class ModelManagerTests: XCTestCase {
         try installModel(version: "1.0.0")
         let pin = await publishBothPins()
         reloadResults = [false, true]
-        let manager = makeManager(autoCheck: true, autoDownload: true, pin: pin)
+        let manager = makeManager(autoCheck: true, autoDownload: true, pins: pin)
 
         manager.checkNow()
         await manager.work?.value
@@ -154,7 +154,7 @@ final class ModelManagerTests: XCTestCase {
         system = .tahoe
         try installModel(version: "1.0.0")
         let pin = await publishBothPins()
-        let manager = makeManager(pin: pin)
+        let manager = makeManager(pins: pin)
 
         manager.start()
         let atLaunch = await network.requests
@@ -173,7 +173,7 @@ final class ModelManagerTests: XCTestCase {
     func testOnMacOS26AFirstInstallIsThePrecompiledRelease() async throws {
         system = .tahoe
         let pin = await publishBothPins()
-        let manager = makeManager(pin: pin)
+        let manager = makeManager(pins: pin)
 
         manager.start()
         await manager.work?.value
@@ -184,11 +184,87 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(compiledPackages, [])
     }
 
+    // An installed 1.0.0 as Core ML compiled it: the weights and vocabulary are byte for byte those of the precompiled 1.1.0.
+    private func installCompiled100() throws {
+        try installModel(version: "1.0.0")
+        for (path, body) in compiled110.contents where path.contains("weights/") || path == "parakeet_vocab.json" {
+            let url = swap.installed.appendingPathComponent(path)
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data(body.utf8).write(to: url)
+        }
+    }
+
+    func testOnMacOS26TheMoveFrom100DownloadsOnlyTheFilesThatDiffer() async throws {
+        system = .tahoe
+        try installCompiled100()
+        let pins = await publishBothPins()
+        let manager = makeManager(autoCheck: true, autoDownload: true, pins: pins)
+
+        manager.start()
+        await finishTimerCheck(manager, sleeps: 1)
+
+        XCTAssertEqual(manager.status, .upToDate(version: "1.1.0"))
+        let downloaded = Set(await network.requests).subtracting([PublishedModelFixture.compiledManifestURL])
+        let differing = compiled110.contents.keys.filter { !$0.contains("weights/") && $0 != "parakeet_vocab.json" }
+        XCTAssertEqual(downloaded, Set(differing.map(compiled110.url(for:))))
+        let weights = try String(contentsOf: swap.installed.appendingPathComponent("Encoder.mlmodelc/weights/weight.bin"), encoding: .utf8)
+        XCTAssertEqual(weights, compiled110.contents["Encoder.mlmodelc/weights/weight.bin"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: modelsDirectory.appendingPathComponent(".staging").path))
+    }
+
+    func testOnMacOS26AFirstInstallThatFailsItsSelfTestFallsBackToThePackages() async throws {
+        system = .tahoe
+        let pins = await publishBothPins()
+        await preparer.failSelfTestOfPrecompiledModels()
+        let manager = makeManager(pins: pins)
+
+        manager.start()
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+        XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
+        XCTAssertEqual(installs, [true])
+        XCTAssertEqual(failures, [])
+        XCTAssertEqual(reported, [])
+        let compiledPackages = await preparer.compiled.sorted()
+        XCTAssertEqual(compiledPackages, ["Decoder.mlpackage", "Encoder.mlpackage", "JointDecisionv3.mlpackage", "Preprocessor.mlpackage"])
+        XCTAssertNil(FailedModelUpdate(modelsDirectory: modelsDirectory).version)
+        XCTAssertTrue(PreferredModelFailure(modelsDirectory: modelsDirectory).isRecorded(for: compiled110.pin, system: .tahoe))
+
+        // The next launch on the same macOS keeps the packages instead of trying the compiled release again.
+        let requestsBefore = await network.requests.count
+        let nextLaunch = makeManager(autoCheck: true, autoDownload: true, pins: pins)
+        nextLaunch.start()
+        await finishTimerCheck(nextLaunch, sleeps: 1)
+        XCTAssertEqual(nextLaunch.status, .upToDate(version: "1.0.0"))
+        let laterRequests = await network.requests.dropFirst(requestsBefore)
+        XCTAssertEqual(Array(laterRequests), [PublishedModelFixture.manifestURL])
+    }
+
+    func testOnMacOS26AnUpdateThatFailsItsSelfTestKeepsThe100Model() async throws {
+        system = .tahoe
+        try installModel(version: "1.0.0")
+        let pins = await publishBothPins()
+        await preparer.failSelfTestOfPrecompiledModels()
+        let manager = makeManager(autoCheck: true, autoDownload: true, pins: pins)
+
+        manager.checkNow()
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .failed(.selfTestFailed, isUpdate: true))
+        XCTAssertEqual(PianissimoModel.installedVersion(at: swap.installed), "1.0.0")
+        XCTAssertEqual(failures, [.modelUpdateFailed])
+        XCTAssertEqual(FailedModelUpdate(modelsDirectory: modelsDirectory).version, "1.1.0")
+        XCTAssertFalse(PreferredModelFailure(modelsDirectory: modelsDirectory).isRecorded(for: compiled110.pin, system: .tahoe))
+        let compiledPackages = await preparer.compiled
+        XCTAssertEqual(compiledPackages, [])
+    }
+
     func testBeforeMacOS26An100InstallStaysAsItIs() async throws {
         system = .sequoia
         try installModel(version: "1.0.0")
         let pin = await publishBothPins()
-        let manager = makeManager(autoCheck: true, autoDownload: true, pin: pin)
+        let manager = makeManager(autoCheck: true, autoDownload: true, pins: pin)
 
         manager.start()
         await finishTimerCheck(manager, sleeps: 1)
@@ -203,7 +279,7 @@ final class ModelManagerTests: XCTestCase {
     func testBeforeMacOS26AFirstInstallCompilesThePackages() async throws {
         system = .sonoma
         let pin = await publishBothPins()
-        let manager = makeManager(pin: pin)
+        let manager = makeManager(pins: pin)
 
         manager.start()
         await manager.work?.value

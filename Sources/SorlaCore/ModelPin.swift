@@ -42,16 +42,54 @@ public struct ModelPin: Equatable, Sendable {
 
     // The compiled release's own `minimumOS`; its manifest is checked against the running system as well.
     public static let compiledMinimumSystem = SemanticVersion(major: 26, minor: 0, patch: 0)
+}
 
-    public static func choose(for system: SemanticVersion, packages: ModelPin, compiled: ModelPin) -> ModelPin {
-        system >= compiledMinimumSystem ? compiled : packages
+// The release to install on this macOS, and the one to fall back to when it can't be used here.
+public struct ModelPins: Equatable, Sendable {
+    public let preferred: ModelPin
+    public let fallback: ModelPin?
+
+    public init(preferred: ModelPin, fallback: ModelPin? = nil) {
+        self.preferred = preferred
+        self.fallback = fallback
     }
 
-    public static func forSystem(_ system: SemanticVersion) -> ModelPin {
-        choose(for: system, packages: packages, compiled: compiled)
+    // macOS 26 and later prefer the compiled release and keep the packages as a fallback; older macOS has only the packages.
+    public static func choose(for system: SemanticVersion, packages: ModelPin, compiled: ModelPin) -> ModelPins {
+        system >= ModelPin.compiledMinimumSystem ? ModelPins(preferred: compiled, fallback: packages) : ModelPins(preferred: packages)
     }
 
-    public static var current: ModelPin { forSystem(.runningSystem) }
+    public static func forSystem(_ system: SemanticVersion) -> ModelPins {
+        choose(for: system, packages: .packages, compiled: .compiled)
+    }
+}
+
+// Kept beside the model once a first install of the preferred release couldn't be placed or failed its self-test,
+// so the fallback is used from then on. It names the release and the macOS version: a new release or a macOS update tries again.
+public struct PreferredModelFailure: Sendable {
+    public static let fileName = ".preferred-release-failed"
+
+    public let modelsDirectory: URL
+
+    public init(modelsDirectory: URL) {
+        self.modelsDirectory = modelsDirectory
+    }
+
+    private var file: URL { modelsDirectory.appendingPathComponent(Self.fileName) }
+
+    private static func entry(_ pin: ModelPin, system: SemanticVersion) -> String {
+        "\(pin.manifestSHA256) \(system)"
+    }
+
+    public func isRecorded(for pin: ModelPin, system: SemanticVersion) -> Bool {
+        guard let data = try? Data(contentsOf: file) else { return false }
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) == Self.entry(pin, system: system)
+    }
+
+    public func record(_ pin: ModelPin, system: SemanticVersion) throws {
+        try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
+        try Data(Self.entry(pin, system: system).utf8).write(to: file, options: .atomic)
+    }
 }
 
 extension SemanticVersion {

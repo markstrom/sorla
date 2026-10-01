@@ -41,16 +41,16 @@ public final class URLSessionModelNetwork: ModelNetwork {
 
     static func checkStatus(_ response: URLResponse?) throws {
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-        guard (200..<300).contains(http.statusCode) else { throw ModelNetworkError.httpStatus(http.statusCode) }
+        // Only a body counts: a 204 or other empty success would leave nothing to verify.
+        guard [200, 206].contains(http.statusCode) else { throw ModelNetworkError.httpStatus(http.statusCode) }
     }
 
     static func exceedsLimit(received: Int64, expected: Int64, maxBytes: Int64) -> Bool {
         received > maxBytes || expected > maxBytes
     }
 
-    // The bytes received so far sit beside the destination until the file is complete.
     static func partialLocation(for destination: URL) -> URL {
-        destination.appendingPathExtension("partial")
+        ModelStaging.partialLocation(for: destination)
     }
 
     // "bytes 1000-1999/649181632" starts at 1000.
@@ -72,6 +72,13 @@ public final class URLSessionModelNetwork: ModelNetwork {
         let fileManager = FileManager.default
         let partial = Self.partialLocation(for: destination)
         let existing = (try? partial.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        // Everything arrived before the last attempt stopped: the caller verifies it like any finished download.
+        if existing > 0, existing == maxBytes {
+            try? fileManager.removeItem(at: destination)
+            try fileManager.moveItem(at: partial, to: destination)
+            progress(existing)
+            return
+        }
         let offset = existing > 0 && existing < maxBytes ? existing : 0
         if offset == 0 {
             try? fileManager.removeItem(at: partial)
@@ -157,7 +164,7 @@ private final class PartialFileReceiver: NSObject, URLSessionDataDelegate, @unch
                 state.withLock { $0.discardsPartial = true }
                 throw URLError(.badServerResponse)
             }
-        case 200..<300:
+        case 200:
             // The whole file came back instead of the rest of it.
             if offset > 0 {
                 try handle.truncate(atOffset: 0)

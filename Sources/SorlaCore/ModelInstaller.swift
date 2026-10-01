@@ -1,7 +1,8 @@
 import Foundation
 import os
 
-// Work nobody asked for stays off networks the Mac marks as costly: a phone's hotspot or Low Data Mode.
+// Automatic model updates use `.inexpensiveOnly`, which stays off networks the Mac marks as costly:
+// a phone's hotspot or Low Data Mode. Everything else, including app updates, uses `.any`.
 public enum ModelNetworkAccess: Equatable, Sendable {
     case any
     case inexpensiveOnly
@@ -33,16 +34,19 @@ public enum ModelInstallProgress: Equatable, Sendable {
 public struct PublishedModel: Equatable, Sendable {
     public let release: ModelRelease
     public let manifestData: Data
+    // Where the manifest came from, so its files are fetched from the same folder.
+    public let pin: ModelPin?
 
-    public init(release: ModelRelease, manifestData: Data) {
+    public init(release: ModelRelease, manifestData: Data, pin: ModelPin? = nil) {
         self.release = release
         self.manifestData = manifestData
+        self.pin = pin
     }
 }
 
 public struct ModelInstaller: Sendable {
     public let modelsDirectory: URL
-    public let pin: ModelPin
+    public let pins: ModelPins
     private let system: SemanticVersion
     private let network: ModelNetwork
     private let preparer: ModelPreparer
@@ -52,7 +56,7 @@ public struct ModelInstaller: Sendable {
 
     public init(
         modelsDirectory: URL,
-        pin: ModelPin = .current,
+        pins: ModelPins? = nil,
         system: SemanticVersion = .runningSystem,
         network: ModelNetwork,
         preparer: ModelPreparer,
@@ -60,7 +64,7 @@ public struct ModelInstaller: Sendable {
         availableDiskSpace: @escaping @Sendable (URL) -> Int64? = { DiskSpace.available(at: $0) }
     ) {
         self.modelsDirectory = modelsDirectory
-        self.pin = pin
+        self.pins = pins ?? .forSystem(system)
         self.system = system
         self.network = network
         self.preparer = preparer
@@ -68,8 +72,52 @@ public struct ModelInstaller: Sendable {
         self.availableDiskSpace = availableDiskSpace
     }
 
+    // One release, without a fallback.
+    public init(
+        modelsDirectory: URL,
+        pin: ModelPin,
+        system: SemanticVersion = .runningSystem,
+        network: ModelNetwork,
+        preparer: ModelPreparer,
+        placer: ModelFilePlacer = ModelFilePlacer(),
+        availableDiskSpace: @escaping @Sendable (URL) -> Int64? = { DiskSpace.available(at: $0) }
+    ) {
+        self.init(
+            modelsDirectory: modelsDirectory, pins: ModelPins(preferred: pin), system: system,
+            network: network, preparer: preparer, placer: placer, availableDiskSpace: availableDiskSpace
+        )
+    }
+
+    // The fallback once the preferred release has failed a first install on this macOS version.
+    public var pin: ModelPin {
+        guard let fallback = pins.fallback, preferredFailure.isRecorded(for: pins.preferred, system: system) else { return pins.preferred }
+        return fallback
+    }
+
+    private var preferredFailure: PreferredModelFailure { PreferredModelFailure(modelsDirectory: modelsDirectory) }
+
+    // After a first install of the preferred release couldn't be placed, assembled or self-tested, switches to the fallback.
+    // Returns whether there is a fallback to install now; network, disk and verification errors never switch.
+    public func fallBack(after error: Error) -> Bool {
+        guard let fallback = pins.fallback, pin == pins.preferred else { return false }
+        switch error as? ModelInstallError {
+        case .installFailed, .selfTestFailed, .invalidManifest: break
+        default: return false
+        }
+        // The record is what switches `pin`, so without it there is no fallback to install.
+        do {
+            try preferredFailure.record(pins.preferred, system: system)
+        } catch {
+            Self.logger.error("couldn't remember that model \(self.pins.preferred.version, privacy: .public) failed: \(ErrorSummary.of(error), privacy: .public)")
+            return false
+        }
+        Self.logger.error("model \(self.pins.preferred.version, privacy: .public) can't be used on macOS \(self.system.description, privacy: .public); falling back to \(fallback.version, privacy: .public)")
+        return true
+    }
+
     // Fetches the pinned manifest; anything but exactly that file, valid for this Mac, is refused.
     public func fetchLatest(access: ModelNetworkAccess = .any) async throws -> PublishedModel {
+        let pin = self.pin
         let data: Data
         Self.logger.info("fetching model manifest \(self.pin.version, privacy: .public)")
         do {
@@ -95,7 +143,7 @@ public struct ModelInstaller: Sendable {
             throw error
         }
         Self.logger.info("model manifest: \(release.id, privacy: .public) \(release.version, privacy: .public) (\(release.format ?? "mlpackage", privacy: .public)), \(release.files.count, privacy: .public) files, \(release.totalSize, privacy: .public) bytes")
-        return PublishedModel(release: release, manifestData: data)
+        return PublishedModel(release: release, manifestData: data, pin: pin)
     }
 
     // Downloads, verifies and prepares into staging, then self-tests; the installed model is never touched here.
@@ -108,19 +156,25 @@ public struct ModelInstaller: Sendable {
             throw error
         }
         let format = release.modelFormat ?? .packages
+        let pin = published.pin ?? self.pin
         let staging = ModelStaging(modelsDirectory: modelsDirectory, version: release.version)
         let fileManager = FileManager.default
 
         try? fileManager.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
-        let required = DiskSpace.required(forDownloadOf: release.totalSize, format: format)
-        guard DiskSpace.hasRoom(available: availableDiskSpace(modelsDirectory), forDownloadOf: release.totalSize, format: format) else {
-            Self.logger.error("not enough disk space for model \(release.version, privacy: .public): \(required, privacy: .public) bytes needed")
-            throw ModelInstallError.insufficientDiskSpace(required: required)
-        }
+        // Files the Mac already has come first, then what still needs downloading, and only then is other staging removed.
+        seed(release, into: staging)
+        let pending = staging.filesNeedingDownload(release.files)
         try? staging.removeOtherVersions()
         try? fileManager.removeItem(at: staging.assembledDirectory)
 
-        try await download(release, into: staging, access: access, progress: progress)
+        let staged = release.totalSize - (ModelRelease.checkedSum(pending.map(\.size)) ?? release.totalSize)
+        let required = DiskSpace.required(forDownloadOf: release.totalSize, alreadyStaged: staged, format: format)
+        guard DiskSpace.hasRoom(available: availableDiskSpace(modelsDirectory), forDownloadOf: release.totalSize, alreadyStaged: staged, format: format) else {
+            Self.logger.error("not enough disk space for model \(release.version, privacy: .public): \(required, privacy: .public) bytes needed")
+            throw ModelInstallError.insufficientDiskSpace(required: required)
+        }
+
+        try await download(pending, of: release, from: pin, into: staging, access: access, progress: progress)
         Self.logger.info("all model files downloaded and verified")
         progress(.preparing)
         do {
@@ -132,9 +186,56 @@ public struct ModelInstaller: Sendable {
         return staging.assembledDirectory
     }
 
-    private func download(_ release: ModelRelease, into staging: ModelStaging, access: ModelNetworkAccess, progress: @escaping @Sendable (ModelInstallProgress) -> Void) async throws {
+    // Clones files the installed model or another version's downloads already hold, matched by size and SHA-256, never by path:
+    // the compiled release lays its files out differently from the packages. Runs on the installer's background task.
+    private func seed(_ release: ModelRelease, into staging: ModelStaging) {
+        let fileManager = FileManager.default
+        let wanted = release.files.filter { file in
+            let size = (try? staging.downloadLocation(for: file.path).resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
+            return size != file.size
+        }
+        guard !wanted.isEmpty else { return }
+        let wantedSizes = Set(wanted.map(\.size))
+        let wantedHashes = Set(wanted.map(\.sha256))
+        let sources = [ModelSwap(modelsDirectory: modelsDirectory).installed] + staging.otherVersionsDownloads
+        var bySHA256: [String: URL] = [:]
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        for source in sources {
+            guard let files = fileManager.enumerator(at: source, includingPropertiesForKeys: keys) else { continue }
+            for case let candidate as URL in files {
+                guard let values = try? candidate.resourceValues(forKeys: Set(keys)),
+                      values.isRegularFile == true, values.isSymbolicLink != true,
+                      let size = values.fileSize, wantedSizes.contains(Int64(size)),
+                      let hash = try? FileVerifier.sha256(of: candidate), wantedHashes.contains(hash), bySHA256[hash] == nil
+                else { continue }
+                bySHA256[hash] = candidate
+            }
+        }
+        var seeded = 0
+        var seededBytes: Int64 = 0
+        for file in wanted {
+            guard let source = bySHA256[file.sha256] else { continue }
+            let destination = staging.downloadLocation(for: file.path)
+            do {
+                try fileManager.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try? fileManager.removeItem(at: ModelStaging.partialLocation(for: destination))
+                // A copy takes real space, so it is only made with room to spare.
+                try placer.copy(source, to: destination) {
+                    (availableDiskSpace(modelsDirectory) ?? 0) >= file.size + DiskSpace.margin(for: release.totalSize)
+                }
+                seeded += 1
+                seededBytes += file.size
+            } catch {
+                Self.logger.info("couldn't reuse a local copy of \(file.path, privacy: .public): \(ErrorSummary.of(error), privacy: .public)")
+            }
+        }
+        if seeded > 0 {
+            Self.logger.info("reused \(seeded, privacy: .public) files (\(seededBytes, privacy: .public) bytes) the Mac already had")
+        }
+    }
+
+    private func download(_ pending: [ModelFile], of release: ModelRelease, from pin: ModelPin, into staging: ModelStaging, access: ModelNetworkAccess, progress: @escaping @Sendable (ModelInstallProgress) -> Void) async throws {
         let total = max(release.totalSize, 1)
-        let pending = staging.filesNeedingDownload(release.files)
         var completed = total - (ModelRelease.checkedSum(pending.map(\.size)) ?? total)
         Self.logger.info("staging model \(release.version, privacy: .public): \(pending.count, privacy: .public) of \(release.files.count, privacy: .public) files to download, \(completed, privacy: .public) bytes already verified")
         progress(.downloading(fraction: Double(completed) / Double(total)))
@@ -142,23 +243,33 @@ public struct ModelInstaller: Sendable {
         for file in pending {
             try Task.checkCancellation()
             let destination = staging.downloadLocation(for: file.path)
+            let partial = ModelStaging.partialLocation(for: destination)
             try? FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let base = completed
-            do {
-                try await network.download(from: pin.fileURL(for: file.path), to: destination, maxBytes: file.size, access: access) { received in
-                    progress(.downloading(fraction: Double(base + min(received, file.size)) / Double(total)))
+            try? FileManager.default.removeItem(at: destination)
+            // A file continued from an earlier attempt may hold bad bytes from then, so it gets one fresh try before it counts as damaged.
+            var resumed = FileManager.default.fileExists(atPath: partial.path)
+            while true {
+                let base = completed
+                do {
+                    try await network.download(from: pin.fileURL(for: file.path), to: destination, maxBytes: file.size, access: access) { received in
+                        progress(.downloading(fraction: Double(base + min(received, file.size)) / Double(total)))
+                    }
+                } catch ModelNetworkError.tooLarge {
+                    try? FileManager.default.removeItem(at: destination)
+                    Self.logger.error("download exceeded its declared size: \(file.path, privacy: .public)")
+                    throw ModelInstallError.verificationFailed(path: file.path)
+                } catch {
+                    throw Self.installError(error)
                 }
-            } catch ModelNetworkError.tooLarge {
+                if FileVerifier.matches(destination, size: file.size, sha256: file.sha256) { break }
                 try? FileManager.default.removeItem(at: destination)
-                Self.logger.error("download exceeded its declared size: \(file.path, privacy: .public)")
-                throw ModelInstallError.verificationFailed(path: file.path)
-            } catch {
-                throw Self.installError(error)
-            }
-            guard FileVerifier.matches(destination, size: file.size, sha256: file.sha256) else {
-                try? FileManager.default.removeItem(at: destination)
-                Self.logger.error("verification failed: \(file.path, privacy: .public)")
-                throw ModelInstallError.verificationFailed(path: file.path)
+                try? FileManager.default.removeItem(at: partial)
+                guard resumed else {
+                    Self.logger.error("verification failed: \(file.path, privacy: .public)")
+                    throw ModelInstallError.verificationFailed(path: file.path)
+                }
+                Self.logger.error("resumed download failed verification; starting \(file.path, privacy: .public) over")
+                resumed = false
             }
             Self.logger.info("verified \(file.path, privacy: .public) (\(file.size, privacy: .public) bytes)")
             completed += file.size
