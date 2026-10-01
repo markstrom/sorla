@@ -19,13 +19,19 @@ final class ModelInstallerTests: XCTestCase {
         try? FileManager.default.removeItem(at: modelsDirectory)
     }
 
-    private func installer(availableDiskSpace: Int64? = 10_000_000_000) -> ModelInstaller {
+    private func installer(
+        availableDiskSpace: Int64? = 10_000_000_000,
+        pin: ModelPin? = nil,
+        system: SemanticVersion = .sequoia,
+        placer: ModelFilePlacer = ModelFilePlacer()
+    ) -> ModelInstaller {
         ModelInstaller(
             modelsDirectory: modelsDirectory,
-            manifestURL: PublishedModelFixture.manifestURL,
-            filesBaseURL: PublishedModelFixture.filesBaseURL,
+            pin: pin ?? published.pin,
+            system: system,
             network: network,
             preparer: preparer,
+            placer: placer,
             availableDiskSpace: { _ in availableDiskSpace }
         )
     }
@@ -42,9 +48,146 @@ final class ModelInstallerTests: XCTestCase {
     }
 
     func testFetchLatestWithoutPianissimoIsAnInvalidManifest() async throws {
-        await network.serve(Data(#"{"schema":1,"models":[]}"#.utf8), at: PublishedModelFixture.manifestURL)
+        let empty = Data(#"{"schema":1,"models":[]}"#.utf8)
+        await network.serve(empty, at: PublishedModelFixture.manifestURL)
+        let pin = ModelPin(version: "1.1.0", manifestURL: PublishedModelFixture.manifestURL, manifestSHA256: ModelStagingTests.sha256(of: empty))
+
+        await assertThrows(.invalidManifest) { _ = try await self.installer(pin: pin).fetchLatest() }
+    }
+
+    func testFetchLatestRefusesAManifestThatDoesNotMatchThePin() async throws {
+        await network.serve(PublishedModelFixture(version: "1.2.0").manifestData, at: PublishedModelFixture.manifestURL)
 
         await assertThrows(.invalidManifest) { _ = try await self.installer().fetchLatest() }
+    }
+
+    func testFetchLatestRefusesAPinnedManifestOfAnotherVersion() async throws {
+        let pin = ModelPin(version: "1.2.0", manifestURL: published.pin.manifestURL, manifestSHA256: published.pin.manifestSHA256)
+
+        await assertThrows(.invalidManifest) { _ = try await self.installer(pin: pin).fetchLatest() }
+    }
+
+    func testFetchLatestRefusesACompiledReleaseOnAnOlderMacOS() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+
+        await assertThrows(.invalidManifest) { _ = try await self.installer(pin: compiled.pin, system: .sequoia).fetchLatest() }
+        let latest = try await installer(pin: compiled.pin, system: .tahoe).fetchLatest()
+        XCTAssertEqual(latest.release, compiled.release)
+    }
+
+    func testFetchLatestPassesTheNetworkAccessOn() async throws {
+        _ = try await installer().fetchLatest(access: .inexpensiveOnly)
+        _ = try await installer().stage(published.latest, access: .inexpensiveOnly) { _ in }
+
+        let accesses = await network.accesses
+        XCTAssertEqual(accesses.count, published.files.count + 1)
+        XCTAssertTrue(accesses.values.allSatisfy { $0 == .inexpensiveOnly })
+    }
+
+    func testACostlyNetworkStopsWorkNobodyAskedForButNotTheUsersOwn() async throws {
+        await network.useCostlyNetwork()
+
+        do {
+            _ = try await installer().stage(published.latest, access: .inexpensiveOnly) { _ in }
+            XCTFail("staged over a costly network")
+        } catch {
+            XCTAssertEqual(error as? ModelNetworkError, .costlyNetwork)
+        }
+        _ = try await installer().stage(published.latest, access: .any) { _ in }
+    }
+
+    func testCostlyNetworkRefusalsAreToldApartFromBeingOffline() {
+        for reason in [URLError.NetworkUnavailableReason.expensive, .constrained] {
+            let refusal = URLError(.notConnectedToInternet, userInfo: [NSURLErrorNetworkUnavailableReasonKey: reason.rawValue])
+            XCTAssertTrue(ModelInstaller.isCostlyNetworkRefusal(refusal), "\(reason)")
+            XCTAssertEqual(ModelInstaller.installError(refusal) as? ModelNetworkError, .costlyNetwork)
+        }
+        XCTAssertFalse(ModelInstaller.isCostlyNetworkRefusal(URLError(.notConnectedToInternet)))
+        XCTAssertEqual(ModelInstaller.installError(URLError(.notConnectedToInternet)) as? ModelInstallError, .network)
+    }
+
+    func testStagesAPrecompiledReleaseWithoutCompiling() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        let installer = installer(pin: compiled.pin, system: .tahoe)
+
+        let latest = try await installer.fetchLatest()
+        let assembled = try await installer.stage(latest) { _ in }
+
+        XCTAssertEqual(assembled.path, staging.assembledDirectory.path)
+        let names = try FileManager.default.contentsOfDirectory(atPath: assembled.path).sorted()
+        XCTAssertEqual(names, [
+            "Decoder.mlmodelc", "Encoder.mlmodelc", "JointDecisionv3.mlmodelc", "LICENSE-and-attribution.txt",
+            "Preprocessor.mlmodelc", "manifest.json", "parakeet_vocab.json",
+        ])
+        let weights = try String(contentsOf: assembled.appendingPathComponent("Encoder.mlmodelc/weights/weight.bin"), encoding: .utf8)
+        XCTAssertEqual(weights, compiled.contents["Encoder.mlmodelc/weights/weight.bin"])
+        XCTAssertEqual(try Data(contentsOf: assembled.appendingPathComponent("manifest.json")), compiled.manifestData)
+        XCTAssertEqual(PianissimoModel.installedVersion(at: assembled), "1.1.0")
+        XCTAssertTrue(PianissimoModel.hasRequiredFiles(at: assembled))
+        let requests = Set(await network.requests)
+        XCTAssertEqual(requests, Set(compiled.contents.keys.map(compiled.url(for:)) + [PublishedModelFixture.compiledManifestURL]))
+        XCTAssertTrue(requests.allSatisfy { $0.absoluteString.hasPrefix("https://models.test/pianissimo/resolve/3d4e5f/compiled/") })
+        let compiledPackages = await preparer.compiled
+        XCTAssertEqual(compiledPackages, [])
+        let selfTested = await preparer.selfTested
+        XCTAssertEqual(selfTested.map(\.path), [assembled.path])
+        // Cloned, so the verified downloads are still there for a retry.
+        XCTAssertTrue(staging.filesNeedingDownload(compiled.files).isEmpty)
+    }
+
+    func testAPrecompiledReleaseIsMovedIntoPlaceWhereItCannotBeCloned() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        let placer = ModelFilePlacer { _, _ in throw POSIXError(.ENOTSUP) }
+
+        let assembled = try await installer(pin: compiled.pin, system: .tahoe, placer: placer).stage(compiled.latest) { _ in }
+
+        XCTAssertTrue(PianissimoModel.hasRequiredFiles(at: assembled))
+        let weights = try String(contentsOf: assembled.appendingPathComponent("Encoder.mlmodelc/weights/weight.bin"), encoding: .utf8)
+        XCTAssertEqual(weights, compiled.contents["Encoder.mlmodelc/weights/weight.bin"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.downloadLocation(for: "Encoder.mlmodelc").path))
+        let compiledPackages = await preparer.compiled
+        XCTAssertEqual(compiledPackages, [])
+    }
+
+    func testAPrecompiledReleaseNeedsRoomForOneCopy() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        let total = compiled.release.totalSize
+
+        await assertThrows(.insufficientDiskSpace(required: total)) {
+            _ = try await self.installer(availableDiskSpace: total - 1, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+        }
+        let requests = await network.requests
+        XCTAssertTrue(requests.isEmpty)
+
+        _ = try await installer(availableDiskSpace: total, pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+    }
+
+    func testAPrecompiledReleaseIsNotStagedOnAnOlderMacOS() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+
+        await assertThrows(.invalidManifest) {
+            _ = try await self.installer(pin: compiled.pin, system: .sequoia).stage(compiled.latest) { _ in }
+        }
+        let requests = await network.requests
+        XCTAssertTrue(requests.isEmpty)
+    }
+
+    func testAPrecompiledReleaseThatFailsItsSelfTestKeepsTheVerifiedDownloads() async throws {
+        let compiled = PublishedModelFixture(version: "1.1.0", format: .compiled)
+        await compiled.publish(on: network)
+        await preparer.failSelfTest()
+
+        await assertThrows(.selfTestFailed) {
+            _ = try await self.installer(pin: compiled.pin, system: .tahoe).stage(compiled.latest) { _ in }
+        }
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staging.assembledDirectory.path))
+        XCTAssertTrue(staging.filesNeedingDownload(compiled.files).isEmpty)
     }
 
     func testFetchLatestOfflineIsANetworkError() async throws {
@@ -53,7 +196,7 @@ final class ModelInstallerTests: XCTestCase {
         await assertThrows(.network) { _ = try await self.installer().fetchLatest() }
     }
 
-    func testStagesACompleteModelFromTheVersionTag() async throws {
+    func testStagesAPackageReleaseByCompilingIt() async throws {
         let assembled = try await installer().stage(published.latest) { _ in }
 
         XCTAssertEqual(assembled.path, staging.assembledDirectory.path)

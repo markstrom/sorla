@@ -3,13 +3,20 @@ import os
 
 public final class URLSessionModelNetwork: ModelNetwork {
     private let session: URLSession
+    private let inexpensiveSession: URLSession
 
-    public init() {
-        session = URLSession(configuration: Self.makeConfiguration())
+    public convenience init() {
+        self.init(protocolClasses: nil)
+    }
+
+    // Tests pass a URLProtocol here to answer requests without a network.
+    init(protocolClasses: [AnyClass]?) {
+        session = URLSession(configuration: Self.makeConfiguration(access: .any, protocolClasses: protocolClasses))
+        inexpensiveSession = URLSession(configuration: Self.makeConfiguration(access: .inexpensiveOnly, protocolClasses: protocolClasses))
     }
 
     // Nothing but the request itself leaves the Mac: no cookies, cache, credentials or detailed user agent.
-    static func makeConfiguration() -> URLSessionConfiguration {
+    static func makeConfiguration(access: ModelNetworkAccess = .any, protocolClasses: [AnyClass]? = nil) -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
@@ -18,7 +25,18 @@ public final class URLSessionModelNetwork: ModelNetwork {
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         configuration.httpAdditionalHeaders = ["User-Agent": "Sorla", "Accept-Language": "en"]
         configuration.timeoutIntervalForRequest = 60
+        if access == .inexpensiveOnly {
+            configuration.allowsExpensiveNetworkAccess = false
+            configuration.allowsConstrainedNetworkAccess = false
+        }
+        if let protocolClasses {
+            configuration.protocolClasses = protocolClasses
+        }
         return configuration
+    }
+
+    private func session(for access: ModelNetworkAccess) -> URLSession {
+        access == .any ? session : inexpensiveSession
     }
 
     static func checkStatus(_ response: URLResponse?) throws {
@@ -30,71 +48,180 @@ public final class URLSessionModelNetwork: ModelNetwork {
         received > maxBytes || expected > maxBytes
     }
 
-    public func data(from url: URL) async throws -> Data {
-        let (data, response) = try await session.data(from: url)
+    // The bytes received so far sit beside the destination until the file is complete.
+    static func partialLocation(for destination: URL) -> URL {
+        destination.appendingPathExtension("partial")
+    }
+
+    // "bytes 1000-1999/649181632" starts at 1000.
+    static func rangeStart(ofContentRange header: String?) -> Int64? {
+        guard let header, header.hasPrefix("bytes ") else { return nil }
+        let range = header.dropFirst("bytes ".count)
+        guard let dash = range.firstIndex(of: "-") else { return nil }
+        return Int64(range[..<dash])
+    }
+
+    public func data(from url: URL, access: ModelNetworkAccess) async throws -> Data {
+        let (data, response) = try await session(for: access).data(from: url)
         try Self.checkStatus(response)
         return data
     }
 
-    public func download(from url: URL, to destination: URL, maxBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws {
-        let tracker = DownloadTaskTracker()
-        // A response larger than the manifest says is cut off before it can fill the disk.
-        let poller = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 250_000_000)
-                guard let (received, expected) = tracker.byteCounts else { continue }
-                if Self.exceedsLimit(received: received, expected: expected, maxBytes: maxBytes) {
-                    tracker.cancelForSize()
-                    return
-                }
-                progress(received)
-            }
+    // Continues a partial file with an HTTP Range request; the installer's SHA-256 check covers the joined file.
+    public func download(from url: URL, to destination: URL, maxBytes: Int64, access: ModelNetworkAccess, progress: @escaping @Sendable (Int64) -> Void) async throws {
+        let fileManager = FileManager.default
+        let partial = Self.partialLocation(for: destination)
+        let existing = (try? partial.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+        let offset = existing > 0 && existing < maxBytes ? existing : 0
+        if offset == 0 {
+            try? fileManager.removeItem(at: partial)
         }
-        defer { poller.cancel() }
-
-        let temporaryURL: URL
-        let response: URLResponse
-        do {
-            (temporaryURL, response) = try await session.download(from: url, delegate: tracker)
-        } catch {
-            throw tracker.wasCancelledForSize ? ModelNetworkError.tooLarge : error
+        var request = URLRequest(url: url)
+        if offset > 0 {
+            request.setValue("bytes=\(offset)-", forHTTPHeaderField: "Range")
         }
-        defer { try? FileManager.default.removeItem(at: temporaryURL) }
-        try Self.checkStatus(response)
-        let size = (try? temporaryURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
-        guard size <= maxBytes else { throw ModelNetworkError.tooLarge }
-        try? FileManager.default.removeItem(at: destination)
-        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        let receiver = try PartialFileReceiver(file: partial, offset: offset, maxBytes: maxBytes, progress: progress)
+        try await receiver.run(request, in: session(for: access))
+        try? fileManager.removeItem(at: destination)
+        try fileManager.moveItem(at: partial, to: destination)
     }
 }
 
-private final class DownloadTaskTracker: NSObject, URLSessionTaskDelegate, Sendable {
+// Writes a response body straight to disk, appending when the server answers a Range request with 206.
+private final class PartialFileReceiver: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private struct State {
-        var task: URLSessionTask?
-        var cancelledForSize = false
+        var offset: Int64
+        var written: Int64 = 0
+        var failure: Error?
+        var discardsPartial = false
+        var lastProgress = Date.distantPast
+        var continuation: CheckedContinuation<Void, Error>?
     }
 
-    private let state = OSAllocatedUnfairLock(initialState: State())
+    private static let progressInterval: TimeInterval = 0.25
+    private let file: URL
+    private let handle: FileHandle
+    private let maxBytes: Int64
+    private let progress: @Sendable (Int64) -> Void
+    private let state: OSAllocatedUnfairLock<State>
 
-    var byteCounts: (received: Int64, expected: Int64)? {
-        state.withLock { state in
-            state.task.map { ($0.countOfBytesReceived, $0.countOfBytesExpectedToReceive) }
+    init(file: URL, offset: Int64, maxBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) throws {
+        if !FileManager.default.fileExists(atPath: file.path) {
+            guard FileManager.default.createFile(atPath: file.path, contents: nil) else { throw CocoaError(.fileWriteUnknown) }
+        }
+        handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: UInt64(offset))
+        try handle.seekToEnd()
+        self.file = file
+        self.maxBytes = maxBytes
+        self.progress = progress
+        state = OSAllocatedUnfairLock(initialState: State(offset: offset))
+    }
+
+    func run(_ request: URLRequest, in session: URLSession) async throws {
+        let task = session.dataTask(with: request)
+        task.delegate = self
+        do {
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    state.withLock { $0.continuation = continuation }
+                    task.resume()
+                }
+            } onCancel: {
+                task.cancel()
+            }
+        } catch {
+            // The partial file stays, so the next attempt continues where this one stopped.
+            if Task.isCancelled { throw CancellationError() }
+            throw error
         }
     }
 
-    var wasCancelledForSize: Bool {
-        state.withLock { $0.cancelledForSize }
-    }
-
-    func cancelForSize() {
-        let task = state.withLock { state -> URLSessionTask? in
-            state.cancelledForSize = true
-            return state.task
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void) {
+        do {
+            try accept(response)
+            completionHandler(.allow)
+        } catch {
+            state.withLock { $0.failure = $0.failure ?? error }
+            completionHandler(.cancel)
         }
-        task?.cancel()
     }
 
-    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        state.withLock { $0.task = task }
+    private func accept(_ response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        let offset = state.withLock { $0.offset }
+        switch http.statusCode {
+        case 206:
+            // Bytes from anywhere but the end of the partial file would corrupt it, so it is started over next time.
+            guard URLSessionModelNetwork.rangeStart(ofContentRange: http.value(forHTTPHeaderField: "Content-Range")) == offset else {
+                state.withLock { $0.discardsPartial = true }
+                throw URLError(.badServerResponse)
+            }
+        case 200..<300:
+            // The whole file came back instead of the rest of it.
+            if offset > 0 {
+                try handle.truncate(atOffset: 0)
+                state.withLock { $0.offset = 0 }
+            }
+        case 416:
+            state.withLock { $0.discardsPartial = true }
+            throw ModelNetworkError.httpStatus(http.statusCode)
+        default:
+            throw ModelNetworkError.httpStatus(http.statusCode)
+        }
+        let start = state.withLock { $0.offset }
+        let expected = response.expectedContentLength >= 0 ? start + response.expectedContentLength : -1
+        if URLSessionModelNetwork.exceedsLimit(received: start, expected: expected, maxBytes: maxBytes) {
+            state.withLock { $0.discardsPartial = true }
+            throw ModelNetworkError.tooLarge
+        }
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        let received = state.withLock { state -> Int64 in
+            state.written += Int64(data.count)
+            return state.offset + state.written
+        }
+        // A response larger than the manifest says is cut off before it can fill the disk.
+        if URLSessionModelNetwork.exceedsLimit(received: received, expected: -1, maxBytes: maxBytes) {
+            state.withLock {
+                $0.failure = $0.failure ?? ModelNetworkError.tooLarge
+                $0.discardsPartial = true
+            }
+            dataTask.cancel()
+            return
+        }
+        do {
+            try handle.write(contentsOf: data)
+        } catch {
+            state.withLock { $0.failure = $0.failure ?? error }
+            dataTask.cancel()
+            return
+        }
+        let reports = state.withLock { state -> Bool in
+            let now = Date()
+            guard now.timeIntervalSince(state.lastProgress) >= Self.progressInterval else { return false }
+            state.lastProgress = now
+            return true
+        }
+        if reports { progress(received) }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        try? handle.close()
+        let (continuation, failure, discards, received) = state.withLock { state in
+            let continuation = state.continuation
+            state.continuation = nil
+            return (continuation, state.failure ?? error, state.discardsPartial, state.offset + state.written)
+        }
+        if discards {
+            try? FileManager.default.removeItem(at: file)
+        }
+        if let failure {
+            continuation?.resume(throwing: failure)
+        } else {
+            progress(received)
+            continuation?.resume()
+        }
     }
 }

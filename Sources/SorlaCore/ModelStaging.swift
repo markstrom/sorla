@@ -20,10 +20,6 @@ public struct ModelStaging: Sendable {
         downloadsDirectory.appendingPathComponent(path)
     }
 
-    public static func remoteURL(base: URL, version: String, path: String) -> URL {
-        base.appendingPathComponent(version).appendingPathComponent(path)
-    }
-
     public func filesNeedingDownload(_ files: [ModelFile]) -> [ModelFile] {
         files.filter { !FileVerifier.matches(downloadLocation(for: $0.path), size: $0.size, sha256: $0.sha256) }
     }
@@ -79,19 +75,63 @@ public struct ModelStaging: Sendable {
 }
 
 public enum DiskSpace {
-    // Room for the downloaded packages plus their compiled copies side by side.
-    public static func required(forDownloadOf totalSize: Int64) -> Int64 {
-        let (doubled, overflow) = totalSize.multipliedReportingOverflow(by: 2)
-        return overflow ? .max : doubled
+    // Packages need room for the downloads plus their compiled copies side by side;
+    // compiled models are cloned or moved into place, so one copy is enough.
+    public static func required(forDownloadOf totalSize: Int64, format: ModelFormat = .packages) -> Int64 {
+        switch format {
+        case .packages:
+            let (doubled, overflow) = totalSize.multipliedReportingOverflow(by: 2)
+            return overflow ? .max : doubled
+        case .compiled:
+            return totalSize
+        }
     }
 
-    public static func hasRoom(available: Int64?, forDownloadOf totalSize: Int64) -> Bool {
+    public static func hasRoom(available: Int64?, forDownloadOf totalSize: Int64, format: ModelFormat = .packages) -> Bool {
         guard let available else { return false }
-        return available >= required(forDownloadOf: totalSize)
+        return available >= required(forDownloadOf: totalSize, format: format)
     }
 
     public static func available(at url: URL) -> Int64? {
         let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage
+    }
+}
+
+public enum ModelPlacement: Equatable, Sendable {
+    case cloned
+    case moved
+}
+
+// An APFS clone shares the verified download's blocks, so a failed self-test can retry without downloading again.
+// Where cloning isn't possible the download is moved instead, which still needs no second copy.
+public struct ModelFilePlacer: Sendable {
+    private let clone: @Sendable (URL, URL) throws -> Void
+
+    public init(clone: @escaping @Sendable (URL, URL) throws -> Void = ModelFilePlacer.cloneItem) {
+        self.clone = clone
+    }
+
+    @discardableResult
+    public func place(_ source: URL, at destination: URL) throws -> ModelPlacement {
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+        do {
+            try clone(source, destination)
+            return .cloned
+        } catch {
+            try? fileManager.removeItem(at: destination)
+            try fileManager.moveItem(at: source, to: destination)
+            return .moved
+        }
+    }
+
+    // clonefile(2) copies a whole folder in one step on APFS and fails on other file systems.
+    @Sendable public static func cloneItem(_ source: URL, _ destination: URL) throws {
+        guard clonefile(source.path, destination.path, UInt32(CLONE_NOFOLLOW)) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
     }
 }
