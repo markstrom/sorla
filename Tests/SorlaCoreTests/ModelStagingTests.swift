@@ -1,3 +1,4 @@
+import CryptoKit
 import XCTest
 @testable import SorlaCore
 
@@ -22,15 +23,6 @@ final class ModelStagingTests: XCTestCase {
         XCTAssertEqual(
             staging.downloadLocation(for: "Encoder.mlpackage/Manifest.json").path,
             staging.downloadsDirectory.appendingPathComponent("Encoder.mlpackage/Manifest.json").path
-        )
-    }
-
-    func testRemoteURLUsesTheImmutableVersionTag() {
-        let base = URL(string: "https://huggingface.co/markstrom/pianissimo-sv-coreml/resolve")!
-
-        XCTAssertEqual(
-            ModelStaging.remoteURL(base: base, version: "1.1.0", path: "Encoder.mlpackage/Data/com.apple.CoreML/weights/weight.bin").absoluteString,
-            "https://huggingface.co/markstrom/pianissimo-sv-coreml/resolve/1.1.0/Encoder.mlpackage/Data/com.apple.CoreML/weights/weight.bin"
         )
     }
 
@@ -138,6 +130,91 @@ final class ModelStagingTests: XCTestCase {
         XCTAssertFalse(DiskSpace.hasRoom(available: nil, forDownloadOf: 1))
     }
 
+    func testCompiledModelsNeedRoomForOneCopyAndAMargin() {
+        XCTAssertEqual(DiskSpace.margin(for: 688_595_324), 200_000_000)
+        XCTAssertEqual(DiskSpace.margin(for: 5_000_000_000), 500_000_000)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_595_324, format: .compiled), 888_595_324)
+        XCTAssertTrue(DiskSpace.hasRoom(available: 888_595_324, forDownloadOf: 688_595_324, format: .compiled))
+        XCTAssertFalse(DiskSpace.hasRoom(available: 888_595_323, forDownloadOf: 688_595_324, format: .compiled))
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: .max, format: .compiled), .max)
+    }
+
+    func testBytesAlreadyStagedAreNotCountedAgain() {
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_595_324, alreadyStaged: 687_500_000, format: .compiled), 201_095_324)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 688_257_471, alreadyStaged: 688_257_471), 688_257_471)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 100, alreadyStaged: 500, format: .compiled), 200_000_000)
+        XCTAssertEqual(DiskSpace.required(forDownloadOf: 100, alreadyStaged: -5), 200)
+    }
+
+    func testCopyingClonesAndLeavesTheSourceInPlace() throws {
+        let source = modelsDirectory.appendingPathComponent("installed/weight.bin")
+        let destination = modelsDirectory.appendingPathComponent("staging/weight.bin")
+        try place("weights", at: source)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        XCTAssertEqual(try ModelFilePlacer().copy(source, to: destination), .cloned)
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "weights")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+    }
+
+    func testCopyingFallsBackToARealCopyOnlyWhenAllowed() throws {
+        let source = modelsDirectory.appendingPathComponent("installed/weight.bin")
+        let destination = modelsDirectory.appendingPathComponent("staging/weight.bin")
+        try place("weights", at: source)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let placer = ModelFilePlacer { _, _ in throw POSIXError(.ENOTSUP) }
+
+        XCTAssertThrowsError(try placer.copy(source, to: destination) { false })
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+
+        XCTAssertEqual(try placer.copy(source, to: destination) { true }, .copied)
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "weights")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+    }
+
+    func testPlacingAFolderClonesItAndKeepsTheDownload() throws {
+        let source = modelsDirectory.appendingPathComponent("download/Encoder.mlmodelc")
+        let destination = modelsDirectory.appendingPathComponent("model/Encoder.mlmodelc")
+        try place("weights", at: source.appendingPathComponent("weights/weight.bin"))
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        let placement = try ModelFilePlacer().place(source, at: destination)
+
+        // The test folder lives on the startup disk, which is APFS on every supported Mac.
+        XCTAssertEqual(placement, .cloned)
+        XCTAssertEqual(try String(contentsOf: destination.appendingPathComponent("weights/weight.bin"), encoding: .utf8), "weights")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.appendingPathComponent("weights/weight.bin").path))
+    }
+
+    func testPlacingFallsBackToAMoveWhenCloningFails() throws {
+        let source = modelsDirectory.appendingPathComponent("download/Decoder.mlmodelc")
+        let destination = modelsDirectory.appendingPathComponent("model/Decoder.mlmodelc")
+        try place("weights", at: source.appendingPathComponent("weights/weight.bin"))
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let placer = ModelFilePlacer { _, destination in
+            // A clone that fails halfway must not leave anything in the move's way.
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+            throw POSIXError(.ENOTSUP)
+        }
+
+        let placement = try placer.place(source, at: destination)
+
+        XCTAssertEqual(placement, .moved)
+        XCTAssertEqual(try String(contentsOf: destination.appendingPathComponent("weights/weight.bin"), encoding: .utf8), "weights")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+    }
+
+    func testPlacingReplacesWhatAnEarlierAttemptLeftBehind() throws {
+        let source = modelsDirectory.appendingPathComponent("download/parakeet_vocab.json")
+        let destination = modelsDirectory.appendingPathComponent("model/parakeet_vocab.json")
+        try place("new", at: source)
+        try place("old", at: destination)
+
+        try ModelFilePlacer().place(source, at: destination)
+
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "new")
+    }
+
     func testAvailableDiskSpaceIsReportedForARealVolume() throws {
         XCTAssertGreaterThan(try XCTUnwrap(DiskSpace.available(at: modelsDirectory)), 0)
     }
@@ -149,6 +226,10 @@ final class ModelStagingTests: XCTestCase {
     private func place(_ contents: String, at url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data(contents.utf8).write(to: url)
+    }
+
+    static func sha256(of data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     static func sha256(_ contents: String) -> String {

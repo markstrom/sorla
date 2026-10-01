@@ -100,14 +100,21 @@ public final class ModelManager: ObservableObject {
         guard work == nil else { return }
         guard isInstalled else { return download(requested: userInitiated) }
         isWorkRequested = userInitiated
+        let access = Self.access(isUpdate: true, requested: userInitiated)
+        let statusBefore = status
         status = .checking
         Self.logger.info("model update check started")
         work = Task {
             defer { self.work = nil }
             let latest: PublishedModel
             do {
-                latest = try await self.fetchLatest()
+                latest = try await self.fetchLatest(access: access)
             } catch {
+                if ModelInstaller.isCostlyNetworkRefusal(error) {
+                    Self.logger.info("automatic model update check waits for a network that isn't marked as costly")
+                    self.status = statusBefore
+                    return
+                }
                 let checkError = error as? ModelInstallError ?? .network
                 Self.logger.error("model update check failed: \(String(describing: checkError), privacy: .public)")
                 self.status = .checkFailed(checkError)
@@ -128,7 +135,7 @@ public final class ModelManager: ObservableObject {
                 self.offered = latest
                 self.status = .updateAvailable(version: version)
             case .download:
-                await self.install(latest, isUpdate: true)
+                await self.install(latest, isUpdate: true, access: access)
             }
         }
     }
@@ -142,6 +149,7 @@ public final class ModelManager: ObservableObject {
         guard work == nil else { return }
         isWorkRequested = requested
         let isUpdate = isInstalled
+        let access = Self.access(isUpdate: isUpdate, requested: requested)
         status = .downloading(version: offered?.release.version ?? "", fraction: 0, isUpdate: isUpdate)
         work = Task {
             defer { self.work = nil }
@@ -150,7 +158,7 @@ public final class ModelManager: ObservableObject {
                 latest = offered
             } else {
                 do {
-                    latest = try await self.fetchLatest()
+                    latest = try await self.fetchLatest(access: access)
                 } catch {
                     self.fail(error, isUpdate: isUpdate)
                     return
@@ -163,7 +171,7 @@ public final class ModelManager: ObservableObject {
                 self.status = self.installedVersion.map { .upToDate(version: $0) } ?? .notInstalled
                 return
             }
-            await self.install(latest, isUpdate: isUpdate)
+            await self.install(latest, isUpdate: isUpdate, access: access)
         }
     }
 
@@ -197,12 +205,17 @@ public final class ModelManager: ObservableObject {
         }
     }
 
-    private func fetchLatest() async throws -> PublishedModel {
-        let installer = self.installer
-        return try await Task.detached(priority: .utility) { try await installer.fetchLatest() }.value
+    // An update nobody asked for never uses a hotspot or Low Data Mode; the user's own download, and the first install, may.
+    static func access(isUpdate: Bool, requested: Bool) -> ModelNetworkAccess {
+        isUpdate && !requested ? .inexpensiveOnly : .any
     }
 
-    private func install(_ latest: PublishedModel, isUpdate: Bool) async {
+    private func fetchLatest(access: ModelNetworkAccess) async throws -> PublishedModel {
+        let installer = self.installer
+        return try await Task.detached(priority: .utility) { try await installer.fetchLatest(access: access) }.value
+    }
+
+    private func install(_ latest: PublishedModel, isUpdate: Bool, access: ModelNetworkAccess) async {
         let version = latest.release.version
         Self.logger.info("model download started: \(version, privacy: .public) (\(isUpdate ? "update" : "first install", privacy: .public))")
         status = .downloading(version: version, fraction: 0, isUpdate: isUpdate)
@@ -214,11 +227,24 @@ public final class ModelManager: ObservableObject {
         let staged: URL
         do {
             staged = try await Task.detached(priority: .utility) {
-                try await installer.stage(latest, progress: report)
+                try await installer.stage(latest, access: access, progress: report)
             }.value
             stagingVersion = nil
         } catch {
             stagingVersion = nil
+            // Offered instead: the next automatic check tries again and resumes, and Download works now on any network.
+            if ModelInstaller.isCostlyNetworkRefusal(error) {
+                Self.logger.info("automatic model update \(version, privacy: .public) waits for a network that isn't marked as costly")
+                offered = latest
+                status = .updateAvailable(version: version)
+                return
+            }
+            // A first install has no model to keep, so a release that won't work on this Mac gives way to the fallback;
+            // an update keeps the installed model instead, as before.
+            if !isUpdate, installer.fallBack(after: error) {
+                await installFallback(access: access)
+                return
+            }
             rememberFailure(of: version, after: error)
             fail(error, isUpdate: isUpdate)
             return
@@ -256,6 +282,17 @@ public final class ModelManager: ObservableObject {
         status = .upToDate(version: version)
         Self.logger.info("model \(version, privacy: .public) installed and ready")
         onInstalled?(!replacedModel)
+    }
+
+    private func installFallback(access: ModelNetworkAccess) async {
+        let fallback: PublishedModel
+        do {
+            fallback = try await fetchLatest(access: access)
+        } catch {
+            fail(error, isUpdate: false)
+            return
+        }
+        await install(fallback, isUpdate: false, access: access)
     }
 
     // A self-tested first install stays; an update rolls back but keeps its downloads so a retry needn't refetch.

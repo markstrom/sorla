@@ -4,13 +4,9 @@ import Foundation
 public enum PianissimoModel {
     public static let displayName = "Pianissimo (Swedish)"
 
-    static let requiredFileNames = [
-        "Preprocessor.mlmodelc",
-        "Encoder.mlmodelc",
-        "Decoder.mlmodelc",
-        "JointDecisionv3.mlmodelc",
-        "parakeet_vocab.json",
-    ]
+    static let requiredModelNames = ["Preprocessor", "Encoder", "Decoder", "JointDecisionv3"]
+
+    static let requiredFileNames = requiredModelNames.map { "\($0).mlmodelc" } + ["parakeet_vocab.json"]
 
     public static let directoryName = "pianissimo-sv-coreml"
 
