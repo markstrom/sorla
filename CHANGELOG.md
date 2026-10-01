@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.1 — Unreleased
+## 1.2.1 — 2026-10-01
 
 - On macOS 26 and later, Sorla installs the speech model precompiled instead of compiling it on the Mac (#83). Pianissimo 1.1.0 has the same weights as 1.0.0 and gives word-for-word the same transcripts; it skips the compile step and needs about half the free disk space while installing (one copy, about 0.69 GB, instead of about 1.38 GB). A Mac that already has 1.0.0 gets 1.1.0 through the usual model update: with automatic installs on, it is downloaded and checked in the background and swapped in between dictations, and 1.0.0 stays until 1.1.0 has loaded; otherwise Check Now offers it. The weights and vocabulary it already has are reused rather than downloaded again (they are recognised by size and SHA-256), so the move downloads about 1 MB instead of about 0.69 GB. If a first install of 1.1.0 can't be put in place or fails its self-test, Sorla installs the 1.0.0 packages instead and doesn't try 1.1.0 again until macOS is updated. On macOS 14–25 nothing changes: Sorla keeps installing and using the 1.0.0 packages.
 - Sorla downloads exactly the model release it was built for: the manifest at a fixed commit on Hugging Face, checked against its SHA-256, instead of whatever the newest manifest says. Every file is still checked against its size and SHA-256, and a manifest with a path outside its folder, an unknown format or a macOS requirement this Mac doesn't meet is refused.
