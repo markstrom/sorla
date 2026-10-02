@@ -53,6 +53,31 @@ final class AppInstallPolicyTests: XCTestCase {
         XCTAssertNil(AppInstallPolicy.pin(AppRelease(tagName: "v1.1.0-beta", assets: [versioned])))
     }
 
+    // Each refusal says why, so the log can tell a Download offered for want of a pin from one for the app's location (#89).
+    func testARefusedPinSaysWhy() {
+        XCTAssertEqual(AppInstallPolicy.pinning(AppRelease(tagName: "v1.1.0", assets: [fixedName])), .missingAsset(expected: "Sorla-1.1.0.dmg", found: ["Sorla.dmg"]))
+        XCTAssertEqual(AppInstallPolicy.pinning(AppRelease(tagName: "v1.1.0-beta")), .unreadableTag)
+        let elsewhere = AppReleaseAsset(name: "Sorla-1.1.0.dmg", size: 1, downloadURL: URL(string: "https://example.com/Sorla-1.1.0.dmg")!)
+        XCTAssertEqual(AppInstallPolicy.pinning(AppRelease(tagName: "v1.1.0", assets: [elsewhere])), .unexpectedURL("https://example.com/Sorla-1.1.0.dmg"))
+        let empty = AppReleaseAsset(name: "Sorla-1.1.0.dmg", size: 0, downloadURL: versioned.downloadURL)
+        XCTAssertEqual(AppInstallPolicy.pinning(AppRelease(tagName: "v1.1.0", assets: [empty])), .unexpectedSize(0))
+    }
+
+    // The 1.2.2 release as GitHub's API returns it is pinned, so a 1.2.1 in a writable folder offers to install it.
+    func testTheRealReleaseAnswerIsInstallable() throws {
+        let json = """
+        {"tag_name": "v1.2.2", "prerelease": false, "draft": false, "assets": [
+          {"name": "Sorla-1.2.2.dmg", "size": 11774739, "browser_download_url": "https://github.com/markstrom/sorla/releases/download/v1.2.2/Sorla-1.2.2.dmg"},
+          {"name": "Sorla.dmg", "size": 11774739, "browser_download_url": "https://github.com/markstrom/sorla/releases/download/v1.2.2/Sorla.dmg"}]}
+        """
+        let release = try URLSessionAppReleaseSource.decode(Data(json.utf8))
+        let pin = try XCTUnwrap(AppInstallPolicy.pin(release))
+        XCTAssertEqual(pin.assetURL.absoluteString, "https://github.com/markstrom/sorla/releases/download/v1.2.2/Sorla-1.2.2.dmg")
+        let status = AppUpdateStatus(AppUpdateCheck.decide(currentVersion: "1.2.1", latest: release))
+        XCTAssertEqual(AppUpdateOffer.make(status: status, pin: pin, install: .idle, location: .replaceable), .install(version: "1.2.2"))
+        XCTAssertEqual(AppUpdateDecision.afterCheck(hasPin: true, automatic: false, automaticInstalls: true, location: .replaceable), .installNow)
+    }
+
     func testTheReleaseAnswerCarriesItsAssets() throws {
         let json = #"{"tag_name":"v1.1.0","assets":[{"name":"Sorla-1.1.0.dmg","size":11441265,"browser_download_url":"https://github.com/markstrom/sorla/releases/download/v1.1.0/Sorla-1.1.0.dmg"}]}"#
         XCTAssertEqual(try URLSessionAppReleaseSource.decode(Data(json.utf8)).assets, [versioned])
@@ -232,6 +257,34 @@ final class AppInstallPolicyTests: XCTestCase {
     func testTheBackupItselfRunningKeepsIt() {
         XCTAssertEqual(AppInstallRecovery.atLaunch(record: record, bundlePath: "/Applications/Sorla 1.0.3.app", runningVersion: "1.0.3"), .keepBackup)
         XCTAssertEqual(AppInstallRecovery.atLaunch(record: nil, bundlePath: "/Applications/Sorla.app", runningVersion: "1.1.0"), .none)
+    }
+
+    // MARK: - After a check (#89)
+
+    func testACheckTheUserAskedForInstallsAtOnceWhateverTheToggles() {
+        for automaticInstalls in [false, true] {
+            XCTAssertEqual(AppUpdateDecision.afterCheck(hasPin: true, automatic: false, automaticInstalls: automaticInstalls, location: .replaceable), .installNow)
+        }
+    }
+
+    func testAnAutomaticCheckOnlyPreparesWithBothToggles() {
+        XCTAssertEqual(AppUpdateDecision.afterCheck(hasPin: true, automatic: true, automaticInstalls: true, location: .replaceable), .prepareInBackground)
+        XCTAssertEqual(AppUpdateDecision.afterCheck(hasPin: true, automatic: true, automaticInstalls: false, location: .replaceable), .offer)
+    }
+
+    func testWithoutAPinOrAPlaceToReplaceTheOfferStays() {
+        for automatic in [false, true] {
+            XCTAssertEqual(AppUpdateDecision.afterCheck(hasPin: false, automatic: automatic, automaticInstalls: true, location: .replaceable), .offer)
+            for location in [AppInstallLocation.translocated, .notWritable, .homebrew] {
+                XCTAssertEqual(AppUpdateDecision.afterCheck(hasPin: true, automatic: automatic, automaticInstalls: true, location: location), .offer, "\(location)")
+            }
+        }
+    }
+
+    func testPercentIsWholeAndClamped() {
+        XCTAssertEqual(AppUpdateDecision.percent(0.429), 42)
+        XCTAssertEqual(AppUpdateDecision.percent(-1), 0)
+        XCTAssertEqual(AppUpdateDecision.percent(1.5), 100)
     }
 
     // MARK: - Automatic install

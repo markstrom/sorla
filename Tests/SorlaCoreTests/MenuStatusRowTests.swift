@@ -213,6 +213,7 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(row(appUpdate: .install(version: "1.1.0")), MenuStatusRow(title: "Sorla 1.1.0 is available — Install and Relaunch", action: .installApp))
         XCTAssertEqual(row(appUpdate: .homebrew(version: "1.1.0")), MenuStatusRow(title: "Sorla 1.1.0 is available — Update with Homebrew", action: .showUpdates))
         XCTAssertEqual(row(appUpdate: .installing(version: "1.1.0")), MenuStatusRow(title: "Installing Sorla 1.1.0…", action: .showUpdates))
+        XCTAssertEqual(row(appUpdate: .downloading(version: "1.1.0", fraction: 0.427)), MenuStatusRow(title: "Downloading Sorla 1.1.0… 42%", action: .showUpdates))
         XCTAssertEqual(row(appUpdate: .failed(version: "1.1.0", .verification)), MenuStatusRow(title: "Couldn't install Sorla 1.1.0 — Download", action: .downloadApp))
     }
 

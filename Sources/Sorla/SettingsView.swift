@@ -77,7 +77,10 @@ struct SettingsView: View {
             isVoiceOverEnabled = enabled
         }
         .onChange(of: updateChecker.appStatus) { old, new in
-            announceResult(of: SettingsRow.appUpdates.title, wasChecking: old == .checking, row: UpdateRow.app(new, offer: appOffer(status: new)))
+            let offer = appOffer(status: new)
+            // An install the check started says its own steps, with the version ("Downloading Sorla 1.2.3…").
+            if offer?.isInstalling == true { return }
+            announceResult(of: SettingsRow.appUpdates.title, wasChecking: old == .checking, row: UpdateRow.app(new, offer: offer))
         }
         .onChange(of: modelManager.status) { old, new in
             announceResult(of: SettingsRow.speechModel.title, wasChecking: old == .checking, row: UpdateRow.model(new))
@@ -212,6 +215,7 @@ struct SettingsView: View {
                 if let pin = updateChecker.pinnedRelease { appUpdater.install(pin) }
             }
         ) {
+            Self.logger.notice("opening the download page from Settings (offer: \(appOffer(status: updateChecker.appStatus)?.kind ?? "none", privacy: .public))")
             openURL(AppUpdateCheck.downloadPageURL)
         }
         updateRow(

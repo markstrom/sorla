@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var modelManager: ModelManager!
     private var updateChecker: UpdateChecker!
     private var appUpdater: AppUpdater!
+    private var loggedOffer: String?
     private let relauncher = SystemAppRelauncher()
     private var appSettings: AppSettings!
     private var triggerMonitor: TriggerMonitor?
@@ -133,6 +134,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             automaticChecks: appSettings.autoCheckUpdates,
             automaticInstalls: appSettings.autoInstallUpdates,
             activity: { [weak self] in self?.recordingController.activity ?? .quiet },
+            // A check of its own is cheap to lose; a download or install of the model isn't.
+            isModelBusy: { [weak self] in
+                guard let status = self?.modelManager.status else { return false }
+                return status.isBusy && status != .checking
+            },
+            hasUnpastedText: { [weak self] in self?.recordingController.hasUnpastedText() ?? false },
             terminate: {
                 NSApp.terminate(nil)
                 return false
@@ -385,6 +392,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         appUpdater.onRequestedInstallFailed = { [weak self] message in
             self?.announce(message)
+        }
+        appUpdater.onRequestedInstallStep = { [weak self] text in
+            self?.announce(text)
         }
         appUpdater.start()
 
@@ -675,6 +685,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .downloadModel:
             modelManager.downloadModel()
         case .downloadApp:
+            Self.logger.notice("opening the download page from the menu (offer: \(self.loggedOffer ?? "none", privacy: .public))")
             NSWorkspace.shared.open(AppUpdateCheck.downloadPageURL)
         case .installApp:
             if let pin = updateChecker.pinnedRelease { appUpdater.install(pin) }
@@ -859,6 +870,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if transientStatus?.isExpired(at: now) == true { transientStatus = nil }
         // Only the model status sink passes `model`; its progress ticks reuse the last checks.
         let checks = statusChecks.checks(model: model) { readStatusChecks() }
+        let appUpdate = AppUpdateOffer.make(
+            status: appStatus ?? updateChecker.appStatus,
+            pin: updateChecker.pinnedRelease,
+            install: install ?? appUpdater.state,
+            location: appUpdater.location
+        )
+        logOfferIfChanged(appUpdate)
         let row = MenuStatusRow.current(
             microphoneDenied: checks.isMicrophoneAccessDenied,
             accessibilityMissing: !checks.isAccessibilityTrusted,
@@ -868,12 +886,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             appReplaced: appReplacement.isReplaced,
             canRestart: canRestart,
             transient: transientStatus,
-            appUpdate: AppUpdateOffer.make(
-                status: appStatus ?? updateChecker.appStatus,
-                pin: updateChecker.pinnedRelease,
-                install: install ?? appUpdater.state,
-                location: appUpdater.location
-            ),
+            appUpdate: appUpdate,
             now: now
         )
         statusMenuAction = row?.action
@@ -881,6 +894,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenuItem.isHidden = row == nil
         // The badge and the row come from the same checks, so they change together.
         updateIcon(model: model, checks: checks)
+    }
+
+    // Each change of what Sorla offers for its own update is logged once, so a Download where Install was expected can be traced.
+    private func logOfferIfChanged(_ offer: AppUpdateOffer?) {
+        let kind = offer.map { "\($0.kind) \($0.version)" }
+        guard kind != loggedOffer else { return }
+        loggedOffer = kind
+        guard let offer else { return }
+        Self.logger.notice("app update offer: \(offer.kind, privacy: .public) \(offer.version, privacy: .public); location \(String(describing: self.appUpdater.location), privacy: .public), pinned \(self.updateChecker.pinnedRelease?.version ?? "nothing", privacy: .public)")
     }
 
     private func modelStatusDidChange(_ status: ModelStatus) {

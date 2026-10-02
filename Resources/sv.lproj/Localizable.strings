@@ -184,6 +184,8 @@
 "Install Sorla and relaunch it" = "Installera Sorla och starta om den";
 "Sorla %@ is available — Install and Relaunch" = "Sorla %@ finns – Installera och starta om";
 "Sorla %@ is available — Update with Homebrew" = "Sorla %@ finns – Uppdatera med Homebrew";
+"Downloading Sorla %@… %lld%%" = "Laddar ner Sorla %@… %lld %%";
+"Downloading Sorla %@…" = "Laddar ner Sorla %@…";
 "Installing Sorla %@…" = "Installerar Sorla %@…";
 "Couldn't install Sorla %@ — Download" = "Kunde inte installera Sorla %@ – Ladda ner";
 "Installing…" = "Installerar…";

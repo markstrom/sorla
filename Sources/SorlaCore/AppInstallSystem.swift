@@ -46,8 +46,8 @@ public struct URLSessionAppUpdateDownloader: AppUpdateDownloading {
         self.network = network
     }
 
-    public func download(_ url: URL, to destination: URL, maximumBytes: Int64) async throws {
-        try await network.download(from: url, to: destination, maxBytes: maximumBytes, access: .any, progress: { _ in })
+    public func download(_ url: URL, to destination: URL, maximumBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws {
+        try await network.download(from: url, to: destination, maxBytes: maximumBytes, access: .any, progress: progress)
     }
 }
 

@@ -15,6 +15,30 @@ private actor CountingReleaseSource: AppReleaseSource {
     }
 }
 
+// Answers only once the test opens it, so a second request can arrive while the first is out.
+private actor GatedReleaseSource: AppReleaseSource {
+    private let release: AppRelease
+    private var waiter: CheckedContinuation<Void, Never>?
+    private var isOpen = false
+    private(set) var calls = 0
+
+    init(_ release: AppRelease) {
+        self.release = release
+    }
+
+    func latestRelease() async throws -> AppRelease {
+        calls += 1
+        if !isOpen { await withCheckedContinuation { waiter = $0 } }
+        return release
+    }
+
+    func open() {
+        isOpen = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
 @MainActor
 final class UpdateCheckerTests: XCTestCase {
     private var suiteName: String!
@@ -153,6 +177,27 @@ final class UpdateCheckerTests: XCTestCase {
         checker.checkNow()
         await checker.appCheck?.value
         XCTAssertEqual(finished, [true, false])
+    }
+
+    // Asking while the daily check is out makes its answer the user's, so what it finds installs at once (#89).
+    func testAskingDuringAnAutomaticCheckMakesItTheUsers() async {
+        let source = GatedReleaseSource(AppRelease(tagName: "v1.1.0"))
+        let checker = makeChecker(source: source, automaticChecks: true)
+        var finished: [Bool] = []
+        checker.onAppCheckFinished = { finished.append($0) }
+
+        checker.checkAppIfDue()
+        checker.checkNow()
+        await source.open()
+        await checker.appCheck?.value
+        let calls = await source.calls
+        XCTAssertEqual(calls, 1, "one request")
+        XCTAssertEqual(finished, [false])
+
+        now = now.addingTimeInterval(AppUpdateSchedule.interval)
+        checker.checkAppIfDue()
+        await checker.appCheck?.value
+        XCTAssertEqual(finished, [false, true], "the next daily check is automatic again")
     }
 
     func testNoPinWithoutANewerInstallableRelease() async {

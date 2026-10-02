@@ -64,4 +64,28 @@ final class RecentTranscriptTests: XCTestCase {
         recent.clear()
         XCTAssertTrue(recent.accepts(from: inFlight))
     }
+
+    // Only text that reached no app holds an update back; pasted text is also elsewhere.
+    func testTextIsUnpastedUntilMarkedPasted() {
+        var recent = RecentTranscript()
+        XCTAssertFalse(recent.hasUnpastedText(at: start))
+        recent.store("hej", at: start)
+        XCTAssertTrue(recent.hasUnpastedText(at: start))
+        recent.markPasted("något annat")
+        XCTAssertTrue(recent.hasUnpastedText(at: start), "a paste of other text says nothing about this one")
+        recent.markPasted("hej")
+        XCTAssertFalse(recent.hasUnpastedText(at: start))
+        XCTAssertEqual(recent.text(at: start), "hej", "still there for Paste Last")
+        recent.store("nästa", at: start)
+        XCTAssertTrue(recent.hasUnpastedText(at: start), "newer text starts unpasted")
+    }
+
+    func testUnpastedTextStopsHoldingOnceExpiredOrCleared() {
+        var recent = RecentTranscript()
+        recent.store("hej", at: start)
+        XCTAssertFalse(recent.hasUnpastedText(at: start.addingTimeInterval(5 * 60)))
+        recent.store("hej", at: start)
+        recent.forget()
+        XCTAssertFalse(recent.hasUnpastedText(at: start))
+    }
 }

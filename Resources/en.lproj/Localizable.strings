@@ -184,6 +184,8 @@
 "Install Sorla and relaunch it" = "Install Sorla and relaunch it";
 "Sorla %@ is available — Install and Relaunch" = "Sorla %@ is available — Install and Relaunch";
 "Sorla %@ is available — Update with Homebrew" = "Sorla %@ is available — Update with Homebrew";
+"Downloading Sorla %@… %lld%%" = "Downloading Sorla %@… %lld%%";
+"Downloading Sorla %@…" = "Downloading Sorla %@…";
 "Installing Sorla %@…" = "Installing Sorla %@…";
 "Couldn't install Sorla %@ — Download" = "Couldn't install Sorla %@ — Download";
 "Installing…" = "Installing…";

@@ -14,15 +14,31 @@ public enum AppInstallPolicy {
 
     // Only the versioned DMG at its fixed GitHub address is taken, so a tampered answer can't choose another file.
     public static func pin(_ release: AppRelease) -> PinnedRelease? {
-        guard let version = AppUpdateCheck.version(fromTag: release.tagName) else { return nil }
+        if case .pinned(let pin) = pinning(release) { return pin }
+        return nil
+    }
+
+    // Why a release can't be installed from Sorla, for the log; names only what GitHub shows anyone.
+    public enum Pinning: Equatable, Sendable {
+        case pinned(PinnedRelease)
+        case unreadableTag
+        case unbuildableURL
+        case missingAsset(expected: String, found: [String])
+        case unexpectedURL(String)
+        case unexpectedSize(Int64)
+    }
+
+    public static func pinning(_ release: AppRelease) -> Pinning {
+        guard let version = AppUpdateCheck.version(fromTag: release.tagName) else { return .unreadableTag }
         let versionText = release.tagName.hasPrefix("v") || release.tagName.hasPrefix("V") ? String(release.tagName.dropFirst()) : release.tagName
         let name = assetName(version: versionText)
-        guard let url = URL(string: releaseDownloads + release.tagName + "/" + name),
-              let asset = release.assets.first(where: { $0.name == name }),
-              asset.downloadURL == url,
-              (1...maximumDownloadSize).contains(asset.size)
-        else { return nil }
-        return PinnedRelease(tag: release.tagName, version: version.description, assetURL: url, assetSize: asset.size)
+        guard let url = URL(string: releaseDownloads + release.tagName + "/" + name) else { return .unbuildableURL }
+        guard let asset = release.assets.first(where: { $0.name == name }) else {
+            return .missingAsset(expected: name, found: release.assets.map(\.name))
+        }
+        guard asset.downloadURL == url else { return .unexpectedURL(asset.downloadURL.absoluteString) }
+        guard (1...maximumDownloadSize).contains(asset.size) else { return .unexpectedSize(asset.size) }
+        return .pinned(PinnedRelease(tag: release.tagName, version: version.description, assetURL: url, assetSize: asset.size))
     }
 
     // Exactly the version that was checked, and newer than this one: never a downgrade or a surprise.
@@ -211,6 +227,27 @@ public enum AppInstallRecovery {
         guard record.bundlePath == bundlePath, record.backupPath != bundlePath else { return .keepBackup }
         let isNewVersion = runningVersion.flatMap(SemanticVersion.init).map { $0 == SemanticVersion(record.version) } ?? false
         return .removeBackupAfterGrace(updatedTo: isNewVersion ? record.version : nil)
+    }
+}
+
+// What a check that found a newer Sorla leads to (#89).
+public enum AppUpdateDecision: Equatable, Sendable {
+    // The user asked: download, check and install at once, waiting only for a dictation in flight.
+    case installNow
+    // A daily check with both toggles on: fetched quietly, installed after ten quiet minutes or at the next launch.
+    case prepareInBackground
+    // Shown in Settings and the menu's status row (Install and Relaunch, Download or Homebrew).
+    case offer
+
+    public static func afterCheck(hasPin: Bool, automatic: Bool, automaticInstalls: Bool, location: AppInstallLocation) -> AppUpdateDecision {
+        guard hasPin, location.canInstall else { return .offer }
+        if !automatic { return .installNow }
+        return automaticInstalls ? .prepareInBackground : .offer
+    }
+
+    // Whole percents, as the rows show them, so a tick that changes nothing visible changes no state.
+    public static func percent(_ fraction: Double) -> Int {
+        Int((min(max(fraction, 0), 1) * 100).rounded(.down))
     }
 }
 

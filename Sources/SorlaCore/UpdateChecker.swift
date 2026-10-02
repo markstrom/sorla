@@ -50,6 +50,8 @@ public final class UpdateChecker: ObservableObject {
     private let checkModel: @MainActor () -> Void
     private let now: () -> Date
     private(set) var appCheck: Task<Void, Never>?
+    // A check the user asks for while an automatic one runs takes over its result, so what it finds installs at once (#89).
+    private var isCheckAutomatic = true
 
     private static let lastCheckKey = "lastAppUpdateCheck"
 
@@ -90,8 +92,12 @@ public final class UpdateChecker: ObservableObject {
     }
 
     private func checkApp(automatic: Bool) {
-        guard appStatus != .checking else { return }
+        guard appStatus != .checking else {
+            if !automatic { isCheckAutomatic = false }
+            return
+        }
         defaults.set(now(), forKey: Self.lastCheckKey)
+        isCheckAutomatic = automatic
         appStatus = .checking
         let currentVersion = self.currentVersion
         let source = self.source
@@ -100,7 +106,7 @@ public final class UpdateChecker: ObservableObject {
             self.pinnedRelease = pin
             self.appStatus = AppUpdateStatus(result)
             self.appCheck = nil
-            self.onAppCheckFinished?(automatic)
+            self.onAppCheckFinished?(self.isCheckAutomatic)
         }
     }
 }

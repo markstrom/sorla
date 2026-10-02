@@ -131,6 +131,7 @@ final class UpdateRowTests: XCTestCase {
 
     func testInstallingIsBusyAndAFailureIsNeverLatest() {
         XCTAssertEqual(UpdateRow.app(.available(version: "1.1.0"), offer: offer(install: .installing(version: "1.1.0"))), UpdateRow(text: "Installing…", kind: .busy))
+        XCTAssertEqual(UpdateRow.app(.available(version: "1.1.0"), offer: offer(install: .downloading(version: "1.1.0", fraction: 0.5))), UpdateRow(text: "Downloading 50%", kind: .busy))
         for failure in [AppInstallFailure.offline, .download, .verification, .replace, .relaunch] {
             let row = UpdateRow.app(.available(version: "1.1.0"), offer: offer(install: .failed(version: "1.1.0", failure)))
             XCTAssertEqual(row, UpdateRow(text: failure.message, kind: .failure, action: .download))
@@ -140,6 +141,7 @@ final class UpdateRowTests: XCTestCase {
 
     func testCheckNowWaitsForAnInstall() {
         XCTAssertFalse(UpdateRow.canCheckNow(app: .available(version: "1.1.0"), model: .upToDate(version: "1"), install: .installing(version: "1.1.0")))
+        XCTAssertFalse(UpdateRow.canCheckNow(app: .available(version: "1.1.0"), model: .upToDate(version: "1"), install: .downloading(version: "1.1.0", fraction: 0.2)))
         XCTAssertTrue(UpdateRow.canCheckNow(app: .available(version: "1.1.0"), model: .upToDate(version: "1"), install: .ready(version: "1.1.0")))
     }
 }

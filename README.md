@@ -61,7 +61,7 @@ Update later with `brew upgrade --cask sorla`.
 
 ### Updates
 
-Sorla can update itself. When **Check for Updates…** in the menu (or **Check Now** in Settings › Updates) finds a newer version, choose **Install and Relaunch** there or in the menu's status row. Sorla downloads that exact release from GitHub, checks that it is signed by Sorla's developer, notarized by Apple and the version that was found, swaps it in at the same path, and relaunches in a few seconds, waiting for any dictation in flight. The previous version stays next to it until the new one has started. If anything fails, the current version is kept.
+Sorla can update itself. When **Check for Updates…** in the menu (or **Check Now** in Settings › Updates) finds a newer version, Sorla installs it right away, whatever the automatic switches say, since you asked: the menu's status row shows "Downloading Sorla 1.2.3… 40%", then "Installing Sorla 1.2.3…" (Settings › Updates shows "Downloading 40%", then "Installing…"). Sorla downloads that exact release from GitHub, checks that it is signed by Sorla's developer, notarized by Apple and the version that was found, swaps it in at the same path, and relaunches, waiting first for any dictation in flight, a speech model download, or text that is kept for Paste Last because it couldn't be pasted. The previous version stays next to it until the new one has started. If anything fails, the current version is kept and Sorla says why. A version found by the daily automatic check is not installed at once, so it never interrupts you: with both automatic switches on it is handled as described below, and otherwise it is offered as **Install and Relaunch**.
 
 With both **Check for updates automatically** and **Install updates automatically** turned on (both are off by default), Sorla downloads and verifies a new version in the background and installs it once you haven't dictated for 10 minutes, or at its next launch.
 
@@ -88,7 +88,7 @@ Sorla uses the network only to:
 
 - download the speech model from Hugging Face on first launch (if that download doesn't finish, Sorla gets the rest later by itself, but only over Wi-Fi or Ethernet, not a phone's hotspot or Low Data Mode),
 - check for updates, asking GitHub for the latest app version and Hugging Face for a newer model in one check, only when you ask it to or, if you turn it on, automatically about once a day, and
-- download a new version of Sorla from GitHub, only when you choose Install and Relaunch or have turned on both automatic checks and automatic installs. Before installing it, macOS asks Apple whether it is notarized.
+- download a new version of Sorla from GitHub, only when you choose Install and Relaunch, when a check you started finds one, or when you have turned on both automatic checks and automatic installs. Before installing it, macOS asks Apple whether it is notarized.
 
 There are no accounts, no analytics and no tracking. Once the model is installed, Sorla works offline. Read the full [privacy policy](https://sorla.zerolabs.se/privacy).
 

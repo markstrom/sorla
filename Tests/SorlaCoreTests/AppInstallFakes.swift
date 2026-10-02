@@ -130,12 +130,32 @@ final class FakeAppDisk: AppFileOperations, Sendable {
     }
 }
 
+// Holds a download until the test lets it finish.
+actor DownloadGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters = []
+    }
+}
+
 // Writes the disk image a test chose, or fails the way a network can.
 final class FakeAppDownloader: AppUpdateDownloading, Sendable {
     struct State: Sendable {
         var image: FakeAppDisk.Item = .image(size: 11_000_000, app: FakeApp(version: "1.1.0"))
         var error: Error?
         var requests: [(url: URL, maximumBytes: Int64)] = []
+        // Bytes reported before the gate, then the gate, then the file.
+        var progress: [Int64] = []
+        var gate: DownloadGate?
     }
 
     let disk: FakeAppDisk
@@ -150,11 +170,20 @@ final class FakeAppDownloader: AppUpdateDownloading, Sendable {
     func serve(_ image: FakeAppDisk.Item) { state.withLock { $0.image = image } }
     func fail(with error: Error) { state.withLock { $0.error = error } }
 
-    func download(_ url: URL, to destination: URL, maximumBytes: Int64) async throws {
-        let (image, error) = state.withLock { state in
-            state.requests.append((url, maximumBytes))
-            return (state.image, state.error)
+    func reportProgress(_ bytes: [Int64], holdingAt gate: DownloadGate) {
+        state.withLock {
+            $0.progress = bytes
+            $0.gate = gate
         }
+    }
+
+    func download(_ url: URL, to destination: URL, maximumBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws {
+        let (image, error, steps, gate) = state.withLock { state in
+            state.requests.append((url, maximumBytes))
+            return (state.image, state.error, state.progress, state.gate)
+        }
+        steps.forEach(progress)
+        await gate?.wait()
         if let error { throw error }
         disk.set(destination.path, image)
     }

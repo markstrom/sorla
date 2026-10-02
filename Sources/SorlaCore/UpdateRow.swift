@@ -50,6 +50,8 @@ public struct UpdateRow: Equatable, Sendable {
         case .homebrew(let version):
             let note = String(localized: "Update with Homebrew: \(AppUpdateOffer.homebrewCommand)", bundle: Localization.bundle)
             return UpdateRow(text: available(version).text, note: note)
+        case .downloading(_, let fraction):
+            return UpdateRow(text: String(localized: "Downloading \(AppUpdateDecision.percent(fraction))%", bundle: Localization.bundle), kind: .busy)
         case .installing:
             return UpdateRow(text: String(localized: "Installing…", bundle: Localization.bundle), kind: .busy)
         case .failed(_, let failure):
@@ -82,7 +84,6 @@ public struct UpdateRow: Equatable, Sendable {
     // Check Now waits while either half is still busy, so one click never starts a second check.
     public static func canCheckNow(app: AppUpdateStatus, model: ModelStatus, install: AppInstallState = .idle) -> Bool {
         guard app != .checking, !model.isBusy else { return false }
-        if case .installing = install { return false }
-        return true
+        return !install.isInstalling
     }
 }
