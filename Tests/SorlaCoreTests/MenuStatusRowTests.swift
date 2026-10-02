@@ -100,6 +100,14 @@ final class MenuStatusRowTests: XCTestCase {
         )
     }
 
+    // #87: nothing installed is no "update available"; the setup window's Download works on any network.
+    func testAModelWaitingForWiFiOrEthernetSaysSoAndOpensTheSetupWindow() {
+        XCTAssertEqual(
+            row(model: .waitingForInexpensiveNetwork),
+            MenuStatusRow(title: "Model not installed — downloads on Wi-Fi or Ethernet", action: .showWelcome)
+        )
+    }
+
     func testALoadFailureOpensTheSetupWindow() {
         XCTAssertEqual(
             row(modelLoadFailed: true),
@@ -262,6 +270,18 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(menu.row.title, "Text is on the clipboard — choose Paste Last Transcription")
         XCTAssertEqual(menu.shownAt, Self.shownAt)
         XCTAssertEqual(menu.rerouted(pasteLast: .shortcut("⌃⌥V")).row, shortcut.row)
+    }
+
+    // #85: the kept text is only reachable through Paste Last, so its row offers it and follows VoiceOver either way.
+    func testTheTextKeptAfterAnAppSwitchRowPastesLastAndFollowsVoiceOver() throws {
+        let shortcut = try XCTUnwrap(TransientMenuStatus(issue: .textKeptForPasteLast(pasteLast: .shortcut("⌃⌥V")), at: Self.shownAt))
+        XCTAssertEqual(shortcut.row, MenuStatusRow(title: "Text kept — press ⌃⌥V to paste it", action: .pasteLastTranscription))
+        let menu = shortcut.rerouted(pasteLast: .menu)
+        XCTAssertEqual(menu.row, MenuStatusRow(title: "Text kept — choose Paste Last Transcription", action: .pasteLastTranscription))
+        XCTAssertEqual(menu.shownAt, Self.shownAt)
+        XCTAssertEqual(menu.rerouted(pasteLast: .shortcut("⌃⌥V")).row, shortcut.row)
+        XCTAssertEqual(shortcut.rerouted(pasteLast: nil).row.title, "Text kept — choose Paste Last Transcription")
+        XCTAssertEqual(shortcut.rerouted(pasteLast: .shortcut("⌃⌥V")), shortcut)
     }
 
     // ⌘V was named because Paste Last couldn't help (no permission, a replaced app), so VoiceOver changes nothing.

@@ -9,6 +9,9 @@ public enum DictationCue: Equatable, Sendable {
     case textOnClipboard
     // A blocked paste whose text Sorla kept for Paste Last; the clipboard is as the user left it (#72).
     case textKept
+    // Another app came forward before the text was ready, so nothing was pasted; the text waits for Paste Last and the
+    // clipboard is as the user left it (#85).
+    case textKeptAfterAppSwitch
     case releaseKeys
     // Paste Last asked for with nothing kept: it expired, was forgotten at a lock, or nothing was dictated yet.
     case nothingToPaste
@@ -30,7 +33,7 @@ public enum DictationCue: Equatable, Sendable {
         case .appReplaced:
             self = .restartNeeded
         // Whether the text was kept decides it; see blockedPaste(isTextKept:).
-        case .accessibilityAccessNeeded, .microphoneMuted, .textOnClipboard, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
+        case .accessibilityAccessNeeded, .microphoneMuted, .textOnClipboard, .textKeptForPasteLast, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed:
             return nil
         }
     }
@@ -46,7 +49,7 @@ public enum DictationCue: Equatable, Sendable {
         case .nothingHeard: return "waveform.slash"
         case .noText: return "minus"
         case .textOnClipboard: return "doc.on.clipboard"
-        case .textKept: return "doc.text"
+        case .textKept, .textKeptAfterAppSwitch: return "doc.text"
         case .releaseKeys: return "keyboard"
         case .nothingToPaste: return "clipboard"
         case .cancelled: return "xmark"
@@ -73,6 +76,15 @@ public enum DictationCue: Equatable, Sendable {
             return String(localized: "Your text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
         case .textKept:
             return String(localized: "Couldn't paste — Sorla has kept your text", bundle: Localization.bundle)
+        case .textKeptAfterAppSwitch:
+            switch pasteLast {
+            case .shortcut(let shortcut):
+                return String(localized: "Another app came forward, so nothing was pasted — press \(shortcut) to paste your text", bundle: Localization.bundle)
+            case .menu:
+                return String(localized: "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu (VO-M twice)", bundle: Localization.bundle)
+            case nil:
+                return String(localized: "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu", bundle: Localization.bundle)
+            }
         case .releaseKeys:
             switch pasteLast {
             case .menu:
@@ -99,6 +111,7 @@ public enum DictationCue: Equatable, Sendable {
         switch self {
         case .microphoneMuted: return .microphoneMuted
         case .textOnClipboard: return .textOnClipboard(pasteLast: pasteLast)
+        case .textKeptAfterAppSwitch: return .textKeptForPasteLast(pasteLast: pasteLast)
         case .textKept, .nothingHeard, .noText, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel, .failed: return nil
         }
     }

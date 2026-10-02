@@ -9,6 +9,7 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
     private let appSettings: AppSettings
     private let modelManager: ModelManager
     private var permissionPoll: Timer?
+    private var activationObserver: NSObjectProtocol?
 
     init(
         appSettings: AppSettings,
@@ -59,16 +60,30 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         permissionPoll?.invalidate()
         permissionPoll = nil
+        if let activationObserver {
+            NotificationCenter.default.removeObserver(activationObserver)
+            self.activationObserver = nil
+        }
         appSettings.hasCompletedOnboarding = true
         state.didClose()
         onClose?()
     }
 
-    // macOS doesn't notify about Accessibility changes, so the row polls while the window is open.
+    // macOS doesn't notify about Accessibility changes, so the row polls while the window is open. Coming back to Sorla,
+    // say from System Settings, checks at once instead of waiting for the next tick (#86).
     private func startPollingPermissions() {
         state.refresh()
         guard permissionPoll == nil else { return }
         permissionPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.state.refresh()
+            }
+        }
+        activationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: NSApp,
+            queue: .main
+        ) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.state.refresh()
             }

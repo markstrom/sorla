@@ -102,7 +102,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             isDictationIdle: { [weak self] in self?.recordingController.phase == .idle },
             reloadModel: { [weak self] in await self?.recordingController.reloadModel() ?? false },
             automaticChecks: appSettings.autoCheckUpdates,
-            automaticDownloads: appSettings.autoInstallUpdates
+            automaticDownloads: appSettings.autoInstallUpdates,
+            // A missing model's install after setup waits for Wi-Fi or Ethernet and is tried again when one comes up (#87).
+            networkWatcher: NWPathInexpensiveNetworkWatcher()
         )
         updateChecker = UpdateChecker(
             currentVersion: AppVersion.short,

@@ -27,7 +27,7 @@ public struct TransientMenuStatus: Equatable, Sendable {
         let action: MenuStatusAction
         switch issue {
         case .noInputDevice, .microphoneMuted: action = .openSoundSettings
-        case .textOnClipboard: action = .pasteLastTranscription
+        case .textOnClipboard, .textKeptForPasteLast: action = .pasteLastTranscription
         case .transcriptionFailed: action = .dismiss
         // A replaced app stays replaced until it restarts, so it has its own row rather than one that expires.
         case .microphoneAccessNeeded, .accessibilityAccessNeeded, .modelNotLoaded, .modelDownloadFailed, .modelUpdateFailed, .appReplaced:
@@ -46,8 +46,13 @@ public struct TransientMenuStatus: Equatable, Sendable {
     }
 
     // The same explanation for the same time, naming Paste Last as `pasteLast` now says. A row that named only ⌘V
-    // did so because Paste Last couldn't help, and stays as it is.
+    // did so because Paste Last couldn't help, and stays as it is. A kept text is only reachable through Paste Last, so
+    // its row always follows.
     public func rerouted(pasteLast: PasteLastRoute?) -> TransientMenuStatus {
+        if case .textKeptForPasteLast(let named) = issue {
+            guard pasteLast != named else { return self }
+            return TransientMenuStatus(issue: .textKeptForPasteLast(pasteLast: pasteLast), at: shownAt) ?? self
+        }
         guard case .textOnClipboard(let named?) = issue, let pasteLast, pasteLast != named,
               let rerouted = TransientMenuStatus(issue: .textOnClipboard(pasteLast: pasteLast), at: shownAt)
         else { return self }
@@ -113,6 +118,9 @@ public struct MenuStatusRow: Equatable, Sendable {
             return MenuStatusRow(title: SorlaIssue.modelDownloadFailed.menuTitle, action: .showWelcome)
         case .notInstalled:
             return MenuStatusRow(title: String(localized: "Model not installed", bundle: Localization.bundle), action: .showWelcome)
+        // The setup window's Download works on any network, so the user needn't wait (#87).
+        case .waitingForInexpensiveNetwork:
+            return MenuStatusRow(title: String(localized: "Model not installed — downloads on Wi-Fi or Ethernet", bundle: Localization.bundle), action: .showWelcome)
         default:
             break
         }

@@ -64,6 +64,18 @@ final class WelcomeChecklistTests: XCTestCase {
         XCTAssertEqual(modelRow(model: .notInstalled), .needsAction(.downloadModel, buttonTitle: "Download", note: nil))
     }
 
+    // #87: the row says why nothing is downloading, and Download is there for the network in use.
+    func testAModelWaitingForWiFiOrEthernetOffersADownloadNow() {
+        let row = modelRow(model: .waitingForInexpensiveNetwork)
+        XCTAssertEqual(row, .needsAction(
+            .downloadModel,
+            buttonTitle: "Download",
+            note: "Downloads automatically on Wi-Fi or Ethernet. Download gets it now on the network you're using."
+        ))
+        XCTAssertEqual(WelcomeRow.model.statusText(row), "Missing")
+        XCTAssertTrue(WelcomeRow.model.possibleStatuses.contains(row), "the window keeps room for the note")
+    }
+
     func testFailedDownloadOffersARetry() {
         XCTAssertEqual(
             modelRow(model: .failed(.network, isUpdate: false)),

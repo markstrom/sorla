@@ -98,6 +98,7 @@ final class DictationGateTests: XCTestCase {
         XCTAssertNil(DictationGate.modelProblem(isModelInstalled: true, isModelLoading: true, model: .installed(version: "1")))
         XCTAssertNil(DictationGate.modelProblem(isModelInstalled: true, model: .installed(version: "1")))
         XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .notInstalled), .missing)
+        XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .waitingForInexpensiveNetwork), .missing)
         XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .failed(.network, isUpdate: false)), .downloadFailed)
         XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: false, model: .failed(.insufficientDiskSpace(required: 1_400_000_000), isUpdate: false)), .insufficientDiskSpace)
         XCTAssertEqual(DictationGate.modelProblem(isModelInstalled: true, didModelFailToLoad: true, model: .installed(version: "1")), .loadFailed)

@@ -108,6 +108,12 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(title(.downloading(version: "1", fraction: 0.42, isUpdate: false)), "Laddar ner modellen… 42 %")
             XCTAssertEqual(title(.preparing(version: "1", isUpdate: false)), "Förbereder modellen… ~1 min")
             XCTAssertEqual(title(.notInstalled), "Modellen är inte installerad")
+            XCTAssertEqual(title(.waitingForInexpensiveNetwork), "Modellen är inte installerad – laddas ner via Wi-Fi eller kabel")
+            XCTAssertEqual(ModelStatus.waitingForInexpensiveNetwork.settingsText, "Inte installerad · Laddas ner via Wi-Fi eller kabel")
+            XCTAssertEqual(
+                WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .waitingForInexpensiveNetwork).note,
+                "Laddas ner automatiskt via Wi-Fi eller kabel. Ladda ner hämtar den nu via nätverket du använder."
+            )
             XCTAssertEqual(title(.failed(.network, isUpdate: false)), "Nedladdningen av modellen misslyckades")
             XCTAssertEqual(title(.failed(.network, isUpdate: true)), "Uppdateringen av modellen misslyckades – Försök igen")
             XCTAssertEqual(ModelStatus.downloading(version: "1", fraction: 0.42, isUpdate: false).settingsText, "Laddar ner 42 %")
@@ -298,6 +304,16 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(RecordingLimit.stopAnnouncement, "Inspelningen stoppades vid gränsen på fem minuter")
             XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteLast: nil), "Sorla har uppdaterats och behöver startas om")
             XCTAssertEqual(DictationCue.blockedPaste(isTextKept: false).announcement(pasteLast: nil), "Kunde inte klistra in – texten sparades inte")
+            XCTAssertEqual(
+                DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: .shortcut("⌃⌥V")),
+                "En annan app kom fram, så inget klistrades in – tryck ⌃⌥V för att klistra in texten"
+            )
+            XCTAssertEqual(
+                DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: .menu),
+                "En annan app kom fram, så inget klistrades in – välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)"
+            )
+            XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Texten är sparad – tryck ⌃⌥V för att klistra in den")
+            XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: .menu).menuTitle, "Texten är sparad – välj Klistra in senaste transkriberingen")
             XCTAssertEqual(
                 MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true)?.title,
                 "Sorla har uppdaterats – Starta om"

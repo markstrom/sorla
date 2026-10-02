@@ -43,7 +43,7 @@
   <main id="innehall" class="policy">
     <p class="eyebrow">Integritet</p>
     <h1 class="page-title">Integritetspolicy</h1>
-    <p class="quiet">Senast uppdaterad 25 september 2026</p>
+    <p class="quiet">Senast uppdaterad 2 oktober 2026</p>
     <p class="lede">Sorla samlar inte in några uppgifter om dig.</p>
     <p>Det är hela policyn. Resten är detaljer.</p>
 
@@ -54,7 +54,7 @@
     <p>Den färdiga texten klistras in där markören står. Sorla sparar ingen historik. Den senaste texten hålls i minnet i fem minuter så att du kan klistra in den igen med <code>⌃⌥V</code>. Den glöms direkt om skärmen låses, Macen går i vila, du byter användare eller avslutar appen. Stänger du av <strong>Spara senaste transkriberingen</strong> i Inställningar glöms texten direkt, och därefter håller Sorla inte kvar någon text för att klistra in igen när den väl har klistrats in. Urklippet styrs för sig, se nedan.</p>
 
     <h2>Urklippet</h2>
-    <p>För att klistra in lägger Sorla texten en kort stund i urklippet och trycker <code>⌘V</code> åt dig. Sedan lägger den tillbaka det som låg där innan, om du inte har stängt av det i inställningarna. Texten blir kvar i urklippet om du har stängt av <strong>Lägg tillbaka det du hade kopierat</strong>, eller om du har bytt app innan texten var klar. Då kan du klistra in den själv. Saknas behörigheten för att klistra in rör Sorla inte urklippet alls, och texten sparas bara som senaste transkribering. Urklippet läses inte för något annat.</p>
+    <p>För att klistra in lägger Sorla texten en kort stund i urklippet och trycker <code>⌘V</code> åt dig. Sedan lägger den tillbaka det som låg där innan, om du inte har stängt av det i inställningarna. Texten blir kvar i urklippet om du har stängt av <strong>Lägg tillbaka det du hade kopierat</strong>. Då kan du klistra in den själv. Byter du app innan texten är klar rörs urklippet inte, och texten sparas bara som senaste transkribering. Har du stängt av en av inställningarna <strong>Lägg tillbaka det du hade kopierat</strong> och <strong>Spara senaste transkriberingen</strong> läggs den i urklippet i stället, så att den inte går förlorad. Saknas behörigheten för att klistra in rör Sorla inte urklippet alls, och texten sparas bara som senaste transkribering. Urklippet läses inte för något annat.</p>
 
     <h2>Behörigheter</h2>
     <p>Sorla ber om två: <strong>mikrofon</strong>, för att höra dig, och <strong>enhetskontroll och dataåtkomst</strong> (hjälpmedel i äldre macOS), för att känna av din tangent och klistra in texten i andra appar. Båda kan dras tillbaka när som helst i Systeminställningar.</p>
@@ -62,7 +62,7 @@
     <h2 id="natverket">Nätverket</h2>
     <p>Sorla har inget konto och ingen server. Appen gör bara tre slags förfrågningar:</p>
     <ul>
-      <li><strong>Talmodellen</strong>, ungefär 700 MB, laddas ner från Hugging Face på <a href="https://huggingface.co"><code>huggingface.co</code></a> en gång när du startar Sorla första gången.</li>
+      <li><strong>Talmodellen</strong>, ungefär 700 MB, laddas ner från Hugging Face på <a href="https://huggingface.co"><code>huggingface.co</code></a> en gång när du startar Sorla första gången. Blir den nedladdningen inte klar hämtar Sorla resten av sig själv senare, men bara via Wi-Fi eller kabel.</li>
       <li><strong>Sökning efter uppdateringar.</strong> En sökning frågar både GitHub på <code>api.github.com</code> om numret på den senaste versionen av Sorla och Hugging Face om det finns en nyare talmodell. Det sker bara när du väljer <strong>Sök nu</strong> i Inställningar eller <strong>Sök efter uppdateringar…</strong> i menyn, eller ungefär en gång om dagen om du själv har slagit på <strong>Sök efter uppdateringar automatiskt</strong>. Det är avstängt från början.</li>
       <li><strong>En ny version av Sorla</strong> laddas ner från GitHub på <a href="https://github.com/markstrom/sorla/releases"><code>github.com</code></a> bara när du klickar på <strong>Installera och starta om</strong>, eller av sig själv om du har slagit på både <strong>Sök efter uppdateringar automatiskt</strong> och <strong>Installera uppdateringar automatiskt</strong>. Båda är avstängda från början. Innan den nya versionen installeras frågar macOS Apple om den är notariserad, samma kontroll som när du öppnar en app du har laddat ner.</li>
     </ul>

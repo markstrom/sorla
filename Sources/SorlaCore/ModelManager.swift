@@ -28,8 +28,14 @@ public final class ModelManager: ObservableObject {
     private let reloadModel: @MainActor () async -> Bool
     private let checkInterval: TimeInterval
     private let idlePollInterval: TimeInterval
+    private let automaticRetryInterval: TimeInterval
+    private let networkWatcher: InexpensiveNetworkWatching?
     private let sleep: @MainActor (TimeInterval) async -> Void
     private var hasStarted = false
+    // Set while a model install nobody asked for, with nothing installed, waits to be tried again (#87).
+    private(set) var automaticRetry: Task<Void, Never>?
+    // Which wait a timer or path callback belongs to, so a late one from an earlier wait starts nothing.
+    private var automaticRetryID = 0
     // Whether the current work was asked for, rather than started by an automatic check.
     private var isWorkRequested = false
     private(set) var work: Task<Void, Never>?
@@ -46,6 +52,8 @@ public final class ModelManager: ObservableObject {
         automaticDownloads: Bool,
         checkInterval: TimeInterval = 24 * 60 * 60,
         idlePollInterval: TimeInterval = 0.5,
+        automaticRetryInterval: TimeInterval = 60 * 60,
+        networkWatcher: InexpensiveNetworkWatching? = nil,
         sleep: @escaping @MainActor (TimeInterval) async -> Void = { try? await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
     ) {
         self.installer = installer
@@ -57,6 +65,8 @@ public final class ModelManager: ObservableObject {
         self.automaticDownloads = automaticDownloads
         self.checkInterval = checkInterval
         self.idlePollInterval = idlePollInterval
+        self.automaticRetryInterval = automaticRetryInterval
+        self.networkWatcher = networkWatcher
         self.sleep = sleep
     }
 
@@ -67,7 +77,8 @@ public final class ModelManager: ObservableObject {
 
     public var installedVersion: String? { PianissimoModel.installedVersion(at: swap.installed) }
 
-    // Only the first run's download is one the user is waiting on; a later launch's retry stays quiet.
+    // Only the first run's download is one the user is waiting on; a later launch's retry stays quiet and, like an
+    // automatic update, off networks marked as costly (#87).
     public func start(isCheckDue: Bool = true, isFirstRun: Bool = true) {
         guard !hasStarted else { return }
         hasStarted = true
@@ -100,7 +111,7 @@ public final class ModelManager: ObservableObject {
         guard work == nil else { return }
         guard isInstalled else { return download(requested: userInitiated) }
         isWorkRequested = userInitiated
-        let access = Self.access(isUpdate: true, requested: userInitiated)
+        let access = Self.access(requested: userInitiated)
         let statusBefore = status
         status = .checking
         Self.logger.info("model update check started")
@@ -147,9 +158,11 @@ public final class ModelManager: ObservableObject {
 
     private func download(requested: Bool) {
         guard work == nil else { return }
+        // A failure of this attempt schedules the next one again.
+        stopAutomaticRetry()
         isWorkRequested = requested
         let isUpdate = isInstalled
-        let access = Self.access(isUpdate: isUpdate, requested: requested)
+        let access = Self.access(requested: requested)
         status = .downloading(version: offered?.release.version ?? "", fraction: 0, isUpdate: isUpdate)
         work = Task {
             defer { self.work = nil }
@@ -205,9 +218,10 @@ public final class ModelManager: ObservableObject {
         }
     }
 
-    // An update nobody asked for never uses a hotspot or Low Data Mode; the user's own download, and the first install, may.
-    static func access(isUpdate: Bool, requested: Bool) -> ModelNetworkAccess {
-        isUpdate && !requested ? .inexpensiveOnly : .any
+    // Work nobody asked for never uses a hotspot or Low Data Mode: an automatic update, and since #87 also a missing
+    // model's install after setup. The user's own download, and the first run's, may.
+    static func access(requested: Bool) -> ModelNetworkAccess {
+        requested ? .any : .inexpensiveOnly
     }
 
     private func fetchLatest(access: ModelNetworkAccess) async throws -> PublishedModel {
@@ -233,7 +247,13 @@ public final class ModelManager: ObservableObject {
         } catch {
             stagingVersion = nil
             // Offered instead: the next automatic check tries again and resumes, and Download works now on any network.
+            // With nothing installed there is no update to offer, so the install waits for Wi-Fi or Ethernet (#87).
             if ModelInstaller.isCostlyNetworkRefusal(error) {
+                guard isUpdate else {
+                    offered = latest
+                    waitForInexpensiveNetwork()
+                    return
+                }
                 Self.logger.info("automatic model update \(version, privacy: .public) waits for a network that isn't marked as costly")
                 offered = latest
                 status = .updateAvailable(version: version)
@@ -403,11 +423,60 @@ public final class ModelManager: ObservableObject {
 
     // An update failure only says the current model stays in use when it really is loaded.
     private func fail(_ error: Error, isUpdate: Bool, previousModelWorks: Bool = true) {
+        if !isUpdate, ModelInstaller.isCostlyNetworkRefusal(error) {
+            return waitForInexpensiveNetwork()
+        }
         let installError = error as? ModelInstallError ?? .installFailed
         Self.logger.error("model install failed: \(String(describing: installError), privacy: .public)")
         status = .failed(installError, isUpdate: isUpdate)
+        // Offline or a server hiccup may pass by itself; anything else waits for the user or the next launch.
+        if !isUpdate, !isWorkRequested, installError == .network || installError == .serverUnavailable {
+            scheduleAutomaticRetry()
+        }
         let issue: SorlaIssue = !isUpdate ? .modelDownloadFailed : previousModelWorks ? .modelUpdateFailed : .modelNotLoaded
         report(issue, reason: installError.reason)
+    }
+
+    // Not a failure: nobody asked, and the network may only be used for that on Wi-Fi or Ethernet (#87).
+    private func waitForInexpensiveNetwork() {
+        Self.logger.info("model install waits for a network that isn't marked as costly")
+        status = .waitingForInexpensiveNetwork
+        scheduleAutomaticRetry()
+    }
+
+    // A missing model's install nobody asked for is tried again when a network it may use comes up, and otherwise about
+    // once an hour, as well as at the next launch. Nothing runs in between: the path monitor only wakes on a change,
+    // and the timer sleeps (#87).
+    private func scheduleAutomaticRetry() {
+        stopAutomaticRetry()
+        guard !isInstalled else { return }
+        Self.logger.info("model install will be tried again on a network change or in \(Int(self.automaticRetryInterval), privacy: .public) s")
+        let interval = automaticRetryInterval
+        let sleep = self.sleep
+        automaticRetryID += 1
+        let id = automaticRetryID
+        automaticRetry = Task { [weak self] in
+            await sleep(interval)
+            guard !Task.isCancelled else { return }
+            self?.retryAutomaticInstall(id)
+        }
+        networkWatcher?.start { [weak self] in
+            self?.retryAutomaticInstall(id)
+        }
+    }
+
+    // A late callback after the retry was called off, from an earlier wait, or once something else started, does nothing.
+    private func retryAutomaticInstall(_ id: Int) {
+        guard automaticRetry != nil, id == automaticRetryID, work == nil, !isInstalled else { return }
+        Self.logger.info("trying the model install again")
+        download(requested: false)
+    }
+
+    private func stopAutomaticRetry() {
+        guard let automaticRetry else { return }
+        automaticRetry.cancel()
+        self.automaticRetry = nil
+        networkWatcher?.stop()
     }
 
     private func report(_ issue: SorlaIssue, reason: String? = nil) {

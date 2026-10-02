@@ -30,7 +30,7 @@ Sorla also builds on:
 - **Push to talk or toggle.** Hold the key while you speak, or press once to start and once more to stop.
 - **Your key.** Right ⌘ by default. Pick Right ⌥, Right ⌃ or a custom shortcut instead.
 - **A small indicator** at the top of the screen, with a live waveform while you speak.
-- **Paste Last.** ⌃⌥V pastes the most recent text again, wherever you are now. The text is kept for five minutes, and forgotten at once when the screen locks or the Mac sleeps. Turn off **Keep last transcription** in Settings and Sorla itself keeps no text for Paste Last once it has been pasted. The clipboard is separate: the text stays on it when **Put back what you had copied** is off, or when you switched apps before the text was ready. A paste that macOS blocks never changes the clipboard.
+- **Paste Last.** ⌃⌥V pastes the most recent text again, wherever you are now. The text is kept for five minutes, and forgotten at once when the screen locks or the Mac sleeps. Turn off **Keep last transcription** in Settings and Sorla itself keeps no text for Paste Last once it has been pasted. The clipboard is separate: the text stays on it when **Put back what you had copied** is off. If you switch apps before the text is ready, nothing is pasted and the clipboard is left alone: the text waits for Paste Last, unless **Put back what you had copied** or **Keep last transcription** is off, when it goes on the clipboard instead. A paste that macOS blocks never changes the clipboard.
 - **Your clipboard is kept.** Whatever you had copied is still there after Sorla pastes.
 - **Help when something is in the way.** If a dictation or paste is blocked by something only you can fix (a missing permission, the speech model, a microphone that won't start, a restart after an update), Sorla opens a window that says what and offers the fix, after you let go of the key. Choose **Not now** and it won't ask again about the same problem until Sorla restarts. No notifications.
 - Soft start and stop sounds, and optional launch at login.
@@ -86,7 +86,7 @@ Your voice and your text never leave your Mac. Audio is processed in memory and 
 
 Sorla uses the network only to:
 
-- download the speech model from Hugging Face on first launch,
+- download the speech model from Hugging Face on first launch (if that download doesn't finish, Sorla gets the rest later by itself, but only over Wi-Fi or Ethernet, not a phone's hotspot or Low Data Mode),
 - check for updates, asking GitHub for the latest app version and Hugging Face for a newer model in one check, only when you ask it to or, if you turn it on, automatically about once a day, and
 - download a new version of Sorla from GitHub, only when you choose Install and Relaunch or have turned on both automatic checks and automatic installs. Before installing it, macOS asks Apple whether it is notarized.
 
