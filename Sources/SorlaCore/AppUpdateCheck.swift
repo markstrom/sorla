@@ -125,7 +125,9 @@ public enum AppUpdateCheck {
                 logger.error("unusable release: tag=\(release.tagName, privacy: .public) prerelease=\(release.prerelease, privacy: .public) draft=\(release.draft, privacy: .public) current=\(currentVersion ?? "none", privacy: .public)")
             }
             guard case .available = result else {
-                logger.notice("update check: \(release.tagName, privacy: .public) is the latest release; running \(currentVersion ?? "none", privacy: .public)")
+                if result == .upToDate {
+                    logger.notice("update check: \(release.tagName, privacy: .public) is the latest release; running \(currentVersion ?? "none", privacy: .public)")
+                }
                 return (result, nil)
             }
             // Notice, not info, so the outcome is still in the log when someone asks why Download was offered.

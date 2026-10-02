@@ -272,6 +272,7 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(paste.contents, "the user's clipboard")
         XCTAssertEqual(cues, [.textKeptAfterAppSwitch, .textKeptAfterAppSwitch])
         XCTAssertEqual(controller.lastTranscript(), "B")
+        XCTAssertTrue(controller.hasUnpastedText(), "only Paste Last has it, so an update waits")
     }
 
     // With the setting off the text goes on the clipboard, as the user chose; it does too when Paste Last keeps nothing,
@@ -295,6 +296,7 @@ final class RecordingControllerDictationTests: XCTestCase {
             XCTAssertEqual(paste.lastWriteWasTransient, false, context)
             XCTAssertEqual(cues, [.textOnClipboard], context)
             XCTAssertEqual(controller.lastTranscript(), keepLast ? "A" : nil, context)
+            XCTAssertFalse(controller.hasUnpastedText(), context)
         }
     }
 
@@ -848,11 +850,13 @@ final class RecordingControllerDictationTests: XCTestCase {
     func testAfterAccessArrivesPasteLastPastesTheKeptText() async {
         paste.copy("mine")
         _ = await dictateBlocked("A")
+        XCTAssertTrue(controller.hasUnpastedText())
         paste.isAccessibilityTrusted = true
 
         controller.pasteLastTranscript()
         await controller.pasteLastRequest?.value
         XCTAssertEqual(paste.pastes, ["A"])
+        XCTAssertFalse(controller.hasUnpastedText(), "pasted at last")
         await clock.waitForSleeps(2)
         await clock.advance(by: settle)
         await controller.clipboardRestore?.value
@@ -870,6 +874,7 @@ final class RecordingControllerDictationTests: XCTestCase {
 
         XCTAssertEqual(paste.pastes, ["Ett prov"])
         XCTAssertEqual(controller.lastTranscript(), "Ett prov")
+        XCTAssertFalse(controller.hasUnpastedText(), "a pasted dictation holds nothing back")
         await clock.waitForSleeps(3)
         await clock.advance(by: settle)
         await controller.clipboardRestore?.value

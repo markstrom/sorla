@@ -134,6 +134,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             automaticChecks: appSettings.autoCheckUpdates,
             automaticInstalls: appSettings.autoInstallUpdates,
             activity: { [weak self] in self?.recordingController.activity ?? .quiet },
+            // A check of its own is cheap to lose; a download or install of the model isn't.
+            isModelBusy: { [weak self] in
+                guard let status = self?.modelManager.status else { return false }
+                return status.isBusy && status != .checking
+            },
+            hasUnpastedText: { [weak self] in self?.recordingController.hasUnpastedText() ?? false },
             terminate: {
                 NSApp.terminate(nil)
                 return false
@@ -386,6 +392,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         appUpdater.onRequestedInstallFailed = { [weak self] message in
             self?.announce(message)
+        }
+        appUpdater.onRequestedInstallStep = { [weak self] text in
+            self?.announce(text)
         }
         appUpdater.start()
 

@@ -16,6 +16,9 @@ final class AppUpdaterTests: XCTestCase {
     // Answers the next looks at activity in turn, then falls back to `activity`.
     private var activityScript: [DictationActivity] = []
     private var appReplaced = false
+    private var modelBusy = false
+    private var unpastedText = false
+    private var announcedSteps: [String] = []
     private var quits = 0
     private var quitGoesAhead = true
     private var updatedTo: [String] = []
@@ -60,6 +63,8 @@ final class AppUpdaterTests: XCTestCase {
             automaticChecks: automaticChecks,
             automaticInstalls: automaticInstalls,
             activity: { [unowned self] in self.activityScript.isEmpty ? self.activity : self.activityScript.removeFirst() },
+            isModelBusy: { [unowned self] in self.modelBusy },
+            hasUnpastedText: { [unowned self] in self.unpastedText },
             terminate: { [unowned self] in
                 self.quits += 1
                 return self.quitGoesAhead
@@ -74,6 +79,7 @@ final class AppUpdaterTests: XCTestCase {
         )
         updater.onUpdated = { [unowned self] in self.updatedTo.append($0) }
         updater.onRequestedInstallFailed = { [unowned self] in self.reportedFailures.append($0) }
+        updater.onRequestedInstallStep = { [unowned self] in self.announcedSteps.append($0) }
         return updater
     }
 
@@ -253,11 +259,22 @@ final class AppUpdaterTests: XCTestCase {
         defer { watch.cancel() }
 
         updater.updateFound(pin, automatic: false)
-        while updater.state != .downloading(version: "1.1.0", fraction: 0.4) { await Task.yield() }
+        // Bounded, so a lost tick fails the test instead of hanging it.
+        for _ in 0..<10_000 where updater.state != .downloading(version: "1.1.0", fraction: 0.4) { await Task.yield() }
+        XCTAssertEqual(updater.state, .downloading(version: "1.1.0", fraction: 0.4), "the 40 % tick arrived")
         await gate.open()
         await settle(updater)
 
-        XCTAssertEqual(states.map(\.shown), ["idle", "downloading 0", "downloading 10", "downloading 40", "installing"])
+        let shown = states.map(\.shown)
+        XCTAssertEqual(shown.first, "idle")
+        XCTAssertEqual(shown.last, "installing")
+        let percents = states.compactMap { state -> Int? in
+            guard case .downloading(_, let fraction) = state else { return nil }
+            return AppUpdateDecision.percent(fraction)
+        }
+        XCTAssertEqual(percents.first, 0)
+        XCTAssertTrue(percents.contains(10) && percents.contains(40), "\(percents)")
+        XCTAssertEqual(percents, percents.sorted(), "never goes back")
         assertRelaunchedInto("1.1.0")
     }
 
@@ -280,6 +297,49 @@ final class AppUpdaterTests: XCTestCase {
         await settle(updater)
         assertRelaunchedInto("1.1.0")
         XCTAssertEqual(clock.sleeps, [.milliseconds(500), .milliseconds(500)], "half-second looks, never the ten-minute wait")
+    }
+
+    // A relaunch would cut off the speech model's download or install that the same check may have started.
+    func testARequestedInstallWaitsForTheSpeechModel() async {
+        modelBusy = true
+        let updater = makeUpdater()
+        updater.updateFound(pin, automatic: false)
+        await clock.waitForSleeps(1)
+        XCTAssertEqual(updater.state, .installing(version: "1.1.0"))
+        XCTAssertTrue(relauncher.starts.isEmpty)
+
+        modelBusy = false
+        await clock.advance(by: .milliseconds(500))
+        await settle(updater)
+        assertRelaunchedInto("1.1.0")
+    }
+
+    // Text that reached no app exists only in memory, so the relaunch waits until it is pasted or expires.
+    func testARequestedInstallWaitsForTextKeptForPasteLast() async {
+        unpastedText = true
+        let updater = makeUpdater()
+        updater.updateFound(pin, automatic: false)
+        await clock.waitForSleeps(1)
+        XCTAssertTrue(relauncher.starts.isEmpty)
+
+        unpastedText = false
+        await clock.advance(by: .milliseconds(500))
+        await settle(updater)
+        assertRelaunchedInto("1.1.0")
+        XCTAssertEqual(clock.sleeps.filter { $0 != .milliseconds(500) }, [], "half-second looks only")
+    }
+
+    // VoiceOver hears the version and each step once; the percent ticks are only shown.
+    func testARequestedInstallSaysEachStep() async {
+        let gate = DownloadGate()
+        downloader.reportProgress([pin.assetSize / 10, pin.assetSize / 2], holdingAt: gate)
+        let updater = makeUpdater()
+        updater.updateFound(pin, automatic: false)
+        XCTAssertEqual(announcedSteps, [AppUpdater.downloadingText("1.1.0")])
+        await gate.open()
+        await settle(updater)
+        XCTAssertEqual(announcedSteps, [AppUpdater.downloadingText("1.1.0"), AppUpdater.installingText("1.1.0")])
+        assertRelaunchedInto("1.1.0")
     }
 
     func testARequestedInstallThatFailsSaysSo() async {
@@ -381,6 +441,28 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertEqual(clock.sleeps.last, .seconds(600))
         XCTAssertTrue(relauncher.starts.isEmpty)
         XCTAssertEqual(updater.state, .ready(version: "1.1.0"))
+    }
+
+    func testAnAutomaticInstallNeverRunsDuringASpeechModelDownload() async {
+        modelBusy = true
+        await assertTheAutomaticInstallWaits()
+    }
+
+    func testAnAutomaticInstallNeverRunsWithTextKeptForPasteLast() async {
+        unpastedText = true
+        await assertTheAutomaticInstallWaits()
+    }
+
+    private func assertTheAutomaticInstallWaits(file: StaticString = #filePath, line: UInt = #line) async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        await clock.waitForSleeps(1)
+        await clock.advance(by: .seconds(600))
+        await clock.waitForSleeps(2)
+        XCTAssertEqual(clock.sleeps.last, .seconds(600), file: file, line: line)
+        XCTAssertTrue(relauncher.starts.isEmpty, file: file, line: line)
+        XCTAssertEqual(updater.state, .ready(version: "1.1.0"), file: file, line: line)
     }
 
     func testAnAutomaticInstallKeepsASorlaReplacedMeanwhile() async {

@@ -41,6 +41,13 @@ public enum AppUpdateOffer: Equatable, Sendable {
         }
     }
 
+    public var isInstalling: Bool {
+        switch self {
+        case .downloading, .installing: return true
+        case .install, .download, .homebrew, .failed: return false
+        }
+    }
+
     // For the log: what is offered, never the wording or a path.
     public var kind: String {
         switch self {

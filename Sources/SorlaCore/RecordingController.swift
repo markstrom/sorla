@@ -452,6 +452,8 @@ public final class RecordingController {
                     onCue?(.textKeptAfterAppSwitch)
                 } else {
                     pasteEnvironment.write(text, transient: false)
+                    // On the clipboard it survives a relaunch, as a pasted text does.
+                    recentTranscript.markPasted(text)
                     logger.info("paste skipped (frontmost app changed); the text is on the clipboard")
                     onCue?(.textOnClipboard)
                 }
@@ -460,6 +462,7 @@ public final class RecordingController {
             guard !blockIfReplaced(), !blockIfNoAccess() else { return }
 
             let outcome = issuePaste(text)
+            if outcome.pasted { recentTranscript.markPasted(text) }
             updatePhase { $0.finish(dictationID) }
             logger.info("\(self.modelName, privacy: .public): \(Self.format(audioSeconds), privacy: .public) audio -> pasted in \(Self.format(Date().timeIntervalSince(finished.released)), privacy: .public) pasted=\(outcome.pasted, privacy: .public): \(text, privacy: .private)")
             restoreClipboard(after: outcome)
@@ -468,6 +471,12 @@ public final class RecordingController {
 
     public func lastTranscript(at now: Date = Date()) -> String? {
         recentTranscript.text(at: now)
+    }
+
+    // Text kept for Paste Last that no app has received yet: an update waits for it to be pasted or to expire, since
+    // a relaunch would lose it.
+    public func hasUnpastedText(at now: Date = Date()) -> Bool {
+        recentTranscript.hasUnpastedText(at: now)
     }
 
     // One one-shot expiry per transcript, replaced by the next one, so nothing runs while idle.
@@ -538,6 +547,7 @@ public final class RecordingController {
                 }
                 guard !self.blockIfReplaced(), !self.blockIfNoAccess() else { return }
                 let outcome = self.issuePaste(text)
+                if outcome.pasted { self.recentTranscript.markPasted(text) }
                 self.logger.info("paste-last: pasted=\(outcome.pasted, privacy: .public)")
                 self.restoreClipboard(after: outcome)
             }.value

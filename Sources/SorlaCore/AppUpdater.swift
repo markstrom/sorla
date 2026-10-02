@@ -75,11 +75,17 @@ public final class AppUpdater: ObservableObject {
     public var onUpdated: ((String) -> Void)?
     // Only a click on Install and Relaunch is reported: the row it came from changes without a word (#62).
     public var onRequestedInstallFailed: ((String) -> Void)?
+    // Each step of an install the user asked for, for VoiceOver: downloading, then installing. The percent is only shown.
+    public var onRequestedInstallStep: ((String) -> Void)?
 
     private let installer: AppInstaller
     private let relauncher: AppRelaunching
     private let journal: AppInstallJournal
     private let activity: @MainActor () -> DictationActivity
+    // A speech-model download or install, which a relaunch would cut off.
+    private let isModelBusy: @MainActor () -> Bool
+    // Text kept for Paste Last that no app has received, which a relaunch would lose.
+    private let hasUnpastedText: @MainActor () -> Bool
     // Returns whether quitting went ahead; NSApp.terminate only comes back when it was called off.
     private let terminate: @MainActor () -> Bool
     private let isAppReplaced: @MainActor () -> Bool
@@ -103,6 +109,8 @@ public final class AppUpdater: ObservableObject {
         automaticChecks: Bool,
         automaticInstalls: Bool,
         activity: @escaping @MainActor () -> DictationActivity,
+        isModelBusy: @escaping @MainActor () -> Bool = { false },
+        hasUnpastedText: @escaping @MainActor () -> Bool = { false },
         terminate: @escaping @MainActor () -> Bool,
         isAppReplaced: @escaping @MainActor () -> Bool = { false },
         processID: Int32 = ProcessInfo.processInfo.processIdentifier,
@@ -117,6 +125,8 @@ public final class AppUpdater: ObservableObject {
         self.automaticChecks = automaticChecks
         self.automaticInstalls = automaticInstalls
         self.activity = activity
+        self.isModelBusy = isModelBusy
+        self.hasUnpastedText = hasUnpastedText
         self.terminate = terminate
         self.isAppReplaced = isAppReplaced
         self.processID = processID
@@ -124,6 +134,14 @@ public final class AppUpdater: ObservableObject {
         self.sleep = sleep
         self.now = now
         self.lastActivity = now()
+    }
+
+    // What an install waits for, if anything: the swap and relaunch only happen when nothing would be lost.
+    private var reasonToWait: String? {
+        if !activity().isQuiet { return "the dictation in flight" }
+        if isModelBusy() { return "the speech model's download or install" }
+        if hasUnpastedText() { return "text kept for Paste Last" }
+        return nil
     }
 
     private var isAutomatic: Bool {
@@ -194,16 +212,20 @@ public final class AppUpdater: ObservableObject {
         let isDownloaded = prepared.map { $0.version == pin.version && installer.isAvailable($0) } ?? false
         state = isDownloaded ? .installing(version: pin.version) : .downloading(version: pin.version, fraction: 0)
         Self.logger.notice("installing \(pin.version, privacy: .public) as asked\(isDownloaded ? " (already downloaded)" : "", privacy: .public)")
+        onRequestedInstallStep?(isDownloaded ? Self.installingText(pin.version) : Self.downloadingText(pin.version))
         run {
             do {
                 let prepared = try await self.prepared(for: pin)
+                if case .downloading = self.state {
+                    self.onRequestedInstallStep?(Self.installingText(pin.version))
+                }
                 self.state = .installing(version: pin.version)
                 let staged = try await self.stage(prepared)
-                var isWaiting = false
-                while !self.activity().isQuiet {
-                    if !isWaiting {
-                        isWaiting = true
-                        Self.logger.notice("\(pin.version, privacy: .public) is staged; waiting for the dictation in flight")
+                var waitingFor: String?
+                while let reason = self.reasonToWait {
+                    if reason != waitingFor {
+                        waitingFor = reason
+                        Self.logger.notice("\(pin.version, privacy: .public) is staged; waiting for \(reason, privacy: .public)")
                     }
                     await self.sleep(self.pollInterval)
                 }
@@ -257,7 +279,7 @@ public final class AppUpdater: ObservableObject {
                     atLaunch: atLaunch,
                     lastActivity: self.lastActivity,
                     now: self.now(),
-                    isQuiet: self.activity().isQuiet
+                    isQuiet: self.reasonToWait == nil
                 )
                 switch decision {
                 case .never:
@@ -281,8 +303,8 @@ public final class AppUpdater: ObservableObject {
         run {
             do {
                 let staged = try await self.stage(prepared)
-                // A dictation that began while copying wins; the install waits for the next quiet stretch.
-                guard self.activity().isQuiet else {
+                // A dictation (or model download) that began while copying wins; the install waits for the next quiet stretch.
+                guard self.reasonToWait == nil else {
                     self.installer.discard(staged)
                     self.state = .ready(version: version)
                     self.scheduleAutomaticInstall(atLaunch: false)
@@ -299,6 +321,8 @@ public final class AppUpdater: ObservableObject {
         if let prepared, prepared.version == pin.version, installer.isAvailable(prepared) { return prepared }
         if let prepared { installer.discard(prepared) }
         prepared = nil
+        // A fresh download starts from nothing, so a requested install's row does too, after a background one failed.
+        if case .downloading(pin.version, _) = state { state = .downloading(version: pin.version, fraction: 0) }
         let installer = self.installer
         // Ticks reach the row only while a requested install of this version is downloading, and never go back.
         let progress: @Sendable (Double) -> Void = { [weak self] fraction in
@@ -377,6 +401,14 @@ public final class AppUpdater: ObservableObject {
         journal.pendingRelease = nil
         Self.logger.error("app update \(version, privacy: .public) not installed: \(String(describing: installError), privacy: .public)")
         state = .failed(version: version, installError.failure)
+    }
+
+    nonisolated static func downloadingText(_ version: String) -> String {
+        String(localized: "Downloading Sorla \(version)…", bundle: Localization.bundle)
+    }
+
+    nonisolated static func installingText(_ version: String) -> String {
+        String(localized: "Installing Sorla \(version)…", bundle: Localization.bundle)
     }
 
     static func isNewer(_ version: String, than running: String?) -> Bool {

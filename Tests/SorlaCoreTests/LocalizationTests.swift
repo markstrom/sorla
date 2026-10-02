@@ -347,6 +347,8 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(menu(.homebrew(version: "1.2.0")), "Sorla 1.2.0 finns – Uppdatera med Homebrew")
             XCTAssertEqual(menu(.downloading(version: "1.2.0", fraction: 0.4)), "Laddar ner Sorla 1.2.0… 40 %")
             XCTAssertEqual(menu(.installing(version: "1.2.0")), "Installerar Sorla 1.2.0…")
+            XCTAssertEqual(AppUpdater.downloadingText("1.2.0"), "Laddar ner Sorla 1.2.0…")
+            XCTAssertEqual(AppUpdater.installingText("1.2.0"), "Installerar Sorla 1.2.0…")
             XCTAssertEqual(menu(.failed(version: "1.2.0", .download)), "Kunde inte installera Sorla 1.2.0 – Ladda ner")
             XCTAssertEqual(TransientMenuStatus(updatedTo: "1.2.0", at: Date()).row.title, "Sorla uppdaterades till 1.2.0")
             XCTAssertEqual(UpdateRow.app(.available(version: "1.2.0"), offer: .homebrew(version: "1.2.0")).note, "Uppdatera med Homebrew: brew upgrade --cask sorla")

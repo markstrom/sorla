@@ -22,6 +22,7 @@ public enum AppInstallPolicy {
     public enum Pinning: Equatable, Sendable {
         case pinned(PinnedRelease)
         case unreadableTag
+        case unbuildableURL
         case missingAsset(expected: String, found: [String])
         case unexpectedURL(String)
         case unexpectedSize(Int64)
@@ -31,7 +32,7 @@ public enum AppInstallPolicy {
         guard let version = AppUpdateCheck.version(fromTag: release.tagName) else { return .unreadableTag }
         let versionText = release.tagName.hasPrefix("v") || release.tagName.hasPrefix("V") ? String(release.tagName.dropFirst()) : release.tagName
         let name = assetName(version: versionText)
-        guard let url = URL(string: releaseDownloads + release.tagName + "/" + name) else { return .unreadableTag }
+        guard let url = URL(string: releaseDownloads + release.tagName + "/" + name) else { return .unbuildableURL }
         guard let asset = release.assets.first(where: { $0.name == name }) else {
             return .missingAsset(expected: name, found: release.assets.map(\.name))
         }
