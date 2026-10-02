@@ -445,6 +445,9 @@ public final class RecordingController {
                 // Last instead (#85). Only when Paste Last keeps nothing, or the user lets Sorla have the clipboard,
                 // does it go there, so the words aren't lost.
                 if keepClipboardContent, keepsLastTranscript {
+                    // A replaced Sorla can't paste the kept text before the restart forgets it, so it says so as for any
+                    // of its pastes (#72) rather than pointing to Paste Last.
+                    guard !blockIfReplaced() else { return }
                     logger.info("paste skipped (frontmost app changed); the text is kept for Paste Last")
                     onCue?(.textKeptAfterAppSwitch)
                 } else {

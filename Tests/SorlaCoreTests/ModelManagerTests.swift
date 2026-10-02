@@ -568,6 +568,41 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(reported, [])
     }
 
+    func testAServerFailureAtALaterLaunchIsTriedAgainToo() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.fail(PublishedModelFixture.manifestURL, with: ModelNetworkError.httpStatus(503))
+        let watcher = FakeNetworkWatcher()
+        let manager = makeManager(networkWatcher: watcher)
+
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .failed(.serverUnavailable, isUpdate: false))
+        XCTAssertNotNil(manager.automaticRetry)
+        XCTAssertTrue(watcher.isWatching)
+    }
+
+    // A path update from an earlier wait, arriving after the next attempt failed too, starts no extra attempt.
+    func testALateCallbackFromAnEarlierWaitStartsNothing() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.useCostlyNetwork(.expensive)
+        let watcher = FakeNetworkWatcher()
+        let manager = makeManager(networkWatcher: watcher)
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+        watcher.becomeAvailable()
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .waitingForInexpensiveNetwork)
+        let requests = await network.requests.count
+
+        watcher.becomeAvailableForTheFirstWatch()
+
+        XCTAssertNil(manager.work)
+        let after = await network.requests.count
+        XCTAssertEqual(after, requests)
+        XCTAssertNotNil(manager.automaticRetry, "the current wait goes on")
+    }
+
     // What the user started and saw fail is theirs to try again; nothing retries behind their back.
     func testADownloadTheUserStartedIsNotRetriedAutomatically() async throws {
         await network.fail(PublishedModelFixture.manifestURL)

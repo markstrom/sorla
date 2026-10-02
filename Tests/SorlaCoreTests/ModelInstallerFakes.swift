@@ -224,13 +224,14 @@ extension SemanticVersion {
 @MainActor
 final class FakeNetworkWatcher: InexpensiveNetworkWatching {
     private(set) var isWatching = false
-    private var onAvailable: (@MainActor () -> Void)?
+    // Every watch's callback, oldest first, so a test can fire one from an earlier watch late.
+    private var callbacks: [@MainActor () -> Void] = []
 
     nonisolated init() {}
 
     func start(onAvailable: @escaping @MainActor () -> Void) {
         isWatching = true
-        self.onAvailable = onAvailable
+        callbacks.append(onAvailable)
     }
 
     func stop() {
@@ -238,6 +239,10 @@ final class FakeNetworkWatcher: InexpensiveNetworkWatching {
     }
 
     func becomeAvailable() {
-        onAvailable?()
+        callbacks.last?()
+    }
+
+    func becomeAvailableForTheFirstWatch() {
+        callbacks.first?()
     }
 }

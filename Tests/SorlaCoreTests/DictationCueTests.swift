@@ -7,7 +7,8 @@ final class DictationCueTests: XCTestCase {
         SystemSettingsName.$systemLanguage.withValue(.english) { super.invokeTest() }
     }
 
-    func testEachCueHasItsOwnSymbol() {
+    // Both kept-text cues share doc.text on purpose: either way the text waits for Paste Last.
+    func testEachCueHasItsSymbol() {
         let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .textKept, .textKeptAfterAppSwitch, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
         XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "doc.text", "doc.text", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }

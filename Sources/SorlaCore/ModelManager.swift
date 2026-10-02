@@ -34,6 +34,8 @@ public final class ModelManager: ObservableObject {
     private var hasStarted = false
     // Set while a model install nobody asked for, with nothing installed, waits to be tried again (#87).
     private(set) var automaticRetry: Task<Void, Never>?
+    // Which wait a timer or path callback belongs to, so a late one from an earlier wait starts nothing.
+    private var automaticRetryID = 0
     // Whether the current work was asked for, rather than started by an automatic check.
     private var isWorkRequested = false
     private(set) var work: Task<Void, Never>?
@@ -451,19 +453,21 @@ public final class ModelManager: ObservableObject {
         Self.logger.info("model install will be tried again on a network change or in \(Int(self.automaticRetryInterval), privacy: .public) s")
         let interval = automaticRetryInterval
         let sleep = self.sleep
+        automaticRetryID += 1
+        let id = automaticRetryID
         automaticRetry = Task { [weak self] in
             await sleep(interval)
             guard !Task.isCancelled else { return }
-            self?.retryAutomaticInstall()
+            self?.retryAutomaticInstall(id)
         }
         networkWatcher?.start { [weak self] in
-            self?.retryAutomaticInstall()
+            self?.retryAutomaticInstall(id)
         }
     }
 
-    // A late callback after the retry was called off, or once something else started, does nothing.
-    private func retryAutomaticInstall() {
-        guard automaticRetry != nil, work == nil, !isInstalled else { return }
+    // A late callback after the retry was called off, from an earlier wait, or once something else started, does nothing.
+    private func retryAutomaticInstall(_ id: Int) {
+        guard automaticRetry != nil, id == automaticRetryID, work == nil, !isInstalled else { return }
         Self.logger.info("trying the model install again")
         download(requested: false)
     }

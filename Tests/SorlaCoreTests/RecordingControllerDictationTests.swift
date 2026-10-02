@@ -696,6 +696,25 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(controller.phase, .idle)
     }
 
+    // #85: with the app switched as well, Paste Last can't help before the restart forgets the text, so the restart
+    // is asked for as for any paste, and the clipboard still isn't touched.
+    func testAfterSorlaIsReplacedAnAppSwitchAsksForTheRestartInsteadOfPointingToPasteLast() async {
+        controller.isAppReplaced = { true }
+        paste.copy("mine")
+        var blocked: [BlockedPaste] = []
+        controller.onPasteBlocked = { blocked.append($0) }
+        let job = await dictate(call: 0)
+        paste.frontmostProcessID = 200
+        await engine.finish(0, with: "A")
+        await job.value
+        await controller.deliveries?.value
+
+        XCTAssertEqual(paste.events, [])
+        XCTAssertEqual(paste.contents, "mine")
+        XCTAssertEqual(events, ["issue \(SorlaIssue.appReplaced.menuTitle)"])
+        XCTAssertEqual(blocked, [.appReplaced])
+    }
+
     func testPasteLastAfterSorlaIsReplacedLeavesTheClipboardAlone() async {
         await deliverOneDictation("A")
         controller.isAppReplaced = { true }
