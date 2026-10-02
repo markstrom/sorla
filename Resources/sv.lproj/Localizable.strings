@@ -246,3 +246,8 @@
 "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu" = "En annan app kom fram, så inget klistrades in – välj Klistra in senaste transkriberingen i Sorlas meny";
 "Text kept — press %@ to paste it" = "Texten är sparad – tryck %@ för att klistra in den";
 "Text kept — choose Paste Last Transcription" = "Texten är sparad – välj Klistra in senaste transkriberingen";
+
+/* A missing model waits for Wi-Fi or Ethernet (#87) */
+"Not installed · Downloads on Wi-Fi or Ethernet" = "Inte installerad · Laddas ner via Wi-Fi eller kabel";
+"Model not installed — downloads on Wi-Fi or Ethernet" = "Modellen är inte installerad – laddas ner via Wi-Fi eller kabel";
+"Downloads automatically on Wi-Fi or Ethernet. Download gets it now on the network you're using." = "Laddas ner automatiskt via Wi-Fi eller kabel. Ladda ner hämtar den nu via nätverket du använder.";

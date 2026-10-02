@@ -2,6 +2,9 @@ import Foundation
 
 public enum ModelStatus: Equatable, Sendable {
     case notInstalled
+    // Nothing installed, and an install nobody asked for was refused a network marked as costly: it is tried again on
+    // Wi-Fi or Ethernet, and Download works now on any network (#87).
+    case waitingForInexpensiveNetwork
     case installed(version: String?)
     case checking
     case upToDate(version: String)
@@ -15,6 +18,7 @@ public enum ModelStatus: Equatable, Sendable {
     public var settingsText: String {
         switch self {
         case .notInstalled: return String(localized: "Not installed", bundle: Localization.bundle)
+        case .waitingForInexpensiveNetwork: return String(localized: "Not installed · Downloads on Wi-Fi or Ethernet", bundle: Localization.bundle)
         case .installed(let version): return version.map { String(localized: "Version \($0)", bundle: Localization.bundle) } ?? String(localized: "Installed", bundle: Localization.bundle)
         case .checking: return String(localized: "Checking for updates…", bundle: Localization.bundle)
         case .upToDate(let version): return String(localized: "Up to date · Version \(version)", bundle: Localization.bundle)

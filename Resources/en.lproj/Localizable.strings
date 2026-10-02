@@ -246,3 +246,8 @@
 "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu" = "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu";
 "Text kept — press %@ to paste it" = "Text kept — press %@ to paste it";
 "Text kept — choose Paste Last Transcription" = "Text kept — choose Paste Last Transcription";
+
+/* A missing model waits for Wi-Fi or Ethernet (#87) */
+"Not installed · Downloads on Wi-Fi or Ethernet" = "Not installed · Downloads on Wi-Fi or Ethernet";
+"Model not installed — downloads on Wi-Fi or Ethernet" = "Model not installed — downloads on Wi-Fi or Ethernet";
+"Downloads automatically on Wi-Fi or Ethernet. Download gets it now on the network you're using." = "Downloads automatically on Wi-Fi or Ethernet. Download gets it now on the network you're using.";

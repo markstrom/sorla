@@ -100,6 +100,14 @@ final class MenuStatusRowTests: XCTestCase {
         )
     }
 
+    // #87: nothing installed is no "update available"; the setup window's Download works on any network.
+    func testAModelWaitingForWiFiOrEthernetSaysSoAndOpensTheSetupWindow() {
+        XCTAssertEqual(
+            row(model: .waitingForInexpensiveNetwork),
+            MenuStatusRow(title: "Model not installed — downloads on Wi-Fi or Ethernet", action: .showWelcome)
+        )
+    }
+
     func testALoadFailureOpensTheSetupWindow() {
         XCTAssertEqual(
             row(modelLoadFailed: true),

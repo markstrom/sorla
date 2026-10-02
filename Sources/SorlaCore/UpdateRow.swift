@@ -68,7 +68,7 @@ public struct UpdateRow: Equatable, Sendable {
 
     public static func model(_ status: ModelStatus) -> UpdateRow {
         switch status {
-        case .notInstalled: return UpdateRow(text: status.settingsText, action: .download)
+        case .notInstalled, .waitingForInexpensiveNetwork: return UpdateRow(text: status.settingsText, action: .download)
         case .installed: return UpdateRow(text: nil)
         case .checking: return checking
         case .upToDate: return latest

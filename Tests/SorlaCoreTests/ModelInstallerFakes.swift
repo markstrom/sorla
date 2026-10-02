@@ -219,3 +219,25 @@ extension SemanticVersion {
     static let sequoia = SemanticVersion(major: 15, minor: 7, patch: 0)
     static let tahoe = SemanticVersion(major: 26, minor: 0, patch: 0)
 }
+
+// Stands in for the path monitor; keeps the callback after stop, like a path update that arrives late.
+@MainActor
+final class FakeNetworkWatcher: InexpensiveNetworkWatching {
+    private(set) var isWatching = false
+    private var onAvailable: (@MainActor () -> Void)?
+
+    nonisolated init() {}
+
+    func start(onAvailable: @escaping @MainActor () -> Void) {
+        isWatching = true
+        self.onAvailable = onAvailable
+    }
+
+    func stop() {
+        isWatching = false
+    }
+
+    func becomeAvailable() {
+        onAvailable?()
+    }
+}

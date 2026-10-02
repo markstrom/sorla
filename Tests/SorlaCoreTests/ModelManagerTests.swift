@@ -41,6 +41,7 @@ final class ModelManagerTests: XCTestCase {
         autoCheck: Bool = false,
         autoDownload: Bool = false,
         pins: ModelPins? = nil,
+        networkWatcher: InexpensiveNetworkWatching? = nil,
         onReload: @escaping @MainActor () -> Void = {}
     ) -> ModelManager {
         let installer = ModelInstaller(
@@ -61,6 +62,7 @@ final class ModelManagerTests: XCTestCase {
             },
             automaticChecks: autoCheck,
             automaticDownloads: autoDownload,
+            networkWatcher: networkWatcher,
             sleep: { [clock] in await clock.sleep(for: .seconds($0)) }
         )
         manager.onInstalled = { [unowned self] firstInstall in self.installs.append(firstInstall) }
@@ -293,11 +295,10 @@ final class ModelManagerTests: XCTestCase {
 
     // MARK: Costly networks
 
-    func testOnlyAnUpdateNobodyAskedForAvoidsCostlyNetworks() {
-        XCTAssertEqual(ModelManager.access(isUpdate: true, requested: false), .inexpensiveOnly)
-        XCTAssertEqual(ModelManager.access(isUpdate: true, requested: true), .any)
-        XCTAssertEqual(ModelManager.access(isUpdate: false, requested: false), .any)
-        XCTAssertEqual(ModelManager.access(isUpdate: false, requested: true), .any)
+    // #87: also a missing model's install that nobody asked for; the first run's is the user's, by setting up.
+    func testOnlyWorkNobodyAskedForAvoidsCostlyNetworks() {
+        XCTAssertEqual(ModelManager.access(requested: false), .inexpensiveOnly)
+        XCTAssertEqual(ModelManager.access(requested: true), .any)
     }
 
     func testAnAutomaticCheckOnACostlyNetworkWaitsQuietlyForTheNextOne() async throws {
@@ -379,17 +380,116 @@ final class ModelManagerTests: XCTestCase {
         XCTAssertEqual(reported, [])
     }
 
-    func testALaterLaunchsFirstInstallIsNotHeldBackByACostlyNetwork() async throws {
+    // #87: a later launch's install of a missing model waits for Wi-Fi or Ethernet, says so, and goes once one comes up.
+    func testALaterLaunchsInstallWaitsForAnInexpensiveNetworkAndGoesWhenOneComesUp() async throws {
         await publish(PublishedModelFixture(version: "1.0.0"))
         await network.useCostlyNetwork(.expensive)
+        let watcher = FakeNetworkWatcher()
+        let manager = makeManager(networkWatcher: watcher)
+
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .waitingForInexpensiveNetwork)
+        XCTAssertEqual(failures, [])
+        XCTAssertEqual(reported, [])
+        let accesses = await network.accesses
+        XCTAssertEqual(accesses[PublishedModelFixture.manifestURL], .inexpensiveOnly)
+        XCTAssertNotNil(manager.automaticRetry)
+        XCTAssertTrue(watcher.isWatching)
+
+        await network.useCostlyNetwork(nil)
+        watcher.becomeAvailable()
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+        XCTAssertEqual(installs, [true])
+        XCTAssertNil(manager.automaticRetry)
+        XCTAssertFalse(watcher.isWatching)
+        let later = await network.accesses
+        XCTAssertTrue(later.values.allSatisfy { $0 == .inexpensiveOnly })
+    }
+
+    func testAWaitingInstallIsTriedAgainAboutHourlyWithoutANetworkChange() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.useCostlyNetwork(.constrained)
         let manager = makeManager()
 
         manager.start(isFirstRun: false)
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .waitingForInexpensiveNetwork)
+
+        // Still on the costly network an hour later: it waits for the next hour.
+        await clock.waitForSleeps(1)
+        await clock.advance(by: .seconds(3600))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .waitingForInexpensiveNetwork)
+
+        await network.useCostlyNetwork(nil)
+        await clock.waitForSleeps(2)
+        await clock.advance(by: .seconds(3600))
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+        XCTAssertNil(manager.automaticRetry)
+        XCTAssertEqual(failures, [])
+    }
+
+    // The user asking is the user's own download: any network, and the waiting stops.
+    func testDownloadWhileWaitingUsesTheCostlyNetworkAndStopsWaiting() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.useCostlyNetwork(.expensive)
+        let watcher = FakeNetworkWatcher()
+        let manager = makeManager(networkWatcher: watcher)
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .waitingForInexpensiveNetwork)
+        let refused = await network.requests.count
+
+        manager.downloadModel()
+        XCTAssertNil(manager.automaticRetry)
+        XCTAssertFalse(watcher.isWatching)
         await manager.work?.value
 
         XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
         let accesses = await network.accesses
         XCTAssertTrue(accesses.values.allSatisfy { $0 == .any })
+        // A path update arriving late starts nothing.
+        let requests = await network.requests.count
+        watcher.becomeAvailable()
+        XCTAssertNil(manager.work)
+        let after = await network.requests.count
+        XCTAssertEqual(after, requests)
+        XCTAssertGreaterThan(requests, refused)
+    }
+
+    // #87: with nothing installed an automatic check has no update to offer either.
+    func testAnAutomaticCheckWithoutAModelWaitsInsteadOfOfferingAnUpdate() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.useCostlyNetwork(.expensive, afterRequests: 1)
+        let manager = makeManager(autoCheck: true)
+
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .waitingForInexpensiveNetwork)
+        XCTAssertEqual(failures, [])
+        XCTAssertNil(FailedModelUpdate(modelsDirectory: modelsDirectory).version)
+        let accesses = await network.accesses
+        XCTAssertTrue(accesses.values.allSatisfy { $0 == .inexpensiveOnly })
+    }
+
+    func testTheFirstRunsDownloadStillUsesACostlyNetwork() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.useCostlyNetwork(.expensive)
+        let manager = makeManager()
+
+        manager.start(isFirstRun: true)
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+        let accesses = await network.accesses
+        XCTAssertTrue(accesses.values.allSatisfy { $0 == .any })
+        XCTAssertNil(manager.automaticRetry)
     }
 
     func testFirstRunInstallsWithoutBeingAsked() async throws {
@@ -447,6 +547,39 @@ final class ModelManagerTests: XCTestCase {
 
         XCTAssertEqual(failures, [.modelDownloadFailed])
         XCTAssertEqual(reported, [])
+    }
+
+    // #87: offline at launch, the install goes once a usable network comes up, without the user.
+    func testALaterLaunchOfflineIsTriedAgainWhenANetworkComesUp() async throws {
+        await publish(PublishedModelFixture(version: "1.0.0"))
+        await network.fail(PublishedModelFixture.manifestURL)
+        let watcher = FakeNetworkWatcher()
+        let manager = makeManager(networkWatcher: watcher)
+
+        manager.start(isFirstRun: false)
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
+        XCTAssertTrue(watcher.isWatching)
+
+        await network.unfail(PublishedModelFixture.manifestURL)
+        watcher.becomeAvailable()
+        await manager.work?.value
+        XCTAssertEqual(manager.status, .upToDate(version: "1.0.0"))
+        XCTAssertEqual(reported, [])
+    }
+
+    // What the user started and saw fail is theirs to try again; nothing retries behind their back.
+    func testADownloadTheUserStartedIsNotRetriedAutomatically() async throws {
+        await network.fail(PublishedModelFixture.manifestURL)
+        let watcher = FakeNetworkWatcher()
+        let manager = makeManager(networkWatcher: watcher)
+
+        manager.downloadModel()
+        await manager.work?.value
+
+        XCTAssertEqual(manager.status, .failed(.network, isUpdate: false))
+        XCTAssertNil(manager.automaticRetry)
+        XCTAssertFalse(watcher.isWatching)
     }
 
     func testAutomaticCheckAtLaunchFindsTheInstalledVersionUpToDate() async throws {

@@ -108,6 +108,12 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(title(.downloading(version: "1", fraction: 0.42, isUpdate: false)), "Laddar ner modellen… 42 %")
             XCTAssertEqual(title(.preparing(version: "1", isUpdate: false)), "Förbereder modellen… ~1 min")
             XCTAssertEqual(title(.notInstalled), "Modellen är inte installerad")
+            XCTAssertEqual(title(.waitingForInexpensiveNetwork), "Modellen är inte installerad – laddas ner via Wi-Fi eller kabel")
+            XCTAssertEqual(ModelStatus.waitingForInexpensiveNetwork.settingsText, "Inte installerad · Laddas ner via Wi-Fi eller kabel")
+            XCTAssertEqual(
+                WelcomeChecklist.modelRow(isInstalled: false, isLoaded: false, loadFailed: false, model: .waitingForInexpensiveNetwork).note,
+                "Laddas ner automatiskt via Wi-Fi eller kabel. Ladda ner hämtar den nu via nätverket du använder."
+            )
             XCTAssertEqual(title(.failed(.network, isUpdate: false)), "Nedladdningen av modellen misslyckades")
             XCTAssertEqual(title(.failed(.network, isUpdate: true)), "Uppdateringen av modellen misslyckades – Försök igen")
             XCTAssertEqual(ModelStatus.downloading(version: "1", fraction: 0.42, isUpdate: false).settingsText, "Laddar ner 42 %")

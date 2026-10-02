@@ -118,6 +118,9 @@ public struct MenuStatusRow: Equatable, Sendable {
             return MenuStatusRow(title: SorlaIssue.modelDownloadFailed.menuTitle, action: .showWelcome)
         case .notInstalled:
             return MenuStatusRow(title: String(localized: "Model not installed", bundle: Localization.bundle), action: .showWelcome)
+        // The setup window's Download works on any network, so the user needn't wait (#87).
+        case .waitingForInexpensiveNetwork:
+            return MenuStatusRow(title: String(localized: "Model not installed — downloads on Wi-Fi or Ethernet", bundle: Localization.bundle), action: .showWelcome)
         default:
             break
         }

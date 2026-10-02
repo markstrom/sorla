@@ -4,6 +4,8 @@ import XCTest
 final class ModelStatusTests: XCTestCase {
     func testSettingsText() {
         XCTAssertEqual(ModelStatus.notInstalled.settingsText, "Not installed")
+        XCTAssertEqual(ModelStatus.waitingForInexpensiveNetwork.settingsText, "Not installed · Downloads on Wi-Fi or Ethernet")
+        XCTAssertFalse(ModelStatus.waitingForInexpensiveNetwork.isBusy, "Check Now and Download stay available")
         XCTAssertEqual(ModelStatus.installed(version: "1.0.0").settingsText, "Version 1.0.0")
         XCTAssertEqual(ModelStatus.installed(version: nil).settingsText, "Installed")
         XCTAssertEqual(ModelStatus.checking.settingsText, "Checking for updates…")

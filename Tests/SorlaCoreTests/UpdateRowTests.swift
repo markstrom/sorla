@@ -30,6 +30,10 @@ final class UpdateRowTests: XCTestCase {
         XCTAssertEqual(UpdateRow.model(.preparing(version: "1.1.0", isUpdate: true)), UpdateRow(text: "Preparing… ~1 min", kind: .busy))
         XCTAssertEqual(UpdateRow.model(.waitingToInstall(version: "1.1.0")), UpdateRow(text: "Installing when dictation ends…", kind: .busy))
         XCTAssertEqual(UpdateRow.model(.notInstalled), UpdateRow(text: "Not installed", action: .download))
+        XCTAssertEqual(
+            UpdateRow.model(.waitingForInexpensiveNetwork),
+            UpdateRow(text: "Not installed · Downloads on Wi-Fi or Ethernet", action: .download)
+        )
     }
 
     func testModelFailuresOfferTryAgainOnlyForAFailedInstall() {

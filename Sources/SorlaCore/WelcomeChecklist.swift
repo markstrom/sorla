@@ -93,6 +93,7 @@ public enum WelcomeRow: CaseIterable, Sendable {
             // 100 % and nearly 10 GB are the widest a percentage and a size get.
             let missing: [ModelStatus] = [
                 .notInstalled,
+                .waitingForInexpensiveNetwork,
                 .downloading(version: "1", fraction: 1, isUpdate: false),
                 .preparing(version: "1", isUpdate: false),
                 .failed(.network, isUpdate: false),
@@ -151,6 +152,13 @@ public enum WelcomeChecklist {
         case .failed(_, let isUpdate):
             let issue: SorlaIssue = isUpdate ? .modelUpdateFailed : .modelDownloadFailed
             return .needsAction(.downloadModel, buttonTitle: tryAgain, note: issue.menuTitle)
+        // Download is the user asking, so it uses the network they are on (#87).
+        case .waitingForInexpensiveNetwork:
+            return .needsAction(
+                .downloadModel,
+                buttonTitle: String(localized: "Download", bundle: Localization.bundle),
+                note: String(localized: "Downloads automatically on Wi-Fi or Ethernet. Download gets it now on the network you're using.", bundle: Localization.bundle)
+            )
         // "Missing" beside the marker says it all.
         default:
             return .needsAction(.downloadModel, buttonTitle: String(localized: "Download", bundle: Localization.bundle), note: nil)
