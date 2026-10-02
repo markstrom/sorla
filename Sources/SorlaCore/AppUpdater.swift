@@ -301,8 +301,8 @@ public final class AppUpdater: ObservableObject {
         prepared = nil
         let installer = self.installer
         // Ticks reach the row only while a requested install of this version is downloading, and never go back.
-        let progress: @Sendable (Double) -> Void = { fraction in
-            Task { @MainActor [weak self] in self?.downloadProgressed(pin.version, fraction) }
+        let progress: @Sendable (Double) -> Void = { [weak self] fraction in
+            Task { @MainActor in self?.downloadProgressed(pin.version, fraction) }
         }
         let result = try await Task.detached(priority: .utility) { try await installer.prepare(pin, progress: progress) }.value
         prepared = result
