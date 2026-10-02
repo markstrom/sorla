@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import SorlaCore
 
@@ -94,7 +95,7 @@ final class AppUpdaterTests: XCTestCase {
     func testInstallAndRelaunchSwapsAndRelaunchesTheSamePath() async {
         let updater = makeUpdater()
         updater.install(pin)
-        XCTAssertEqual(updater.state, .installing(version: "1.1.0"))
+        XCTAssertEqual(updater.state, .downloading(version: "1.1.0", fraction: 0))
         await settle(updater)
 
         assertRelaunchedInto("1.1.0")
@@ -167,9 +168,10 @@ final class AppUpdaterTests: XCTestCase {
 
     func testNothingIsInstalledWhereSorlaCantReplaceItself() async {
         for location in [AppInstallLocation.translocated, .notWritable, .homebrew] {
-            let updater = makeUpdater(location: location)
+            let updater = makeUpdater(location: location, automaticChecks: true, automaticInstalls: true)
             updater.install(pin)
             updater.updateFound(pin, automatic: true)
+            updater.updateFound(pin, automatic: false)
             await settle(updater)
             XCTAssertEqual(updater.state, .idle, "\(location)")
         }
@@ -215,8 +217,121 @@ final class AppUpdaterTests: XCTestCase {
         await settle(updater)
         XCTAssertEqual(updater.state, .failed(version: "1.1.0", .offline))
 
-        updater.updateFound(pin, automatic: false)
+        updater.updateFound(pin, automatic: true)
         XCTAssertEqual(updater.state, .idle)
+        updater.updateFound(nil, automatic: false)
+        XCTAssertEqual(updater.state, .idle)
+    }
+
+    // MARK: - A check the user asked for (#89)
+
+    func testACheckTheUserAskedForInstallsAtOnce() async {
+        for (checks, installs) in [(false, false), (true, false), (true, true)] {
+            let updater = makeUpdater(automaticChecks: checks, automaticInstalls: installs)
+            relauncher.starts.removeAll()
+            quits = 0
+            disk.set(bundle.path, .app(FakeApp(version: "1.0.0")))
+            journal.record = nil
+
+            updater.updateFound(pin, automatic: false)
+            XCTAssertEqual(updater.state, .downloading(version: "1.1.0", fraction: 0), "\(checks) \(installs)")
+            await settle(updater)
+
+            assertRelaunchedInto("1.1.0")
+            XCTAssertTrue(clock.sleeps.isEmpty, "no ten-minute wait")
+            XCTAssertNil(journal.pendingRelease, "nothing left for the next launch")
+        }
+        XCTAssertEqual(downloader.requests.count, 3)
+    }
+
+    func testTheDownloadShowsItsProgressAndNeverGoesBack() async {
+        let gate = DownloadGate()
+        downloader.reportProgress([pin.assetSize / 10, pin.assetSize * 4 / 10, pin.assetSize / 5], holdingAt: gate)
+        let updater = makeUpdater()
+        var states: [AppInstallState] = []
+        let watch = updater.$state.sink { states.append($0) }
+        defer { watch.cancel() }
+
+        updater.updateFound(pin, automatic: false)
+        while updater.state != .downloading(version: "1.1.0", fraction: 0.4) { await Task.yield() }
+        await gate.open()
+        await settle(updater)
+
+        XCTAssertEqual(states.map(\.shown), ["idle", "downloading 0", "downloading 10", "downloading 40", "installing"])
+        assertRelaunchedInto("1.1.0")
+    }
+
+    func testARequestedInstallWaitsForTheDictationInFlight() async {
+        activity = DictationActivity(isTranscribing: true)
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: false)
+        await clock.waitForSleeps(1)
+        XCTAssertEqual(updater.state, .installing(version: "1.1.0"))
+        XCTAssertEqual(disk.item(bundle.path), .app(FakeApp(version: "1.0.0")))
+        XCTAssertTrue(relauncher.starts.isEmpty)
+
+        activity = DictationActivity(isRecording: true)
+        await clock.advance(by: .milliseconds(500))
+        await clock.waitForSleeps(2)
+        XCTAssertTrue(relauncher.starts.isEmpty)
+
+        activity = .quiet
+        await clock.advance(by: .milliseconds(500))
+        await settle(updater)
+        assertRelaunchedInto("1.1.0")
+        XCTAssertEqual(clock.sleeps, [.milliseconds(500), .milliseconds(500)], "half-second looks, never the ten-minute wait")
+    }
+
+    func testARequestedInstallThatFailsSaysSo() async {
+        downloader.fail(with: URLError(.notConnectedToInternet))
+        let updater = makeUpdater()
+        updater.updateFound(pin, automatic: false)
+        await settle(updater)
+
+        XCTAssertEqual(updater.state, .failed(version: "1.1.0", .offline))
+        XCTAssertEqual(reportedFailures, [AppInstallFailure.offline.message])
+        XCTAssertEqual(disk.paths, [bundle.path])
+        XCTAssertEqual(quits, 0)
+    }
+
+    func testACheckWithoutAnInstallableReleaseInstallsNothing() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(nil, automatic: false)
+        await settle(updater)
+        XCTAssertEqual(updater.state, .idle)
+        XCTAssertTrue(downloader.requests.isEmpty)
+    }
+
+    func testAskingDuringTheBackgroundDownloadReusesItAndInstallsAtOnce() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        updater.updateFound(pin, automatic: false)
+        await settle(updater)
+
+        XCTAssertEqual(downloader.requests.count, 1)
+        assertRelaunchedInto("1.1.0")
+    }
+
+    func testAskingWhenTheBackgroundDownloadIsReadyInstallsWithoutDownloadingAgain() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        XCTAssertEqual(updater.state, .ready(version: "1.1.0"))
+
+        updater.updateFound(pin, automatic: false)
+        XCTAssertEqual(updater.state, .installing(version: "1.1.0"), "already downloaded, so no 0%")
+        await settle(updater)
+        XCTAssertEqual(downloader.requests.count, 1)
+        assertRelaunchedInto("1.1.0")
+    }
+
+    func testAnAutomaticCheckStillWaitsForAQuietMoment() async {
+        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
+        updater.updateFound(pin, automatic: true)
+        await settle(updater)
+        XCTAssertEqual(updater.state, .ready(version: "1.1.0"))
+        XCTAssertTrue(relauncher.starts.isEmpty)
+        XCTAssertEqual(journal.pendingRelease, pin)
     }
 
     // MARK: - Automatic install
@@ -227,9 +342,6 @@ final class AppUpdaterTests: XCTestCase {
             updater.updateFound(pin, automatic: true)
             await settle(updater)
         }
-        let updater = makeUpdater(automaticChecks: true, automaticInstalls: true)
-        updater.updateFound(pin, automatic: false)
-        await settle(updater)
         XCTAssertTrue(downloader.requests.isEmpty)
         XCTAssertNil(journal.pendingRelease)
     }
@@ -439,5 +551,17 @@ final class AppUpdaterTests: XCTestCase {
         XCTAssertTrue(updatedTo.isEmpty)
         XCTAssertTrue(disk.exists(backup))
         XCTAssertEqual(journal.record, record)
+    }
+}
+
+private extension AppInstallState {
+    var shown: String {
+        switch self {
+        case .idle: return "idle"
+        case .ready: return "ready"
+        case .downloading(_, let fraction): return "downloading \(AppUpdateDecision.percent(fraction))"
+        case .installing: return "installing"
+        case .failed: return "failed"
+        }
     }
 }

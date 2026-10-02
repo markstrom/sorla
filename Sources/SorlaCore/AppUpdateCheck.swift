@@ -124,12 +124,19 @@ public enum AppUpdateCheck {
             if result == .failed(.badResponse) {
                 logger.error("unusable release: tag=\(release.tagName, privacy: .public) prerelease=\(release.prerelease, privacy: .public) draft=\(release.draft, privacy: .public) current=\(currentVersion ?? "none", privacy: .public)")
             }
-            guard case .available = result else { return (result, nil) }
-            let pin = AppInstallPolicy.pin(release)
-            if pin == nil {
-                logger.info("release \(release.tagName, privacy: .public) has no installable DMG; offering the download page")
+            guard case .available = result else {
+                logger.notice("update check: \(release.tagName, privacy: .public) is the latest release; running \(currentVersion ?? "none", privacy: .public)")
+                return (result, nil)
             }
-            return (result, pin)
+            // Notice, not info, so the outcome is still in the log when someone asks why Download was offered.
+            switch AppInstallPolicy.pinning(release) {
+            case .pinned(let pin):
+                logger.notice("update check: \(release.tagName, privacy: .public) is newer than \(currentVersion ?? "none", privacy: .public) and installable (\(pin.assetSize, privacy: .public) bytes)")
+                return (result, pin)
+            case let refusal:
+                logger.notice("update check: \(release.tagName, privacy: .public) is newer but can't be installed from Sorla (\(String(describing: refusal), privacy: .public)); offering the download page")
+                return (result, nil)
+            }
         } catch {
             logger.error("update check failed: \(String(describing: error), privacy: .public)")
             return (.failed(failure(for: error)), nil)

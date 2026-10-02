@@ -212,6 +212,7 @@ struct SettingsView: View {
                 if let pin = updateChecker.pinnedRelease { appUpdater.install(pin) }
             }
         ) {
+            Self.logger.notice("opening the download page from Settings (offer: \(appOffer(status: updateChecker.appStatus)?.kind ?? "none", privacy: .public))")
             openURL(AppUpdateCheck.downloadPageURL)
         }
         updateRow(

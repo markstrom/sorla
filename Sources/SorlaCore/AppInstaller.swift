@@ -2,7 +2,8 @@ import Foundation
 import os
 
 public protocol AppUpdateDownloading: Sendable {
-    func download(_ url: URL, to destination: URL, maximumBytes: Int64) async throws
+    // `progress` gets the bytes on disk so far, now and then.
+    func download(_ url: URL, to destination: URL, maximumBytes: Int64, progress: @escaping @Sendable (Int64) -> Void) async throws
 }
 
 public protocol DiskImageMounting: Sendable {
@@ -102,7 +103,8 @@ public struct AppInstaller: Sendable {
         self.files = files
     }
 
-    public func prepare(_ pin: PinnedRelease) async throws -> PreparedAppUpdate {
+    // `progress` gets the fraction of the disk image downloaded so far.
+    public func prepare(_ pin: PinnedRelease, progress: @escaping @Sendable (Double) -> Void = { _ in }) async throws -> PreparedAppUpdate {
         guard (1...AppInstallPolicy.maximumDownloadSize).contains(pin.assetSize) else { throw log(AppInstallError.tooLarge, "size check") }
         var cleanup = AppInstallCleanup()
         do {
@@ -111,7 +113,10 @@ public struct AppInstaller: Sendable {
             let image = directory.appendingPathComponent(AppInstallPolicy.assetName(version: pin.version))
             Self.logger.info("downloading \(pin.tag, privacy: .public) (\(pin.assetSize, privacy: .public) bytes)")
             do {
-                try await downloader.download(pin.assetURL, to: image, maximumBytes: pin.assetSize)
+                let size = Double(pin.assetSize)
+                try await downloader.download(pin.assetURL, to: image, maximumBytes: pin.assetSize) { bytes in
+                    progress(min(Double(bytes) / size, 1))
+                }
             } catch {
                 throw Self.downloadError(error)
             }

@@ -6,8 +6,19 @@ public enum AppInstallState: Equatable, Sendable {
     case idle
     // Downloaded and verified in the background, waiting for a quiet moment.
     case ready(version: String)
+    // An install the user asked for, while its disk image arrives (0...1).
+    case downloading(version: String, fraction: Double)
+    // Checking, copying, waiting for any dictation in flight, then the swap and relaunch.
     case installing(version: String)
     case failed(version: String, AppInstallFailure)
+
+    // A requested install owns the state from the click (or the check) until Sorla quits or it fails.
+    public var isInstalling: Bool {
+        switch self {
+        case .downloading, .installing: return true
+        case .idle, .ready, .failed: return false
+        }
+    }
 }
 
 // The shared defaults outlive the swap, so the new Sorla reads what the old one wrote.
@@ -150,31 +161,50 @@ public final class AppUpdater: ObservableObject {
         lastActivity = now()
     }
 
-    // A check found a newer Sorla; with both toggles on, it is fetched and checked in the background.
+    // A check found a newer Sorla. One the user asked for installs it at once, as Install and Relaunch does (#89);
+    // an automatic one, with both toggles on, fetches and checks it in the background for a quiet moment.
     public func updateFound(_ pin: PinnedRelease?, automatic: Bool) {
         if case .failed = state { state = .idle }
-        guard let pin, automatic, isAutomatic, location.canInstall else { return }
-        switch state {
-        case .installing: return
-        case .ready(let version) where version == pin.version: return
-        default: break
+        // The check has logged what it found and, for a newer release it couldn't pin, why.
+        guard let pin else { return }
+        let decision = AppUpdateDecision.afterCheck(hasPin: true, automatic: automatic, automaticInstalls: isAutomatic, location: location)
+        Self.logger.notice("\(automatic ? "automatic" : "requested", privacy: .public) check found \(pin.version, privacy: .public): location \(String(describing: self.location), privacy: .public), \(String(describing: decision), privacy: .public)")
+        switch decision {
+        case .installNow:
+            install(pin)
+        case .prepareInBackground:
+            if state.isInstalling { return }
+            if case .ready(let version) = state, version == pin.version { return }
+            journal.pendingRelease = pin
+            prepareAutomatically(pin, atLaunch: false)
+        case .offer:
+            break
         }
-        journal.pendingRelease = pin
-        prepareAutomatically(pin, atLaunch: false)
     }
 
-    // Install and Relaunch: now, or as soon as the dictation in flight has landed.
+    // Install and Relaunch, or a check the user asked for: now, or as soon as the dictation in flight has landed.
     public func install(_ pin: PinnedRelease) {
-        guard location.canInstall else { return }
-        if case .installing = state { return }
+        guard location.canInstall else {
+            Self.logger.notice("install of \(pin.version, privacy: .public) not started: location \(String(describing: self.location), privacy: .public)")
+            return
+        }
+        if state.isInstalling { return }
         automaticWait?.cancel()
         automaticWait = nil
-        state = .installing(version: pin.version)
+        let isDownloaded = prepared.map { $0.version == pin.version && installer.isAvailable($0) } ?? false
+        state = isDownloaded ? .installing(version: pin.version) : .downloading(version: pin.version, fraction: 0)
+        Self.logger.notice("installing \(pin.version, privacy: .public) as asked\(isDownloaded ? " (already downloaded)" : "", privacy: .public)")
         run {
             do {
                 let prepared = try await self.prepared(for: pin)
+                self.state = .installing(version: pin.version)
                 let staged = try await self.stage(prepared)
+                var isWaiting = false
                 while !self.activity().isQuiet {
+                    if !isWaiting {
+                        isWaiting = true
+                        Self.logger.notice("\(pin.version, privacy: .public) is staged; waiting for the dictation in flight")
+                    }
                     await self.sleep(self.pollInterval)
                 }
                 try self.swapAndRelaunch(staged)
@@ -205,11 +235,11 @@ public final class AppUpdater: ObservableObject {
             do {
                 _ = try await self.prepared(for: pin)
             } catch {
-                if case .installing = self.state { return }
+                if self.state.isInstalling { return }
                 self.fail(error, version: pin.version)
                 return
             }
-            if case .installing = self.state { return }
+            if self.state.isInstalling { return }
             self.state = .ready(version: pin.version)
             self.scheduleAutomaticInstall(atLaunch: atLaunch)
         }
@@ -270,9 +300,20 @@ public final class AppUpdater: ObservableObject {
         if let prepared { installer.discard(prepared) }
         prepared = nil
         let installer = self.installer
-        let result = try await Task.detached(priority: .utility) { try await installer.prepare(pin) }.value
+        // Ticks reach the row only while a requested install of this version is downloading, and never go back.
+        let progress: @Sendable (Double) -> Void = { fraction in
+            Task { @MainActor [weak self] in self?.downloadProgressed(pin.version, fraction) }
+        }
+        let result = try await Task.detached(priority: .utility) { try await installer.prepare(pin, progress: progress) }.value
         prepared = result
         return result
+    }
+
+    private func downloadProgressed(_ version: String, _ fraction: Double) {
+        guard case .downloading(version, let shown) = state,
+              AppUpdateDecision.percent(fraction) > AppUpdateDecision.percent(shown)
+        else { return }
+        state = .downloading(version: version, fraction: fraction)
     }
 
     private func stage(_ prepared: PreparedAppUpdate) async throws -> StagedAppUpdate {
