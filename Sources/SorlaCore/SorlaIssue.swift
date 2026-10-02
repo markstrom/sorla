@@ -12,6 +12,8 @@ public enum SorlaIssue: Hashable, Sendable {
     case microphoneMuted
     // nil: no way to Paste Last is named, and the text pastes with ⌘V.
     case textOnClipboard(pasteLast: PasteLastRoute?)
+    // Not pasted, since another app came forward; the text waits for Paste Last and the clipboard wasn't touched (#85).
+    case textKeptForPasteLast(pasteLast: PasteLastRoute?)
     case appReplaced
 
     public var menuTitle: String {
@@ -29,6 +31,11 @@ public enum SorlaIssue: Hashable, Sendable {
         case .textOnClipboard(let pasteLast):
             let shortcut = pasteLast?.keys ?? "⌘V"
             return String(localized: "Text is on the clipboard — press \(shortcut)", bundle: Localization.bundle)
+        case .textKeptForPasteLast(.shortcut(let shortcut)):
+            return String(localized: "Text kept — press \(shortcut) to paste it", bundle: Localization.bundle)
+        // Without a shortcut, or with VoiceOver, the row sits right by Paste Last Transcription in the menu.
+        case .textKeptForPasteLast:
+            return String(localized: "Text kept — choose Paste Last Transcription", bundle: Localization.bundle)
         case .appReplaced: return String(localized: "Sorla has been updated — Restart", bundle: Localization.bundle)
         }
     }
@@ -41,7 +48,7 @@ public enum SorlaIssue: Hashable, Sendable {
             return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         case .noInputDevice, .microphoneMuted:
             return URL(string: "x-apple.systempreferences:com.apple.preference.sound?input")
-        case .modelNotLoaded, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed, .textOnClipboard, .appReplaced:
+        case .modelNotLoaded, .transcriptionFailed, .modelDownloadFailed, .modelUpdateFailed, .textOnClipboard, .textKeptForPasteLast, .appReplaced:
             return nil
         }
     }

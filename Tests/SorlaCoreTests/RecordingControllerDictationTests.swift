@@ -12,6 +12,7 @@ final class RecordingControllerDictationTests: XCTestCase {
     private let paste = FakePasteEnvironment()
     private var controller: RecordingController!
     private var events: [String] = []
+    private var cues: [DictationCue] = []
 
     override func setUp() async throws {
         let clock = self.clock
@@ -27,7 +28,10 @@ final class RecordingControllerDictationTests: XCTestCase {
             now: { clock.now },
             waitForTimeLimit: { await limitClock.sleep(for: $0) }
         )
-        controller.onCue = { [unowned self] in events.append("cue \($0.symbolName)") }
+        controller.onCue = { [unowned self] in
+            events.append("cue \($0.symbolName)")
+            cues.append($0)
+        }
         controller.onIssue = { [unowned self] in events.append("issue \($0.menuTitle)") }
         controller.onPaste = { [unowned self] in events.append("pasted \(paste.contents ?? "")") }
     }
@@ -249,7 +253,10 @@ final class RecordingControllerDictationTests: XCTestCase {
         XCTAssertEqual(controller.phase, .idle)
     }
 
+    // With "Put back what you had copied" on (the default) the clipboard stays the user's: the text that couldn't go to
+    // its app waits for Paste Last (#85).
     func testTheTargetAppIsCheckedWhenTheTextIsDelivered() async {
+        paste.copy("the user's clipboard")
         let first = await dictate(call: 0)
         let second = await dictate(call: 1)
         await engine.finish(1, with: "B")
@@ -261,10 +268,34 @@ final class RecordingControllerDictationTests: XCTestCase {
         await controller.deliveries?.value
 
         XCTAssertEqual(paste.pastes, [])
-        XCTAssertEqual(paste.writes, ["A", "B"])
-        let onClipboard = "cue \(DictationCue.textOnClipboard.symbolName)"
-        XCTAssertEqual(events, [onClipboard, onClipboard])
+        XCTAssertEqual(paste.writes, [])
+        XCTAssertEqual(paste.contents, "the user's clipboard")
+        XCTAssertEqual(cues, [.textKeptAfterAppSwitch, .textKeptAfterAppSwitch])
         XCTAssertEqual(controller.lastTranscript(), "B")
+    }
+
+    // With the setting off the text goes on the clipboard, as the user chose; it does too when Paste Last keeps nothing,
+    // so the words aren't lost. Either way nothing is pasted into the app that came forward.
+    func testAnAppSwitchPutsTheTextOnTheClipboardWhenNothingElseCanKeepIt() async {
+        for (call, (keepClipboard, keepLast)) in [(false, true), (true, false)].enumerated() {
+            paste.copy("the user's clipboard")
+            controller.keepClipboardContent = keepClipboard
+            controller.keepsLastTranscript = keepLast
+            cues = []
+            let job = await dictate(call: call)
+            paste.frontmostProcessID = 200
+            await engine.finish(call, with: "A")
+            await job.value
+            await controller.deliveries?.value
+            paste.frontmostProcessID = 100
+
+            let context = "keep clipboard \(keepClipboard), keep last \(keepLast)"
+            XCTAssertEqual(paste.pastes, [], context)
+            XCTAssertEqual(paste.contents, "A", context)
+            XCTAssertEqual(paste.lastWriteWasTransient, false, context)
+            XCTAssertEqual(cues, [.textOnClipboard], context)
+            XCTAssertEqual(controller.lastTranscript(), keepLast ? "A" : nil, context)
+        }
     }
 
     // MARK: - Only a pasteboard write waits for the previous ⌘V (#37)

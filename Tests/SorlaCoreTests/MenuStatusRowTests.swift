@@ -264,6 +264,18 @@ final class MenuStatusRowTests: XCTestCase {
         XCTAssertEqual(menu.rerouted(pasteLast: .shortcut("⌃⌥V")).row, shortcut.row)
     }
 
+    // #85: the kept text is only reachable through Paste Last, so its row offers it and follows VoiceOver either way.
+    func testTheTextKeptAfterAnAppSwitchRowPastesLastAndFollowsVoiceOver() throws {
+        let shortcut = try XCTUnwrap(TransientMenuStatus(issue: .textKeptForPasteLast(pasteLast: .shortcut("⌃⌥V")), at: Self.shownAt))
+        XCTAssertEqual(shortcut.row, MenuStatusRow(title: "Text kept — press ⌃⌥V to paste it", action: .pasteLastTranscription))
+        let menu = shortcut.rerouted(pasteLast: .menu)
+        XCTAssertEqual(menu.row, MenuStatusRow(title: "Text kept — choose Paste Last Transcription", action: .pasteLastTranscription))
+        XCTAssertEqual(menu.shownAt, Self.shownAt)
+        XCTAssertEqual(menu.rerouted(pasteLast: .shortcut("⌃⌥V")).row, shortcut.row)
+        XCTAssertEqual(shortcut.rerouted(pasteLast: nil).row.title, "Text kept — choose Paste Last Transcription")
+        XCTAssertEqual(shortcut.rerouted(pasteLast: .shortcut("⌃⌥V")), shortcut)
+    }
+
     // ⌘V was named because Paste Last couldn't help (no permission, a replaced app), so VoiceOver changes nothing.
     func testRerouteLeavesOtherRowsAlone() throws {
         let commandV = try XCTUnwrap(TransientMenuStatus(issue: .textOnClipboard(pasteLast: nil), at: Self.shownAt))

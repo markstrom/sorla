@@ -8,8 +8,8 @@ final class DictationCueTests: XCTestCase {
     }
 
     func testEachCueHasItsOwnSymbol() {
-        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .textKept, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
-        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "doc.text", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
+        let cues: [DictationCue] = [.microphoneMuted, .nothingHeard, .noText, .textOnClipboard, .textKept, .textKeptAfterAppSwitch, .releaseKeys, .nothingToPaste, .cancelled, .restartNeeded, .waitingForModel(""), .failed("")]
+        XCTAssertEqual(cues.map(\.symbolName), ["mic.slash", "waveform.slash", "minus", "doc.on.clipboard", "doc.text", "doc.text", "keyboard", "clipboard", "xmark", "arrow.clockwise", "hourglass", "exclamationmark.triangle"])
     }
 
     func testAnnouncementsAreShort() {
@@ -24,6 +24,31 @@ final class DictationCueTests: XCTestCase {
     func testTheClipboardCueNamesThePasteLastShortcutOrFallsBackToCommandV() {
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: .shortcut("⌃⌥V")), "Your text is on the clipboard — press ⌃⌥V")
         XCTAssertEqual(DictationCue.textOnClipboard.announcement(pasteLast: nil), "Your text is on the clipboard — press ⌘V")
+    }
+
+    // #85: the clipboard is left alone, so the cue and the menu row say how to reach the kept text.
+    func testTheTextKeptAfterAnAppSwitchSaysHowToPasteIt() throws {
+        XCTAssertEqual(
+            DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: .shortcut("⌃⌥V")),
+            "Another app came forward, so nothing was pasted — press ⌃⌥V to paste your text"
+        )
+        XCTAssertEqual(
+            DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: .menu),
+            "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu (VO-M twice)"
+        )
+        XCTAssertEqual(
+            DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: nil),
+            "Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu"
+        )
+        for cue in [DictationCue.textKeptAfterAppSwitch] {
+            XCTAssertFalse(cue.announcement(pasteLast: nil).contains("clipboard"))
+        }
+        XCTAssertEqual(DictationCue.textKeptAfterAppSwitch.issue(pasteLast: .menu), .textKeptForPasteLast(pasteLast: .menu))
+        XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Text kept — press ⌃⌥V to paste it")
+        XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: .menu).menuTitle, "Text kept — choose Paste Last Transcription")
+        XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: nil).menuTitle, "Text kept — choose Paste Last Transcription")
+        XCTAssertNil(SorlaIssue.textKeptForPasteLast(pasteLast: nil).settingsURL)
+        XCTAssertNil(DictationCue(issue: .textKeptForPasteLast(pasteLast: nil)))
     }
 
     // #72: the paste is dropped and the clipboard left alone, so the cue says what is needed; the restart dialog follows.

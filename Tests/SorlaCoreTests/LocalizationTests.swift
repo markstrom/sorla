@@ -299,6 +299,16 @@ final class LocalizationTests: XCTestCase {
             XCTAssertEqual(DictationCue.restartNeeded.announcement(pasteLast: nil), "Sorla har uppdaterats och behöver startas om")
             XCTAssertEqual(DictationCue.blockedPaste(isTextKept: false).announcement(pasteLast: nil), "Kunde inte klistra in – texten sparades inte")
             XCTAssertEqual(
+                DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: .shortcut("⌃⌥V")),
+                "En annan app kom fram, så inget klistrades in – tryck ⌃⌥V för att klistra in texten"
+            )
+            XCTAssertEqual(
+                DictationCue.textKeptAfterAppSwitch.announcement(pasteLast: .menu),
+                "En annan app kom fram, så inget klistrades in – välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)"
+            )
+            XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: .shortcut("⌃⌥V")).menuTitle, "Texten är sparad – tryck ⌃⌥V för att klistra in den")
+            XCTAssertEqual(SorlaIssue.textKeptForPasteLast(pasteLast: .menu).menuTitle, "Texten är sparad – välj Klistra in senaste transkriberingen")
+            XCTAssertEqual(
                 MenuStatusRow.current(microphoneDenied: false, accessibilityMissing: false, model: .upToDate(version: "1"), modelLoadFailed: false, appReplaced: true)?.title,
                 "Sorla har uppdaterats – Starta om"
             )

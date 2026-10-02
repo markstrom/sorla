@@ -239,3 +239,10 @@
 "The text is no longer saved. Grant the permission and dictate again." = "Texten finns inte längre kvar. Ge behörigheten och diktera igen.";
 "Couldn't paste — the text wasn't saved" = "Kunde inte klistra in – texten sparades inte";
 "The text can't be kept across the restart, so dictate it again afterwards." = "Texten kan inte sparas över omstarten, så diktera den igen efteråt.";
+
+/* Kept for Paste Last after another app came forward (#85) */
+"Another app came forward, so nothing was pasted — press %@ to paste your text" = "En annan app kom fram, så inget klistrades in – tryck %@ för att klistra in texten";
+"Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu (VO-M twice)" = "En annan app kom fram, så inget klistrades in – välj Klistra in senaste transkriberingen i Sorlas meny (VO-M två gånger)";
+"Another app came forward, so nothing was pasted — choose Paste Last Transcription in Sorla's menu" = "En annan app kom fram, så inget klistrades in – välj Klistra in senaste transkriberingen i Sorlas meny";
+"Text kept — press %@ to paste it" = "Texten är sparad – tryck %@ för att klistra in den";
+"Text kept — choose Paste Last Transcription" = "Texten är sparad – välj Klistra in senaste transkriberingen";

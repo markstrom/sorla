@@ -441,9 +441,17 @@ public final class RecordingController {
                 frontmostPIDAtRelease: finished.frontmostPIDAtRelease,
                 frontmostPIDAtDelivery: pasteEnvironment.frontmostProcessID
             ) else {
-                pasteEnvironment.write(text, transient: false)
-                logger.info("paste skipped (frontmost app changed)")
-                onCue?(.textOnClipboard)
+                // With "Put back what you had copied" on the clipboard stays the user's, and the text waits for Paste
+                // Last instead (#85). Only when Paste Last keeps nothing, or the user lets Sorla have the clipboard,
+                // does it go there, so the words aren't lost.
+                if keepClipboardContent, keepsLastTranscript {
+                    logger.info("paste skipped (frontmost app changed); the text is kept for Paste Last")
+                    onCue?(.textKeptAfterAppSwitch)
+                } else {
+                    pasteEnvironment.write(text, transient: false)
+                    logger.info("paste skipped (frontmost app changed); the text is on the clipboard")
+                    onCue?(.textOnClipboard)
+                }
                 return
             }
             guard !blockIfReplaced(), !blockIfNoAccess() else { return }
