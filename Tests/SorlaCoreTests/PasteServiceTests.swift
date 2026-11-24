@@ -125,6 +125,31 @@ final class PasteServiceTests: XCTestCase {
         XCTAssertNil(pasteboard.data(forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType")))
     }
 
+    // The borrowed write and the restore are local to this Mac (no Universal Clipboard); they still replace
+    // everything that was there.
+    func testWriteToPasteboardTransientReplacesEarlierContent() {
+        pasteboard.clearContents()
+        pasteboard.setString("old", forType: .string)
+        pasteboard.setData(Data([1]), forType: .rtf)
+
+        PasteService.writeToPasteboard("new", pasteboard: pasteboard, transient: true)
+
+        XCTAssertEqual(pasteboard.string(forType: .string), "new")
+        XCTAssertNil(pasteboard.data(forType: .rtf))
+    }
+
+    func testRestoreReplacesBorrowedContent() {
+        pasteboard.clearContents()
+        pasteboard.setString("user's", forType: .string)
+        let original = PasteService.snapshot(of: pasteboard)
+        PasteService.writeToPasteboard("dictated", pasteboard: pasteboard, transient: true)
+
+        PasteService.restore(original, to: pasteboard)
+
+        XCTAssertEqual(pasteboard.string(forType: .string), "user's")
+        XCTAssertNil(pasteboard.data(forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType")))
+    }
+
     func testShouldPasteLastWhenIdleWithTranscriptReturnsTrue() {
         XCTAssertTrue(PasteService.shouldPasteLast(hasTranscript: true, phase: .idle, isPasteLastInFlight: false))
     }
