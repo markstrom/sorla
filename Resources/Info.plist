@@ -16,9 +16,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.sorla.app</string>
     <key>CFBundleVersion</key>
-    <string>9</string>
+    <string>10</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.3</string>
+    <string>1.2.4</string>
     <key>CFBundleExecutable</key>
     <string>Sorla</string>
     <key>CFBundleIconFile</key>

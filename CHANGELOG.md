@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.4 — 2026-11-24
+
+- Pasting a dictation no longer stalls for several seconds behind macOS's "Pasting from <your other Mac>…" when Sorla runs on more than one Mac signed in to the same Apple Account (#93). To paste, Sorla borrows the clipboard and then puts back what you had copied. Both steps went out through Universal Clipboard, so your other Mac took the clipboard over, and the next dictation had to fetch it back over the network before it could paste. The borrowed text and the put-back copy now stay on the Mac you dictate on. What you copy yourself is shared with your other devices as before, and so is text Sorla leaves on the clipboard because it couldn't paste it. Update Sorla on every Mac you use it on for the full fix.
+
 ## 1.2.3 — 2026-10-02
 
 - Sorla records in its log why it offers **Download** instead of installing an update itself, so a Download where you expected Install and Relaunch can be traced (#90). Each check notes what it found and whether the release can be installed from Sorla (for example, no `Sorla-X.Y.Z.dmg` in it), and each change of what Settings and the menu offer notes the offer, where Sorla runs from (replaceable, a copy macOS runs from a temporary location, a folder it can't write to, or Homebrew) and whether a release is pinned, as does every opening of the download page. These lines are kept by macOS (Console, subsystem `com.sorla.app`), name none of your files and no personal data, and nothing is sent anywhere. A 1.2.1 in a folder Sorla can replace itself in is offered 1.2.2 as Install and Relaunch; this is now covered by a test with GitHub's real answer.
