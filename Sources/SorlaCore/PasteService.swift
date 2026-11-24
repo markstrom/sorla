@@ -110,9 +110,20 @@ public enum PasteService {
 
     private static let transientPasteboardType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
 
+    // A borrowed write (transient) and the restore stay on this Mac: shared through Universal Clipboard, each one
+    // made the user's other devices take over the clipboard, and the next snapshot then had to fetch it back over
+    // the network, which shows macOS's "pasting from <device>" progress and delays the paste by seconds.
+    static func clear(_ pasteboard: NSPasteboard, localOnly: Bool) {
+        if localOnly {
+            pasteboard.prepareForNewContents(with: .currentHostOnly)
+        } else {
+            pasteboard.clearContents()
+        }
+    }
+
     @discardableResult
     public static func writeToPasteboard(_ text: String, pasteboard: NSPasteboard = .general, transient: Bool = false) -> Int {
-        pasteboard.clearContents()
+        clear(pasteboard, localOnly: transient)
         if transient {
             pasteboard.setData(Data(), forType: transientPasteboardType)
         }
@@ -134,7 +145,7 @@ public enum PasteService {
     }
 
     public static func restore(_ snapshot: PasteboardSnapshot, to pasteboard: NSPasteboard = .general) {
-        pasteboard.clearContents()
+        clear(pasteboard, localOnly: true)
         let items = snapshot.items.map { snapshotItem -> NSPasteboardItem in
             let item = NSPasteboardItem()
             for (type, data) in snapshotItem.data {
